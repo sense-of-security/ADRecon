@@ -39,11 +39,13 @@ These instructions will get you a copy of the tool up and running on your local 
 
 ### Installing
 
-Start by cloning the [Git](https://github.com/sense-of-security/ADRecon/) repository:
+If you have git installed, you can start by cloning the [repository](https://github.com/sense-of-security/ADRecon/):
 
 ```
 git clone https://github.com/sense-of-security/ADRecon.git
 ```
+
+Otherwise, you can [download a zip archive of the latest release](https://github.com/sense-of-security/ADRecon/archive/master.zip). The intent is to always keep the master branch in a working state.
 
 ## Usage
 
