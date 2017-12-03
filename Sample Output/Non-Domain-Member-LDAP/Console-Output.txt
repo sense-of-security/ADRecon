@@ -1,0 +1,42 @@
+PS C:\ADRecon> .\ADRecon.ps1 -DomainController 192.168.9.1 -Protocol LDAP
+[*] ADRecon v171201 by Prashant Mahajan (@prashant3535) from Sense of Security.
+
+cmdlet Get-Credential at command pipeline position 1
+Supply values for the following parameters:
+Credential
+Standalone Workstation
+WORKGROUP
+[*] LDAP bind Successful
+[*] Commencing - 12/01/2017 15:53:12
+[-] Domain
+[-] Forest
+[-] Default Password Policy
+[-] Fine Grained Password Policy - May need a Privileged Account
+[-] Domain Controllers
+[-] Domain Users - May take some time
+[*] Calculating if the user Cannot Change Password
+[*] Total Users: 10
+[-] Domain User SPNs
+[-] Domain Groups - May take some time
+[*] Total Groups: 52
+[-] Domain Group Memberships - May take some time
+[*] Total GroupMember Objects: 19
+[-] Domain OrganizationalUnits
+[*] Total OUs: 2
+[-] Domain OrganizationalUnits Permissions - May take some time
+[-] Domain GPOs
+[*] Total GPOs: 2
+[-] Domain DNS Zones
+[*] Total DNS Zones: 1
+[-] Domain Printers
+[-] Domain Computers - May take some time
+[*] Total Computers: 2
+[-] Domain Computer SPNs
+[-] LAPS - Needs Privileged Account
+[*] LAPS is not implemented.
+[-] BitLocker Recovery Keys - Needs Privileged Account
+[*] Total Execution Time (mins): 0.05
+[*] Generating ADRecon-Report.xlsx
+[+] Excelsheet Saved to: C:\ADRecon\ADRecon-Report-1122017155312\sos.labs-ADRecon-Report.xlsx
+[*] Completed.
+[*] Output Directory: C:\ADRecon\ADRecon-Report-1122017155312

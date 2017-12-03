@@ -1,0 +1,2 @@
+"Domain","Site","Name","IPv4Address","Operating System","Hostname","Infra","Naming","Schema","RID","PDC"
+"sos.labs","Default-First-Site-Name","DC1","192.168.9.1","Windows Server 2016 Standard Evaluation10.0 (14393)","DC1.sos.labs","True","True","True","True","True"

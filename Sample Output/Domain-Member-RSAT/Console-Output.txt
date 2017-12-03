@@ -1,0 +1,43 @@
+PS C:\ADRecon> .\ADRecon.ps1
+[*] ADRecon v171201 by Prashant Mahajan (@prashant3535) from Sense of Security.
+Primary Domain Controller
+sos.labs
+[*] Commencing - 12/01/2017 15:32:39
+[-] Domain
+[-] Forest
+[-] Default Password Policy
+[-] Fine Grained Password Policy - May need a Privileged Account
+[-] Domain Controllers
+[-] Domain Users - May take some time
+[*] Total Users: 10
+[-] Domain User SPNs
+[-] Domain Groups - May take some time
+[*] Total Groups: 52
+[-] Domain Group Memberships - May take some time
+[*] Total GroupMember Objects: 19
+[-] Domain OrganizationalUnits
+[*] Total OUs: 2
+[-] Domain OrganizationalUnits Permissions - May take some time
+[-] Domain GPOs
+[*] Total GPOs: 2
+[-] Domain DNS Zones
+[*] Total DNS Zones: 1
+[-] Domain Printers
+[-] Domain Computers - May take some time
+[*] Total Computers: 2
+[-] Domain Computer SPNs
+[-] LAPS - Needs Privileged Account
+[*] LAPS is not implemented.
+[-] BitLocker Recovery Keys - Needs Privileged Account
+[*] Total Execution Time (mins): 0.04
+WARNING: [*] Excel is not installed. Skipping ADRecon-Report.xlsx. Use the -GenExcel parameter to generate
+the ADRecon-Report.xslx on a host with Microsoft Excel installed.
+Run Get-Help .\ADRecon.ps1 -Examples for additional information.
+[*] Completed.
+[*] Output Directory: C:\ADRecon\ADRecon-Report-1122017153239
+
+# On a different machine with Excel installed:
+PS C:\ADRecon> .\Get-ADRecon.ps1 -GenExcel .\ADRecon-Report-1122017153239\
+[*] ADRecon v171201 by Prashant Mahajan (@prashant3535) from Sense of Security.
+[*] Generating ADRecon-Report.xlsx
+[+] Excelsheet Saved to: C:\ADRecon\ADRecon-Report-1122017153239\sos.labs-ADRecon-Report.xlsx
