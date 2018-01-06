@@ -1662,6 +1662,8 @@ Function Get-ADRExcelImport
             #Build, use and remove the text file connector
             $Connector = $worksheet.QueryTables.add($TxtConnector, $CellRef)
 
+            #65001: Unicode (UTF-8)
+            $worksheet.QueryTables.item($Connector.name).TextFilePlatform = 65001
             $worksheet.QueryTables.item($Connector.name).TextFileCommaDelimiter = $True
             $worksheet.QueryTables.item($Connector.name).TextFileParseType = 1
             $worksheet.QueryTables.item($Connector.name).Refresh() | Out-Null
