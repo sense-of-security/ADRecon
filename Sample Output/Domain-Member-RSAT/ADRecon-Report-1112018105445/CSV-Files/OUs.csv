@@ -1,0 +1,4 @@
+"Name","Created","DistinguishedName","Description","gPLink","gPOptions","Depth"
+"Domain Controllers","1/12/2017 12:04:54 PM","OU=Domain Controllers,DC=sos,DC=labs","Default container for domain controllers","[LDAP://CN={6AC1786C-016F-11D2-945F-00C04fB984F9},CN=Policies,CN=System,DC=sos,DC=labs;0]",,"1"
+"Lab Users","1/12/2017 12:13:55 PM","OU=Lab Users,DC=sos,DC=labs",,,,"1"
+"Workstations","9/01/2018 10:17:41 PM","OU=Workstations,DC=sos,DC=labs",,"[LDAP://cn={E5D99C88-6A37-48D2-92F7-FDB0D5B3FED1},cn=policies,cn=system,DC=sos,DC=labs;2][LDAP://cn={E43465E8-716C-47F7-B97C-CEF0ED06DB70},cn=policies,cn=system,DC=sos,DC=labs;2]",,"1"

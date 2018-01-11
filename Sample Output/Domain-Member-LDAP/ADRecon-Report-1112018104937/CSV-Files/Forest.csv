@@ -1,0 +1,2 @@
+"Category","Name","Functional Level","Domain Naming Master","Schema Master","RootDomain","Domain Count","Site Count","Global Catalog Count","Domain -0","Site -0","GlobalCatalog -0","Recycle Bin Enabled","Tombstone Lifetime"
+"Value","sos.labs","Windows2016Forest","DC1.sos.labs","DC1.sos.labs","sos.labs","1","1","1","sos.labs","Default-First-Site-Name","DC1.sos.labs","False","180"

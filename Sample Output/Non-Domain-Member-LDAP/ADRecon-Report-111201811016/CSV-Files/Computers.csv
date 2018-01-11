@@ -1,0 +1,3 @@
+Name,DNSHostName,Enabled,OperatingSystem,Days Since Last Logon,Days Since Last Password Change,Trusted for Delegation,Trusted to Auth for Delegation,Username,Primary Group ID,Description,Password LastSet,Last Logon Date,whenCreated,whenChanged,Distinguished Name
+"DC1","DC1.sos.labs","True","Windows Server 2016 Standard Evaluation","1","1","True","False","DC1$","516","","9/01/2018 10:05:18 PM","9/01/2018 10:05:41 PM","1/12/2017 1:05:57 AM","9/01/2018 11:05:41 AM","CN=DC1,OU=Domain Controllers,DC=sos,DC=labs"
+"WIN7-OFFICE","WIN7-OFFICE.sos.labs","True","Windows 7 Professional N","1","1","False","False","WIN7-OFFICE$","515","","9/01/2018 10:08:45 PM","9/01/2018 10:08:45 PM","1/12/2017 1:39:16 AM","9/01/2018 11:39:40 AM","CN=WIN7-OFFICE,OU=Workstations,DC=sos,DC=labs"

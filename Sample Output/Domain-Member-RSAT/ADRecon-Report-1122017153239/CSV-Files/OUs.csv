@@ -1,3 +1,0 @@
-"Name","Created","DistinguishedName","Description"
-"Domain Controllers","1/12/2017 12:04:54 PM","OU=Domain Controllers,DC=sos,DC=labs","Default container for domain controllers"
-"Lab Users","1/12/2017 12:13:55 PM","OU=Lab Users,DC=sos,DC=labs",
