@@ -286,6 +286,17 @@ namespace ADRecon
             {"\"", "'"}
         };
 
+        public static String CleanString(String StringtoClean)
+        {
+            // Remove extra spaces and new lines
+            String CleanedString = String.Join(" ", ((Convert.ToString(StringtoClean)).Split((string[]) null, StringSplitOptions.RemoveEmptyEntries)));
+            foreach (String Replacement in Replacements.Keys)
+            {
+                CleanedString = CleanedString.Replace(Replacement, Replacements[Replacement]);
+            }
+            return CleanedString;
+        }
+
         public static void UserParser(Object[] AdUsers, DateTime Date1, int PassMaxAge, string FilePath, int DormantTimeSpan, int numOfThreads, int flushCnt, String[] OutputType)
         {
             ADWSClass.Date1 = Date1;
@@ -984,12 +995,7 @@ namespace ADRecon
                     for (int i=0; i < resultsObject.Length; i++)
                     {
                         //String StringtoClean = Regex.Replace(Convert.ToString(resultsObject[i]),@"[^\S ]+", "");
-                        String StringtoClean = String.Join(" ", ((Convert.ToString(resultsObject[i])).Split((string[]) null, StringSplitOptions.RemoveEmptyEntries)));
-			            foreach (String Replacement in Replacements.Keys)
-			            {
-                            StringtoClean = StringtoClean.Replace(Replacement, Replacements[Replacement]);
-                        }
-                        row[i] = StringtoClean;
+                        row[i] = CleanString(Convert.ToString(resultsObject[i]));
                     }
                     return "\"" + String.Join("\",\"", row) + "\"";
                 }
@@ -1016,12 +1022,7 @@ namespace ADRecon
                     for (int i=0; i < resultsObject.Length; i++)
                     {
                         //String StringtoClean = Regex.Replace(Convert.ToString(resultsObject[i]),@"[^\S ]+", "");
-                        String StringtoClean = String.Join(" ", ((Convert.ToString(resultsObject[i])).Split((string[]) null, StringSplitOptions.RemoveEmptyEntries)));
-			            foreach (String Replacement in Replacements.Keys)
-			            {
-                            StringtoClean = StringtoClean.Replace(Replacement, Replacements[Replacement]);
-                        }
-                        row[i] = StringtoClean;
+                        row[i] = CleanString(Convert.ToString(resultsObject[i]));
                     }
                     return String.Join("\t", row);
                 }
@@ -1096,6 +1097,17 @@ namespace ADRecon
             //{",", ";"},
             {"\"", "'"}
         };
+
+        public static String CleanString(String StringtoClean)
+        {
+            // Remove extra spaces and new lines
+            String CleanedString = String.Join(" ", ((Convert.ToString(StringtoClean)).Split((string[]) null, StringSplitOptions.RemoveEmptyEntries)));
+            foreach (String Replacement in Replacements.Keys)
+            {
+                CleanedString = CleanedString.Replace(Replacement, Replacements[Replacement]);
+            }
+            return CleanedString;
+        }
 
         public static void UserParser(Object[] AdUsers, DateTime Date1, int PassMaxAge, string FilePath, Dictionary<string, bool> CannotChangePasswordDict, int DormantTimeSpan, int numOfThreads, int flushCnt, String[] OutputType)
         {
@@ -1762,12 +1774,7 @@ namespace ADRecon
                     for (int i=0; i < resultsObject.Length; i++)
                     {
                         //String StringtoClean = Regex.Replace(Convert.ToString(resultsObject[i]),@"[^\S ]+", "");
-                        String StringtoClean = String.Join(" ", ((Convert.ToString(resultsObject[i])).Split((string[]) null, StringSplitOptions.RemoveEmptyEntries)));
-			            foreach (String Replacement in Replacements.Keys)
-			            {
-                            StringtoClean = StringtoClean.Replace(Replacement, Replacements[Replacement]);
-                        }
-                        row[i] = StringtoClean;
+                        row[i] = CleanString(Convert.ToString(resultsObject[i]));
                     }
                     return "\"" + String.Join("\",\"", row) + "\"";
                 }
@@ -1793,12 +1800,7 @@ namespace ADRecon
                     String[] row = new String[resultsObject.Length];
                     for (int i=0; i < resultsObject.Length; i++)
                     {
-                        String StringtoClean = String.Join(" ", ((Convert.ToString(resultsObject[i])).Split((string[]) null, StringSplitOptions.RemoveEmptyEntries)));
-			            foreach (String Replacement in Replacements.Keys)
-			            {
-                            StringtoClean = StringtoClean.Replace(Replacement, Replacements[Replacement]);
-                        }
-                        row[i] = StringtoClean;
+                        row[i] = CleanString(Convert.ToString(resultsObject[i]));
                     }
                     return String.Join("\t", row);
                 }
@@ -3676,11 +3678,22 @@ Function Get-ADRDC
                 $Obj | Add-Member -MemberType NoteProperty -Name "IPAddress" -Value $_.IPAddress
                 $Obj | Add-Member -MemberType NoteProperty -Name "Operating System" -Value $_.OSVersion
                 $Obj | Add-Member -MemberType NoteProperty -Name "Hostname" -Value $_.Hostname
-                $Obj | Add-Member -MemberType NoteProperty -Name "Infra" -Value $($_.Roles.Contains("InfrastructureRole"))
-                $Obj | Add-Member -MemberType NoteProperty -Name "Naming" -Value $($_.Roles.Contains("NamingRole"))
-                $Obj | Add-Member -MemberType NoteProperty -Name "Schema" -Value $($_.Roles.Contains("SchemaRole"))
-                $Obj | Add-Member -MemberType NoteProperty -Name "RID" -Value $($_.Roles.Contains("RidRole"))
-                $Obj | Add-Member -MemberType NoteProperty -Name "PDC" -Value $($_.Roles.Contains("PdcRole"))
+                If ($null -ne $_.Roles)
+                {
+                    $Obj | Add-Member -MemberType NoteProperty -Name "Infra" -Value $($_.Roles.Contains("InfrastructureRole"))
+                    $Obj | Add-Member -MemberType NoteProperty -Name "Naming" -Value $($_.Roles.Contains("NamingRole"))
+                    $Obj | Add-Member -MemberType NoteProperty -Name "Schema" -Value $($_.Roles.Contains("SchemaRole"))
+                    $Obj | Add-Member -MemberType NoteProperty -Name "RID" -Value $($_.Roles.Contains("RidRole"))
+                    $Obj | Add-Member -MemberType NoteProperty -Name "PDC" -Value $($_.Roles.Contains("PdcRole"))
+                }
+                Else
+                {
+                    $Obj | Add-Member -MemberType NoteProperty -Name "Infra" -Value $false
+                    $Obj | Add-Member -MemberType NoteProperty -Name "Naming" -Value $false
+                    $Obj | Add-Member -MemberType NoteProperty -Name "Schema" -Value $false
+                    $Obj | Add-Member -MemberType NoteProperty -Name "RID" -Value $false
+                    $Obj | Add-Member -MemberType NoteProperty -Name "PDC" -Value $false
+                }
                 $DCObj += $Obj
             }
             Remove-Variable ADDomain
@@ -4840,7 +4853,7 @@ Function Get-ADRGPO
                 $Obj | Add-Member -MemberType NoteProperty -Name DisplayName -Value $_.DisplayName
                 $Obj | Add-Member -MemberType NoteProperty -Name Created -Value $_.whenCreated
                 $Obj | Add-Member -MemberType NoteProperty -Name Changed -Value $_.whenChanged
-                $Obj | Add-Member -MemberType NoteProperty -Name Name -Value $_.Name
+                $Obj | Add-Member -MemberType NoteProperty -Name Name -Value $([ADRecon.ADWSClass]::CleanString($_.Name))
                 $Obj | Add-Member -MemberType NoteProperty -Name FilePath -Value $_.gPCFileSysPath
                 $ADDomainGPOObj += $Obj
             }
@@ -4875,8 +4888,7 @@ Function Get-ADRGPO
                 $Obj | Add-Member -MemberType NoteProperty -Name DisplayName -Value ([string] $($_.Properties.displayname))
                 $Obj | Add-Member -MemberType NoteProperty -Name Created -Value ([DateTime] $($_.Properties.whencreated))
                 $Obj | Add-Member -MemberType NoteProperty -Name Changed -Value ([DateTime] $($_.Properties.whenchanged))
-                [System.String] $name = $_.Properties.name
-                $Obj | Add-Member -MemberType NoteProperty -Name Name -Value ([System.String]::Join(" ", $name.Split([System.String[]]$null, [System.StringSplitOptions]::RemoveEmptyEntries)))
+                $Obj | Add-Member -MemberType NoteProperty -Name Name -Value $([ADRecon.LDAPClass]::CleanString($_.Properties.name))
                 $Obj | Add-Member -MemberType NoteProperty -Name FilePath -Value ([string] $($_.Properties.gpcfilesyspath))
                 $ADDomainGPOObj += $Obj
             }
@@ -5287,7 +5299,7 @@ Function Get-ADRDNSZone
             $DNSZoneArray | ForEach-Object {
                 # Create the object for each instance.
                 $Obj = New-Object PSObject
-                $Obj | Add-Member -MemberType NoteProperty -Name Name -Value $_.Name
+                $Obj | Add-Member -MemberType NoteProperty -Name Name -Value $([ADRecon.ADWSClass]::CleanString($_.Name))
                 $Obj | Add-Member -MemberType NoteProperty -Name USNCreated -Value $_.usncreated
                 $Obj | Add-Member -MemberType NoteProperty -Name USNChanged -Value $_.usnchanged
                 $Obj | Add-Member -MemberType NoteProperty -Name Created -Value $_.whenCreated
@@ -5467,7 +5479,7 @@ Function Get-ADRDNSZone
 
                 # Create the object for each instance.
                 $Obj = New-Object PSObject
-                $Obj | Add-Member -MemberType NoteProperty -Name Name -Value ([string] $($_.Properties.name))
+                $Obj | Add-Member -MemberType NoteProperty -Name Name -Value $([ADRecon.LDAPClass]::CleanString($_.Properties.name))
                 $Obj | Add-Member -MemberType NoteProperty -Name USNCreated -Value ([string] $($_.Properties.usncreated))
                 $Obj | Add-Member -MemberType NoteProperty -Name USNChanged -Value ([string] $($_.Properties.usnchanged))
                 $Obj | Add-Member -MemberType NoteProperty -Name Created -Value ([DateTime] $($_.Properties.whencreated))
@@ -6512,8 +6524,10 @@ Function Get-ADRGPOReport
         }
         Try
         {
-            Get-GPOReport -All -ReportType HTML -Path $ReportPath\GPO-Report.html
-            Get-GPOReport -All -ReportType XML -Path $ReportPath\GPO-Report.xml
+            Write-Output "[*] Domain GPO Report XML"
+            $ADFileName = -join($ReportPath,'\','GPO-Report','.xml')
+            Get-GPOReport -All -ReportType XML -Path $ADFileName
+
         }
         Catch
         {
@@ -6523,11 +6537,53 @@ Function Get-ADRGPOReport
                 Write-Output "[*] Run the tool using RUNAS."
                 Write-Output "[*] runas /user:<Domain FQDN>\<Username> /netonly powershell.exe"
             }
+            Return $null
+        }
+        Try
+        {
+            Write-Output "[*] Domain GPO Report HTML"
+            $ADFileName = -join($ReportPath,'\','GPO-Report','.html')
+            Get-GPOReport -All -ReportType HTML -Path $ADFileName
+
+        }
+        Catch
+        {
+            Write-Output "[EXCEPTION] $($_.Exception.Message)"
+            If ($UseAltCreds)
+            {
+                Write-Output "[*] Run the tool using RUNAS."
+                Write-Output "[*] runas /user:<Domain FQDN>\<Username> /netonly powershell.exe"
+            }
+            Return $null
         }
     }
     If ($Protocol -eq 'LDAP')
     {
         Write-Output "[*] Currently, the module is only supported with ADWS."
+    }
+}
+
+Function Remove-EmptyADROutputDir
+{
+<#
+.SYNOPSIS
+    Removes ADRecon output folder if empty.
+
+.DESCRIPTION
+    Removes ADRecon output folder if empty.
+
+.PARAMETER OutputDir
+    [string]
+	Path for ADRecon output folder.
+#>
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $OutputDir
+    )
+    If (!(Test-Path -Path $OutputDir\*))
+    {
+        Remove-Item $OutputDir
+        Write-Verbose "Removed Empty Directory $OutputDir"
     }
 }
 
@@ -6621,7 +6677,7 @@ Function Invoke-ADRecon
         [bool] $UseAltCreds = $false
     )
 
-    [string] $ADReconVersion = "v180107"
+    [string] $ADReconVersion = "v180208"
     Write-Output "[*] ADRecon $ADReconVersion by Prashant Mahajan (@prashant3535) from Sense of Security."
 
     If ($GenExcel)
@@ -6854,7 +6910,7 @@ Function Invoke-ADRecon
             }
         }
         $ExcelPath = $((Convert-Path $ExcelPath).TrimEnd("\"))
-        Write-Output $ExcelPath
+        Write-Verbose $ExcelPath
     }
 
     If ($ADRCSV)
@@ -6875,7 +6931,19 @@ Function Invoke-ADRecon
     }
     Else
     {
-        $ReportPath = $returndir
+        If ($ADRGPOReport)
+        {
+            If (-Not $ExcelPath)
+            {
+                $ExcelPath =  -join($returndir,'\','ADRecon-Report-',$date.day,$date.Month,$date.Year,$date.Hour,$date.Minute,$date.Second)
+                New-Item $ExcelPath -type directory | Out-Null
+            }
+            $ReportPath = $ExcelPath
+        }
+        Else
+        {
+            $ReportPath = $returndir
+        }
     }
 
     If ($UseAltCreds -and ($Protocol -eq 'ADWS'))
@@ -6889,6 +6957,14 @@ Function Invoke-ADRecon
             Catch
             {
                 Write-Output "[EXCEPTION] $($_.Exception.Message)"
+                If ($ReportPath)
+                {
+                    Remove-EmptyADROutputDir $ReportPath
+                }
+                If ($ExcelPath)
+                {
+                    Remove-EmptyADROutputDir $ExcelPath
+                }
                 Return $null
             }
         }
@@ -6902,6 +6978,14 @@ Function Invoke-ADRecon
             Catch
             {
                 Write-Output "[EXCEPTION] $($_.Exception.Message)"
+                If ($ReportPath)
+                {
+                    Remove-EmptyADROutputDir $ReportPath
+                }
+                If ($ExcelPath)
+                {
+                    Remove-EmptyADROutputDir $ExcelPath
+                }
                 Return $null
             }
         }
@@ -6920,11 +7004,27 @@ Function Invoke-ADRecon
             Catch
             {
                 Write-Output "[ERROR] $($_.Exception.Message)"
+                If ($ReportPath)
+                {
+                    Remove-EmptyADROutputDir $ReportPath
+                }
+                If ($ExcelPath)
+                {
+                    Remove-EmptyADROutputDir $ExcelPath
+                }
                 Return $null
             }
             If(!($objDomain.name))
             {
                 Write-Output "[ERROR] LDAP bind Unsuccessful"
+                If ($ReportPath)
+                {
+                    Remove-EmptyADROutputDir $ReportPath
+                }
+                If ($ExcelPath)
+                {
+                    Remove-EmptyADROutputDir $ExcelPath
+                }
                 Return $null
             }
             Else
@@ -6939,6 +7039,14 @@ Function Invoke-ADRecon
             If(!($objDomain.name))
             {
                 Write-Output "[ERROR] LDAP bind Unsuccessful"
+                If ($ReportPath)
+                {
+                    Remove-EmptyADROutputDir $ReportPath
+                }
+                If ($ExcelPath)
+                {
+                    Remove-EmptyADROutputDir $ExcelPath
+                }
                 Return $null
             }
         }
@@ -6963,7 +7071,6 @@ Function Invoke-ADRecon
     If ($ADRLAPS) { Get-ADRLAPSCheck $Protocol $UseAltCreds $ReportPath $objDomain $PageSize $OutputType }
     If ($ADRBitLocker) { Get-ADRBitLocker $Protocol $UseAltCreds $ReportPath $objDomain $OutputType }
     If ($ADRGPOReport) { Get-ADRGPOReport $Protocol $UseAltCreds $ReportPath }
-
     Switch ($OutputType)
     {
         'CSV'
@@ -7037,6 +7144,15 @@ Function Invoke-ADRecon
     {
         $objDomain.Dispose()
         $objDomainRootDSE.Dispose()
+    }
+
+    If ($ReportPath)
+    {
+        Remove-EmptyADROutputDir $ReportPath
+    }
+    If ($ExcelPath)
+    {
+        Remove-EmptyADROutputDir $ExcelPath
     }
 
     Remove-Variable ADReconVersion
