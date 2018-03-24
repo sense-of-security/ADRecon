@@ -1,0 +1,2 @@
+"Domain","Site","Name","IPAddress","Operating System","Hostname","Infra","Naming","Schema","RID","PDC"
+"sos.labs","Default-First-Site-Name","DC1.sos.labs","fe80::b53b:be11:e32f:ffb4%7","Windows Server 2016 Datacenter Evaluation",,"True","True","True","True","True"

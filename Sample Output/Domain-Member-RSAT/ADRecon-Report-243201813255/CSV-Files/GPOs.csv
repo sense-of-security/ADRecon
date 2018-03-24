@@ -1,0 +1,5 @@
+"DisplayName","Created","Changed","Name","FilePath"
+"Default Domain Policy","16/03/2018 5:21:12 PM","16/03/2018 5:30:52 PM","{31B2F340-016D-11D2-945F-00C04FB984F9}","\\sos.labs\sysvol\sos.labs\Policies\{31B2F340-016D-11D2-945F-00C04FB984F9}"
+"Default Domain Controllers Policy","16/03/2018 5:21:12 PM","16/03/2018 5:21:12 PM","{6AC1786C-016F-11D2-945F-00C04fB984F9}","\\sos.labs\sysvol\sos.labs\Policies\{6AC1786C-016F-11D2-945F-00C04fB984F9}"
+"LAPS","18/03/2018 5:37:07 PM","18/03/2018 5:48:08 PM","{F3768285-65F2-4483-9050-0ED8E69A2ECB}","\\sos.labs\SysVol\sos.labs\Policies\{F3768285-65F2-4483-9050-0ED8E69A2ECB}"
+"BitLocker","18/03/2018 6:02:05 PM","18/03/2018 7:30:14 PM","{36DDC97F-78D7-4A68-8EE9-E101EF56B324}","\\sos.labs\SysVol\sos.labs\Policies\{36DDC97F-78D7-4A68-8EE9-E101EF56B324}"

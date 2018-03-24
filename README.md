@@ -13,14 +13,15 @@ The following information is gathered by the tool:
 - Domain Controllers and their roles;
 - Users and their attributes;
 - Service Principal Names;
-- Groups and and their members;
+- Groups and memberships;
 - Organizational Units and their ACLs;
 - Group Policy Object details;
 - DNS Zones and Records;
 - Printers;
 - Computers and their attributes;
-- LAPS passwords (if implemented); and
-- BitLocker Recovery Keys (if implemented).
+- LAPS passwords (if implemented);
+- BitLocker Recovery Keys (if implemented); and
+- Domain GPO Report (requires RSAT).
 
 ## Getting Started
 
@@ -122,6 +123,8 @@ When you run ADRecon, a `ADRecon-Report-<timestamp>` folder will be created whic
 -FlushCount <Int>
     The number of processed objects which will be flushed to disk. (Default -1; Flush after all objects are processed).
 
+-Log <Switch>
+    Create ADRecon Log using Start-Transcript
 ```
 
 ### Future Plans

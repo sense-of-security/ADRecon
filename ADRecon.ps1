@@ -17,14 +17,15 @@
     - Domain Controllers and their roles;
     - Users and their attributes;
     - Service Principal Names;
-    - Groups and and their members;
+    - Groups and memberships;
     - Organizational Units and their ACLs;
     - Group Policy Object details;
     - DNS Zones and Records;
     - Printers;
     - Computers and their attributes;
-    - LAPS passwords (if implemented); and
-    - BitLocker Recovery Keys (if implemented).
+    - LAPS passwords (if implemented);
+    - BitLocker Recovery Keys (if implemented); and
+    - Domain GPO Report (requires RSAT).
 
     Author     : Prashant Mahajan
     Company    : https://www.senseofsecurity.com.au
@@ -87,6 +88,9 @@
 .PARAMETER FlushCount
     The number of processed objects which will be flushed to disk. (Default -1; Flush after all objects are processed).
 
+.PARAMETER Log
+    Create ADRecon Log using Start-Transcript
+
 .EXAMPLE
 
 	.\ADRecon.ps1 -GenExcel C:\ADRecon-Report-<timestamp>
@@ -98,8 +102,7 @@
 
 	.\ADRecon.ps1 -DomainController <IP or FQDN> -Credential <domain\username>
     [*] ADRecon <version> by Prashant Mahajan (@prashant3535) from Sense of Security.
-	Member Workstation
-    <Domain>
+	[*] Running on <domain>\<hostname> - Member Workstation
     <snip>
 
     Example output from Domain Member with Alternate Credentials.
@@ -108,8 +111,7 @@
 
 	.\ADRecon.ps1 -DomainController <IP or FQDN> -Credential <domain\username> -Collect DCs -OutputType Excel
     [*] ADRecon <version> by Prashant Mahajan (@prashant3535) from Sense of Security.
-    Standalone Workstation
-    WORKGROUP
+    [*] Running on WORKGROUP\<hostname> - Standalone Workstation
     [*] Commencing - <timestamp>
     [-] Domain Controllers
     [*] Total Execution Time (mins): <minutes>
@@ -124,8 +126,7 @@
 
     .\ADRecon.ps1 -Protocol ADWS -DomainController <IP or FQDN> -Credential <domain\username>
     [*] ADRecon <version> by Prashant Mahajan (@prashant3535) from Sense of Security.
-    Standalone Workstation
-    WORKGROUP
+    [*] Running on WORKGROUP\<hostname> - Standalone Workstation
     [*] Commencing - <timestamp>
     [-] Domain
     [-] Forest
@@ -154,6 +155,10 @@
     [-] LAPS - Needs Privileged Account
     [*] LAPS is not implemented.
     [-] BitLocker Recovery Keys - Needs Privileged Account
+    [-] Domain GPO Report - May take some time
+    [EXCEPTION] Current security context is not associated with an Active Directory domain or forest.
+    [*] Run the tool using RUNAS.
+    [*] runas /user:<Domain FQDN>\<Username> /netonly powershell.exe
     [*] Total Execution Time (mins): <minutes>
     [*] Generating ADRecon-Report.xlsx
     [+] Excelsheet Saved to: C:\ADRecon-Report-<timestamp>\<domain>-ADRecon-Report.xlsx
@@ -198,6 +203,8 @@
     [-] LAPS - Needs Privileged Account
     [*] LAPS is not implemented.
     [-] BitLocker Recovery Keys - Needs Privileged Account
+    [-] Domain GPO Report - May take some time
+    [*] Currently, the module is only supported with ADWS.
     [*] Total Execution Time (mins): <timestamp>
     [*] Generating ADRecon-Report.xlsx
     [+] Excelsheet Saved to: C:\ADRecon-Report-<timestamp>\<domain>-ADRecon-Report.xlsx
@@ -250,8 +257,10 @@ param
 
     [Parameter(Mandatory = $false, HelpMessage = "The number of processed objects which will be flushed to disk. Default -1 (After all objects are processed).")]
     [ValidateRange(-1,1000000)]
-    [int] $FlushCount = -1
+    [int] $FlushCount = -1,
 
+    [Parameter(Mandatory = $false, HelpMessage = "Create ADRecon Log using Start-Transcript")]
+    [switch] $Log
 )
 
 $ADWSSource = @"
@@ -260,7 +269,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
-using System.Text.RegularExpressions;
 using System.Security.Principal;
 using System.Management.Automation;
 
@@ -326,6 +334,8 @@ namespace ADRecon
             }
             Console.WriteLine("[*] Total Users: " + AdUsers.Length);
             runProcessor(AdUsers, numOfThreads, flushCnt, "Users", "CSV");
+            ADWSClass.ADRSTDOUT = false;
+            ADWSClass.ADRCSV = false;
         }
 
         public static int UserSPNParser(Object[] AdUsers, string FilePath, int numOfThreads, int flushCnt, String[] OutputType)
@@ -358,6 +368,8 @@ namespace ADRecon
                 }
             }
             runProcessor(AdUsers, numOfThreads, flushCnt, "UserSPNs", "CSV");
+            ADWSClass.ADRSTDOUT = false;
+            ADWSClass.ADRCSV = false;
             return AdUsers.Length;
         }
 
@@ -386,6 +398,8 @@ namespace ADRecon
             }
             Console.WriteLine("[*] Total Groups: " + AdGroups.Length);
             runProcessor(AdGroups, numOfThreads, flushCnt, "Groups", "CSV");
+            ADWSClass.ADRSTDOUT = false;
+            ADWSClass.ADRCSV = false;
         }
 
         public static void GroupMemberParser(Object[] AdGroupMembers, string FilePath, int numOfThreads, int flushCnt, String[] OutputType)
@@ -414,6 +428,8 @@ namespace ADRecon
             }
             Console.WriteLine("[*] Total GroupMember Objects: " + AdGroupMembers.Length);
             runProcessor(AdGroupMembers, numOfThreads, flushCnt, "GroupMembers", "CSV");
+            ADWSClass.ADRSTDOUT = false;
+            ADWSClass.ADRCSV = false;
         }
 
         public static int ComputerParser(Object[] AdComputers, DateTime Date1, string FilePath, int numOfThreads, int flushCnt, String[] OutputType)
@@ -448,6 +464,8 @@ namespace ADRecon
                 }
             }
             runProcessor(AdComputers, numOfThreads, flushCnt, "Computers", "CSV");
+            ADWSClass.ADRSTDOUT = false;
+            ADWSClass.ADRCSV = false;
             return AdComputers.Length;
         }
 
@@ -481,6 +499,8 @@ namespace ADRecon
                 }
             }
             runProcessor(AdComputers, numOfThreads, flushCnt, "ComputerSPNs", "CSV");
+            ADWSClass.ADRSTDOUT = false;
+            ADWSClass.ADRCSV = false;
             return AdComputers.Length;
         }
 
@@ -994,7 +1014,6 @@ namespace ADRecon
                     String[] row = new String[resultsObject.Length];
                     for (int i=0; i < resultsObject.Length; i++)
                     {
-                        //String StringtoClean = Regex.Replace(Convert.ToString(resultsObject[i]),@"[^\S ]+", "");
                         row[i] = CleanString(Convert.ToString(resultsObject[i]));
                     }
                     return "\"" + String.Join("\",\"", row) + "\"";
@@ -1021,7 +1040,6 @@ namespace ADRecon
                     String[] row = new String[resultsObject.Length];
                     for (int i=0; i < resultsObject.Length; i++)
                     {
-                        //String StringtoClean = Regex.Replace(Convert.ToString(resultsObject[i]),@"[^\S ]+", "");
                         row[i] = CleanString(Convert.ToString(resultsObject[i]));
                     }
                     return String.Join("\t", row);
@@ -1043,7 +1061,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
-using System.Text.RegularExpressions;
 using System.DirectoryServices;
 using System.Security.Principal;
 
@@ -1139,6 +1156,8 @@ namespace ADRecon
             }
             Console.WriteLine("[*] Total Users: " + AdUsers.Length);
             runProcessor(AdUsers, numOfThreads, flushCnt, "Users", "CSV");
+            LDAPClass.ADRSTDOUT = false;
+            LDAPClass.ADRCSV = false;
         }
 
         public static void UserSPNParser(Object[] AdUsers, string FilePath, int numOfThreads, int flushCnt, String[] OutputType)
@@ -1166,6 +1185,8 @@ namespace ADRecon
                 }
             }
             runProcessor(AdUsers, numOfThreads, flushCnt, "UserSPNs", "CSV");
+            LDAPClass.ADRSTDOUT = false;
+            LDAPClass.ADRCSV = false;
         }
 
         public static void GroupParser(Object[] AdGroups, string FilePath, int numOfThreads, int flushCnt, String[] OutputType)
@@ -1194,6 +1215,8 @@ namespace ADRecon
             }
             Console.WriteLine("[*] Total Groups: " + AdGroups.Length);
             runProcessor(AdGroups, numOfThreads, flushCnt, "Groups", "CSV");
+            LDAPClass.ADRSTDOUT = false;
+            LDAPClass.ADRCSV = false;
         }
 
         public static void GroupMemberParser(Object[] AdGroupMembers, string FilePath, int numOfThreads, int flushCnt, String[] OutputType)
@@ -1222,6 +1245,8 @@ namespace ADRecon
             }
             Console.WriteLine("[*] Total GroupMember Objects: " + AdGroupMembers.Length);
             runProcessor(AdGroupMembers, numOfThreads, flushCnt, "GroupMembers", "CSV");
+            LDAPClass.ADRSTDOUT = false;
+            LDAPClass.ADRCSV = false;
         }
 
         public static void ComputerParser(Object[] AdComputers, DateTime Date1, string FilePath, int numOfThreads, int flushCnt, String[] OutputType)
@@ -1251,6 +1276,8 @@ namespace ADRecon
             }
             Console.WriteLine("[*] Total Computers: " + AdComputers.Length);
             runProcessor(AdComputers, numOfThreads, flushCnt, "Computers", "CSV");
+            LDAPClass.ADRSTDOUT = false;
+            LDAPClass.ADRCSV = false;
         }
 
         public static void ComputerSPNParser(Object[] AdComputers, string FilePath, int numOfThreads, int flushCnt, String[] OutputType)
@@ -1278,6 +1305,8 @@ namespace ADRecon
                 }
             }
             runProcessor(AdComputers, numOfThreads, flushCnt, "ComputerSPNs", "CSV");
+            LDAPClass.ADRSTDOUT = false;
+            LDAPClass.ADRCSV = false;
         }
 
         static void runProcessor(Object[] arrayToProcess, int numOfThreads, int flushCnt, string processorType, String resultHandlerType)
@@ -1773,7 +1802,6 @@ namespace ADRecon
                     String[] row = new String[resultsObject.Length];
                     for (int i=0; i < resultsObject.Length; i++)
                     {
-                        //String StringtoClean = Regex.Replace(Convert.ToString(resultsObject[i]),@"[^\S ]+", "");
                         row[i] = CleanString(Convert.ToString(resultsObject[i]));
                     }
                     return "\"" + String.Join("\",\"", row) + "\"";
@@ -6441,7 +6469,7 @@ Function Get-ADRBitLocker
                     # Create the object for each instance.
                     $Obj = New-Object PSObject
                     $Obj | Add-Member -MemberType NoteProperty -Name "Distinguished Name" -Value ([string]($_.Properties.distinguishedname))
-                    $Obj | Add-Member -MemberType NoteProperty -Name "Recovery Password" -Value $_.Properties.'msfve-recoverypassword'
+                    $Obj | Add-Member -MemberType NoteProperty -Name "Recovery Password" -Value ([string]($_.Properties.'msfve-recoverypassword'))
                     $BitLockerObj += $Obj
                 }
             }
@@ -6454,7 +6482,7 @@ Function Get-ADRBitLocker
     {
         Switch ($OutputType)
         {
-            'STDOUT' { $BitLockerObj }
+            'STDOUT' { $BitLockerObj | Format-List }
             'CSV'
             {
                 Write-Verbose "[+] BitLocker Recovery Keys"
@@ -6677,7 +6705,7 @@ Function Invoke-ADRecon
         [bool] $UseAltCreds = $false
     )
 
-    [string] $ADReconVersion = "v180208"
+    [string] $ADReconVersion = "v180321"
     Write-Output "[*] ADRecon $ADReconVersion by Prashant Mahajan (@prashant3535) from Sense of Security."
 
     If ($GenExcel)
@@ -6818,8 +6846,8 @@ Function Invoke-ADRecon
         }
     }
 
-    Write-Output $computerrole
-    Write-Output ($computer).domain
+    Write-Output "[*] Running on $($computer.domain)\$($env:computername) - $($computerrole)"
+
 
     Remove-Variable computer
     Remove-Variable computerdomainrole
@@ -6857,14 +6885,14 @@ Function Invoke-ADRecon
             $ADROUs = $true
             $ADROUPermissions = $true
             $ADRGPOs = $true
-            $ADRGPOReport = $false
+            $ADRGPOReport = $true
             $ADRDNSZones = $true
             $ADRPrinters = $true
             $ADRComputers = $true
             $ADRCopmuterSPNs = $true
             $ADRLAPS = $true
             $ADRBitLocker = $true
-            If ($OutputType = "Default")
+            If ($OutputType -eq "Default")
             {
                 [array] $OutputType = "CSV","Excel"
             }
@@ -7159,4 +7187,14 @@ Function Invoke-ADRecon
     Remove-Variable computerrole
 }
 
+If ($Log)
+{
+    Start-Transcript -Path "$(Get-Location)\ADRecon-Console-Log.txt"
+}
+
 Invoke-ADRecon $GenExcel $Protocol $Collect $DomainController $Credential $OutputType $OutputDir $DormantTimeSpan $PageSize $Threads $FlushCount
+
+If ($Log)
+{
+    Stop-Transcript
+}

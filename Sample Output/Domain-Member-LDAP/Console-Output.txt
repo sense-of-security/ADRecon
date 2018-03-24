@@ -1,8 +1,7 @@
 PS C:\ADRecon> .\ADRecon.ps1 -Protocol LDAP
-[*] ADRecon v180107 by Prashant Mahajan (@prashant3535) from Sense of Security.
-Primary Domain Controller
-sos.labs
-[*] Commencing - 01/11/2018 10:49:37
+[*] ADRecon v180321 by Prashant Mahajan (@prashant3535) from Sense of Security.
+[*] Running on sos.labs\DC1 - Primary Domain Controller
+[*] Commencing - 03/24/2018 12:55:49
 [-] Domain
 [-] Forest
 [-] Default Password Policy
@@ -10,36 +9,38 @@ sos.labs
 [-] Domain Controllers
 [-] Domain Users - May take some time
 [*] Calculating if the user Cannot Change Password
-[*] Total Users: 10
+[*] Total Users: 19
 [-] Domain User SPNs
 [-] Domain Groups - May take some time
 [*] Total Groups: 52
 [-] Domain Group Memberships - May take some time
-[*] Total GroupMember Objects: 19
+[*] Total GroupMember Objects: 23
 [-] Domain OrganizationalUnits
-[*] Total OUs: 3
+[*] Total OUs: 4
 [-] Domain OrganizationalUnits Permissions - May take some time
 [-] Domain GPOs
-[*] Total GPOs: 6
+[*] Total GPOs: 4
 [-] Domain DNS Zones and Records
-[*] Total DNS Zones: 5
+[*] Total DNS Zones: 4
 [-] Domain Printers
 [-] Domain Computers - May take some time
-[*] Total Computers: 2
+[*] Total Computers: 4
 [-] Domain Computer SPNs
 [-] LAPS - Needs Privileged Account
 [-] BitLocker Recovery Keys - Needs Privileged Account
-[*] Total Execution Time (mins): 0.10
+[*] Total BitLocker Recovery Keys: 1
+[-] Domain GPO Report - May take some time
+[*] Currently, the module is only supported with ADWS.
+[*] Total Execution Time (mins): 0.09
 [*] Completed.
-[*] Output Directory: C:\ADRecon\ADRecon-Report-1112018104937
-WARNING: [*] Excel is not installed. Skipping ADRecon-Report.xlsx. Use the -GenExcel parameter to generate the
-ADRecon-Report.xslx on a host with Microsoft Excel installed.
+[*] Output Directory: C:\ADRecon\ADRecon-Report-2432018125549
+WARNING: [*] Excel is not installed. Skipping ADRecon-Report.xlsx.
+Use the -GenExcel parameter to generate the ADRecon-Report.xslx on
+a host with Microsoft Excel installed.
 Run Get-Help .\ADRecon.ps1 -Examples for additional information.
 
 # On a different machine with Excel installed:
-PS C:\ADRecon> .\ADRecon.ps1 -GenExcel .\ADRecon-Report-1112018104937\
-[*] ADRecon v180107 by Prashant Mahajan (@prashant3535) from Sense of Security.
+PS C:\ADRecon> .\ADRecon.ps1 -GenExcel .\ADRecon-Report-2432018125549\
+[*] ADRecon v180321 by Prashant Mahajan (@prashant3535) from Sense of Security.
 [*] Generating ADRecon-Report.xlsx
-[+] Excelsheet Saved to: C:\ADRecon\ADRecon-Report-1112018104937\sos.labs-ADRecon-Report.xlsx
-
-
+[+] Excelsheet Saved to: C:\ADRecon\ADRecon-Report-2432018125549\sos.labs-ADRecon-Report.xlsx

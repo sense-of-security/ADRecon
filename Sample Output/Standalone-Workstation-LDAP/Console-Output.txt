@@ -1,19 +1,21 @@
-PS C:\ADRecon> .\ADRecon.ps1
+PS C:\ADRecon> .\ADRecon.ps1 -DomainController sos.labs -Credential sos\Administrator -Protocol LDAP
 [*] ADRecon v180321 by Prashant Mahajan (@prashant3535) from Sense of Security.
-[*] Running on sos.labs\WIN7X64-OFFICE - Member Workstation
-[*] Commencing - 03/24/2018 13:02:55
+[*] Running on WORKGROUP\WIN10X64-OFFICE - Standalone Workstation
+[*] LDAP bind Successful
+[*] Commencing - 03/24/2018 13:10:13
 [-] Domain
 [-] Forest
 [-] Default Password Policy
 [-] Fine Grained Password Policy - May need a Privileged Account
 [-] Domain Controllers
 [-] Domain Users - May take some time
+[*] Calculating if the user Cannot Change Password
 [*] Total Users: 19
 [-] Domain User SPNs
 [-] Domain Groups - May take some time
 [*] Total Groups: 52
 [-] Domain Group Memberships - May take some time
-[*] Total GroupMember Objects: 20
+[*] Total GroupMember Objects: 23
 [-] Domain OrganizationalUnits
 [*] Total OUs: 4
 [-] Domain OrganizationalUnits Permissions - May take some time
@@ -27,11 +29,11 @@ PS C:\ADRecon> .\ADRecon.ps1
 [-] Domain Computer SPNs
 [-] LAPS - Needs Privileged Account
 [-] BitLocker Recovery Keys - Needs Privileged Account
+[*] Total BitLocker Recovery Keys: 1
 [-] Domain GPO Report - May take some time
-[*] Domain GPO Report XML
-[*] Domain GPO Report HTML
-[*] Total Execution Time (mins): 0.47
+[*] Currently, the module is only supported with ADWS.
+[*] Total Execution Time (mins): 0.10
 [*] Completed.
-[*] Output Directory: C:\ADRecon\ADRecon-Report-243201813255
+[*] Output Directory: C:\ADRecon\ADRecon-Report-2432018131013
 [*] Generating ADRecon-Report.xlsx
-[+] Excelsheet Saved to: C:\ADRecon\ADRecon-Report-243201813255\sos.labs-ADRecon-Report.xlsx
+[+] Excelsheet Saved to: C:\ADRecon\ADRecon-Report-2432018131013\sos.labs-ADRecon-Report.xlsx

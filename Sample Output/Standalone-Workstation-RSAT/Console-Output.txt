@@ -1,7 +1,7 @@
-PS C:\ADRecon> .\ADRecon.ps1
+PS C:\ADRecon> .\ADRecon.ps1 -DomainController sos.labs -Credential sos\user1
 [*] ADRecon v180321 by Prashant Mahajan (@prashant3535) from Sense of Security.
-[*] Running on sos.labs\WIN7X64-OFFICE - Member Workstation
-[*] Commencing - 03/24/2018 13:02:55
+[*] Running on WORKGROUP\WIN10X64-OFFICE - Standalone Workstation
+[*] Commencing - 03/24/2018 13:13:15
 [-] Domain
 [-] Forest
 [-] Default Password Policy
@@ -29,9 +29,11 @@ PS C:\ADRecon> .\ADRecon.ps1
 [-] BitLocker Recovery Keys - Needs Privileged Account
 [-] Domain GPO Report - May take some time
 [*] Domain GPO Report XML
-[*] Domain GPO Report HTML
-[*] Total Execution Time (mins): 0.47
+[EXCEPTION] Current security context is not associated with an Active Directory domain or forest.
+[*] Run the tool using RUNAS.
+[*] runas /user:<Domain FQDN>\<Username> /netonly powershell.exe
+[*] Total Execution Time (mins): 0.17
 [*] Completed.
-[*] Output Directory: C:\ADRecon\ADRecon-Report-243201813255
+[*] Output Directory: C:\ADRecon\ADRecon-Report-2432018131315
 [*] Generating ADRecon-Report.xlsx
-[+] Excelsheet Saved to: C:\ADRecon\ADRecon-Report-243201813255\sos.labs-ADRecon-Report.xlsx
+[+] Excelsheet Saved to: C:\ADRecon\ADRecon-Report-2432018131315\sos.labs-ADRecon-Report.xlsx
