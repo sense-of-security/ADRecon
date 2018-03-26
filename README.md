@@ -1,3 +1,5 @@
+[![Arsenal-2018-ASIA](https://rawgit.com/toolswatch/badges/master/arsenal/2018.svg)](http://www.toolswatch.org/2018/01/black-hat-arsenal-asia-2018-great-lineup/) - ASIA - [Slidedeck](https://www.slideshare.net/prashant3535/adrecon-bh-asia-2018-arsenal-presentation)
+
 # ActiveDirectoryRecon
 
 ADRecon is a tool which extracts various artifacts (as highlighted below) out of an AD environment in a specially formatted Microsoft Excel report that includes summary views with metrics to facilitate analysis.
