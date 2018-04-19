@@ -1,4 +1,4 @@
-[![Black Hat Arsenal](https://raw.githubusercontent.com/toolswatch/badges/master/arsenal/asia/2018.svg)](https://www.toolswatch.org/2018/01/black-hat-arsenal-asia-2018-great-lineup/) - [Slidedeck](https://www.slideshare.net/prashant3535/adrecon-bh-asia-2018-arsenal-presentation)
+[![Black Hat Arsenal Asia 2018](https://github.com/toolswatch/badges/blob/master/arsenal/asia/2018.svg)](https://www.toolswatch.org/2018/01/black-hat-arsenal-asia-2018-great-lineup/) - [Slidedeck](https://www.slideshare.net/prashant3535/adrecon-bh-asia-2018-arsenal-presentation)
 
 # ActiveDirectoryRecon
 
