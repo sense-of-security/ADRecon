@@ -6366,30 +6366,29 @@ Function Get-ADRBitLocker
 <#
 .SYNOPSIS
     Returns all BitLocker Recovery Keys stored in the current (or specified) domain.
-
 .DESCRIPTION
     Returns all BitLocker Recovery Keys stored in the current (or specified) domain.
-
 .PARAMETER Protocol
     [string]
     Which protocol to use; ADWS (default) or LDAP.
-
 .PARAMETER UseAltCreds
     [bool]
     Whether to use provided credentials or not.
-
 .PARAMETER ReportPath
     [string]
     Path for ADRecon output folder.
-
 .PARAMETER objDomain
     [DirectoryServices.DirectoryEntry]
     Domain Directory Entry object.
-
+.PARAMETER DCIP
+    [string]
+    IP Address of the Domain Controller.
+.PARAMETER creds
+    [Management.Automation.PSCredential]
+    Credentials.
 .PARAMETER OutputType
     [array]
     Output Type.
-
 .OUTPUTS
     CSV file is created in the folder specified with the information.
 #>
@@ -6406,6 +6405,12 @@ Function Get-ADRBitLocker
         [Parameter(Mandatory = $false)]
         [DirectoryServices.DirectoryEntry] $objDomain,
 
+        [Parameter(Mandatory = $false)]
+        [string] $DCIP,
+
+        [Parameter(Mandatory = $false)]
+        [Management.Automation.PSCredential] $creds = [Management.Automation.PSCredential]::Empty,
+
         [Parameter(Mandatory = $true)]
         [array] $OutputType
     )
@@ -6415,7 +6420,7 @@ Function Get-ADRBitLocker
     {
         Try
         {
-            $ADBitLockerRecoveryKeys = Get-ADObject -LDAPFilter '(objectClass=msFVE-RecoveryInformation)' -Properties distinguishedName,msFVE-RecoveryPassword
+            $ADBitLockerRecoveryKeys = Get-ADObject -LDAPFilter '(objectClass=msFVE-RecoveryInformation)' -Properties distinguishedName,msFVE-RecoveryPassword,msFVE-RecoveryGuid,msFVE-VolumeGuid,Name,whenCreated
         }
         Catch
         {
@@ -6432,8 +6437,30 @@ Function Get-ADRBitLocker
                 $ADBitLockerRecoveryKeys | ForEach-Object {
                     # Create the object for each instance.
                     $Obj = New-Object PSObject
-                    $Obj | Add-Member -MemberType NoteProperty -Name "Distinguished Name" -Value $_.distinguishedName
-                    $Obj | Add-Member -MemberType NoteProperty -Name "Recovery Password" -Value $_.'msFVE-RecoveryPassword'
+                    $Obj | Add-Member -MemberType NoteProperty -Name "Distinguished Name" -Value $((($_.distinguishedName -split '}')[1]).substring(1))
+                    $Obj | Add-Member -MemberType NoteProperty -Name "Name" -Value $_.Name
+                    $Obj | Add-Member -MemberType NoteProperty -Name "Created" -Value $_.whenCreated
+                    $Obj | Add-Member -MemberType NoteProperty -Name "Recovery Key ID" -Value $([GUID] $_.'msFVE-RecoveryGuid')
+                    $Obj | Add-Member -MemberType NoteProperty -Name "Recovery Key" -Value $_.'msFVE-RecoveryPassword'
+                    $Obj | Add-Member -MemberType NoteProperty -Name "Volume GUID" -Value $([GUID] $_.'msFVE-VolumeGuid')
+                    #$TempComp = Get-ADComputer -Identity $((($((($_.distinguishedName -split '}')[1]).substring(1)) -Split ("CN=")) -Split (","))[1]) -Properties msTPM-OwnerInformation,msTPM-TpmInformationForComputer
+                    $TempComp = Get-ADComputer -Identity $Obj.'Distinguished Name' -Properties msTPM-OwnerInformation,msTPM-TpmInformationForComputer
+                    # msTPM-OwnerInformation (Vista/7 or Server 2008/R2)
+                    $Obj | Add-Member -MemberType NoteProperty -Name "msTPM-OwnerInformation" -Value $TempComp.'msTPM-OwnerInformation'
+                    
+                    # msTPM-TpmInformationForComputer (Windows 8/10 or Server 2012/R2)
+                    $Obj | Add-Member -MemberType NoteProperty -Name "msTPM-TpmInformationForComputer" -Value $TempComp.'msTPM-TpmInformationForComputer'
+                    If ($TempComp.'msTPM-TpmInformationForComputer' -ne $null)
+                    {
+                        # Grab the TPM Owner Info from the msTPM-InformationObject
+                        $TPMObject = Get-ADObject -Identity $TempComp.'msTPM-TpmInformationForComputer' -Properties msTPM-OwnerInformation
+                        $TPMRecoveryInfo = $TPMObject.'msTPM-OwnerInformation'
+                    }
+                    Else
+                    {
+                        $TPMRecoveryInfo = $null
+                    }
+                    $Obj | Add-Member -MemberType NoteProperty -Name "TPM Owner Password" -Value $TPMRecoveryInfo
                     $BitLockerObj += $Obj
                 }
             }
@@ -6446,6 +6473,7 @@ Function Get-ADRBitLocker
         $objSearcher = New-Object System.DirectoryServices.DirectorySearcher $objDomain
         $ObjSearcher.PageSize = $PageSize
         $ObjSearcher.Filter = "(objectClass=msFVE-RecoveryInformation)"
+        $ObjSearcher.PropertiesToLoad.AddRange(("distinguishedName","msfve-recoverypassword","msfve-recoveryguid","msfve-volumeguid","mstpm-ownerinformation","mstpm-tpminformationforcomputer","name","whencreated"))
         $ObjSearcher.SearchScope = "Subtree"
 
         Try
@@ -6468,8 +6496,61 @@ Function Get-ADRBitLocker
                 $ADBitLockerRecoveryKeys | ForEach-Object {
                     # Create the object for each instance.
                     $Obj = New-Object PSObject
-                    $Obj | Add-Member -MemberType NoteProperty -Name "Distinguished Name" -Value ([string]($_.Properties.distinguishedname))
-                    $Obj | Add-Member -MemberType NoteProperty -Name "Recovery Password" -Value ([string]($_.Properties.'msfve-recoverypassword'))
+                    $Obj | Add-Member -MemberType NoteProperty -Name "Distinguished Name" -Value $((($_.Properties.distinguishedname -split '}')[1]).substring(1))
+                    $Obj | Add-Member -MemberType NoteProperty -Name "Name" -Value ([string] ($_.Properties.name))
+                    $Obj | Add-Member -MemberType NoteProperty -Name "Created" -Value ([DateTime] $($_.Properties.whencreated))
+                    $Obj | Add-Member -MemberType NoteProperty -Name "Recovery Key ID" -Value $([GUID] $_.Properties.'msfve-recoveryguid'[0])
+                    $Obj | Add-Member -MemberType NoteProperty -Name "Recovery Key" -Value ([string] ($_.Properties.'msfve-recoverypassword'))
+                    $Obj | Add-Member -MemberType NoteProperty -Name "Volume GUID" -Value $([GUID] $_.Properties.'msfve-volumeguid'[0])
+
+                    $objSearcher = New-Object System.DirectoryServices.DirectorySearcher $objDomain
+                    $ObjSearcher.PageSize = $PageSize
+                    $ObjSearcher.Filter = "(&(samAccountType=805306369)(distinguishedName=$($Obj.'Distinguished Name')))"
+                    $ObjSearcher.PropertiesToLoad.AddRange(("mstpm-ownerinformation","mstpm-tpminformationforcomputer"))
+                    $ObjSearcher.SearchScope = "Subtree"
+
+                    Try
+                    {
+                        $TempComp = $ObjSearcher.FindAll()
+                    }
+                    Catch
+                    {
+                        Write-Output "[EXCEPTION] $($_.Exception.Message)"
+                    }
+                    $ObjSearcher.dispose()
+                    
+                    If ($TempComp)
+                    {
+                        # msTPM-OwnerInformation (Vista/7 or Server 2008/R2)
+                        $Obj | Add-Member -MemberType NoteProperty -Name "msTPM-OwnerInformation" -Value $([string] $TempComp.Properties.'mstpm-ownerinformation')
+
+                        # msTPM-TpmInformationForComputer (Windows 8/10 or Server 2012/R2)
+                        $Obj | Add-Member -MemberType NoteProperty -Name "msTPM-TpmInformationForComputer" -Value $([string] $TempComp.Properties.'mstpm-tpminformationforcomputer')
+                        If ($TempComp.Properties.'mstpm-tpminformationforcomputer' -ne $null)
+                        {
+                            # Grab the TPM Owner Info from the msTPM-InformationObject
+                            If ($UseAltCreds)
+                            {
+                                $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DCIP)/$($TempComp.Properties.'mstpm-tpminformationforcomputer')", $creds.UserName,$creds.GetNetworkCredential().Password
+                                $objSearcherPath = New-Object System.DirectoryServices.DirectorySearcher $objSearchPath
+                                $objSearcherPath.PropertiesToLoad.AddRange(("mstpm-ownerinformation"))
+                                $TPMObject = $objSearcherPath.FindAll()
+                                $TPMRecoveryInfo = $([string] $TPMObject.Properties.'mstpm-ownerinformation')
+                            }
+                            Else
+                            {
+                                $TPMObject = ([ADSI]"LDAP://$($TempComp.Properties.'mstpm-tpminformationforcomputer')")
+                                $TPMRecoveryInfo = $([string] $TPMObject.Properties.'mstpm-ownerinformation')
+                            }
+                        }
+                    }
+                    Else
+                    {
+                        $Obj | Add-Member -MemberType NoteProperty -Name "msTPM-OwnerInformation" -Value $null
+                        $Obj | Add-Member -MemberType NoteProperty -Name "msTPM-TpmInformationForComputer" -Value $null
+                        $TPMRecoveryInfo = $null
+                    }
+                    $Obj | Add-Member -MemberType NoteProperty -Name "TPM Owner Password" -Value $TPMRecoveryInfo
                     $BitLockerObj += $Obj
                 }
             }
@@ -7097,7 +7178,7 @@ Function Invoke-ADRecon
     If ($ADRComputers) { Get-ADRComputer $Protocol $UseAltCreds $ReportPath $date $objDomain $PageSize $Threads $FlushCount $OutputType }
     If ($ADRCopmuterSPNs) { Get-ADRComputerSPN $Protocol $UseAltCreds $ReportPath $objDomain $PageSize $Threads $FlushCount $OutputType }
     If ($ADRLAPS) { Get-ADRLAPSCheck $Protocol $UseAltCreds $ReportPath $objDomain $PageSize $OutputType }
-    If ($ADRBitLocker) { Get-ADRBitLocker $Protocol $UseAltCreds $ReportPath $objDomain $OutputType }
+    If ($ADRBitLocker) { Get-ADRBitLocker $Protocol $UseAltCreds $ReportPath $objDomain $DCIP $creds $OutputType }
     If ($ADRGPOReport) { Get-ADRGPOReport $Protocol $UseAltCreds $ReportPath }
     Switch ($OutputType)
     {
