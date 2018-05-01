@@ -1846,7 +1846,7 @@ namespace ADRecon
 #Add-Type -TypeDefinition $Source -ReferencedAssemblies ([System.String[]]@(([system.reflection.assembly]::LoadWithPartialName("Microsoft.ActiveDirectory.Management")).Location,([system.reflection.assembly]::LoadWithPartialName("System.DirectoryServices")).Location))
 
 # modified version from https://github.com/vletoux/SmbScanner/blob/master/smbscanner.ps1
-$PingCastleSMBScanner = @"
+$PingCastleSMBScannerSource = @"
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -2070,7 +2070,7 @@ namespace PingCastle.Scanners
 				throw new ApplicationException("Smb1 is not supported on " + server);
 			}
 		}
-		public static bool DoesServerSupportDialectWithSmbV2(string server, int dialect)
+		public static bool DoesServerSupportDialectWithSmbV2(string server, int dialect, bool checkSMBSigning)
 		{
 			Trace.WriteLine("Checking " + server + " for SMBV2 dialect 0x" + dialect.ToString("X2"));
 			TcpClient client = new TcpClient();
@@ -2096,18 +2096,26 @@ namespace PingCastle.Scanners
 				stream.Read(smbHeader, 0, smbHeader.Length);
 				if (smbHeader[8] != 0 || smbHeader[9] != 0 || smbHeader[10] != 0 || smbHeader[11] != 0)
 				{
-					Trace.WriteLine("Checking " + server + " for SMBV1 dialect 0x" + dialect.ToString("X2") + " = Not supported via error code");
+					Trace.WriteLine("Checking " + server + " for SMBV2 dialect 0x" + dialect.ToString("X2") + " = Not supported via error code");
 					return false;
 				}
 				byte[] negotiateresponse = new byte[6];
 				stream.Read(negotiateresponse, 0, negotiateresponse.Length);
+                if (checkSMBSigning)
+                {
+				    if (negotiateresponse[2] == 3)
+				    {
+					    Trace.WriteLine("Checking " + server + " for SMBV2 SMB Signing dialect 0x" + dialect.ToString("X2") + " = Supported");
+					    return true;
+				    }
+                }
 				int selectedDialect = negotiateresponse[5] * 0x100 + negotiateresponse[4];
 				if (selectedDialect == dialect)
 				{
-					Trace.WriteLine("Checking " + server + " for SMBV1 dialect 0x" + dialect.ToString("X2") + " = Supported");
+					Trace.WriteLine("Checking " + server + " for SMBV2 dialect 0x" + dialect.ToString("X2") + " = Supported");
 					return true;
 				}
-				Trace.WriteLine("Checking " + server + " for SMBV1 dialect 0x" + dialect.ToString("X2") + " = Not supported via not returned dialect");
+				Trace.WriteLine("Checking " + server + " for SMBV2 dialect 0x" + dialect.ToString("X2") + " = Not supported via not returned dialect");
 				return false;
 			}
 			catch (Exception)
@@ -2130,7 +2138,7 @@ namespace PingCastle.Scanners
 		{
 			try
 			{
-				return (DoesServerSupportDialectWithSmbV2(server, 0x0202) || DoesServerSupportDialectWithSmbV2(server, 0x0210));
+				return (DoesServerSupportDialectWithSmbV2(server, 0x0202, false) || DoesServerSupportDialectWithSmbV2(server, 0x0210, false));
 			}
 			catch (Exception)
 			{
@@ -2141,28 +2149,36 @@ namespace PingCastle.Scanners
 		{
 			try
 			{
-				return (DoesServerSupportDialectWithSmbV2(server, 0x0300) || DoesServerSupportDialectWithSmbV2(server, 0x0302) || DoesServerSupportDialectWithSmbV2(server, 0x0311));
+				return (DoesServerSupportDialectWithSmbV2(server, 0x0300, false) || DoesServerSupportDialectWithSmbV2(server, 0x0302, false) || DoesServerSupportDialectWithSmbV2(server, 0x0311, false));
 			}
 			catch (Exception)
 			{
 				return false;
 			}
 		}
-		public static string Name { get { return "smb"; } }
-        
-		public static string GetCsvHeader()
-		{
-			return "Computer\tSMB Port Open\tSMB1(NT LM 0.12)\tSMB2(0x0202)\tSMB2(0x0210)\tSMB3(0x0300)\tSMB3(0x0302)\tSMB3(0x0311)";
-		}
+		public static string Name { get { return "smb"; } }        
 		public static PSObject GetPSObject(string computer)
 		{
-			bool isPortOpened = true;
+            PSObject DCSMBObj = new PSObject();
+            if (computer == "")
+            {
+                DCSMBObj.Members.Add(new PSNoteProperty("SMB Port Open", null));
+                DCSMBObj.Members.Add(new PSNoteProperty("SMB1(NT LM 0.12)", null));
+                DCSMBObj.Members.Add(new PSNoteProperty("SMB2(0x0202)", null));
+                DCSMBObj.Members.Add(new PSNoteProperty("SMB2(0x0210)", null));
+                DCSMBObj.Members.Add(new PSNoteProperty("SMB3(0x0300)", null));
+                DCSMBObj.Members.Add(new PSNoteProperty("SMB3(0x0302)", null));
+                DCSMBObj.Members.Add(new PSNoteProperty("SMB3(0x0311)", null));
+                return DCSMBObj;
+            }
+            bool isPortOpened = true;
 			bool SMBv1 = false;
 			bool SMBv2_0x0202 = false;
 			bool SMBv2_0x0210 = false;
-			bool SMBv2_0x0300 = false;
-			bool SMBv2_0x0302 = false;
-			bool SMBv2_0x0311 = false;
+			bool SMBv3_0x0300 = false;
+			bool SMBv3_0x0302 = false;
+			bool SMBv3_0x0311 = false;
+            bool SMBSigning = false;
 			try
 			{
 				try
@@ -2174,11 +2190,11 @@ namespace PingCastle.Scanners
 				}
 				try
 				{
-					SMBv2_0x0202 = DoesServerSupportDialectWithSmbV2(computer, 0x0202);
-					SMBv2_0x0210 = DoesServerSupportDialectWithSmbV2(computer, 0x0210);
-					SMBv2_0x0300 = DoesServerSupportDialectWithSmbV2(computer, 0x0300);
-					SMBv2_0x0302 = DoesServerSupportDialectWithSmbV2(computer, 0x0302);
-					SMBv2_0x0311 = DoesServerSupportDialectWithSmbV2(computer, 0x0311);
+					SMBv2_0x0202 = DoesServerSupportDialectWithSmbV2(computer, 0x0202, false);
+					SMBv2_0x0210 = DoesServerSupportDialectWithSmbV2(computer, 0x0210, false);
+					SMBv3_0x0300 = DoesServerSupportDialectWithSmbV2(computer, 0x0300, false);
+					SMBv3_0x0302 = DoesServerSupportDialectWithSmbV2(computer, 0x0302, false);
+					SMBv3_0x0311 = DoesServerSupportDialectWithSmbV2(computer, 0x0311, false);
 				}
 				catch (ApplicationException)
 				{
@@ -2188,21 +2204,41 @@ namespace PingCastle.Scanners
 			{
 				isPortOpened = false;
 			}
-            PSObject DCSMBObj = new PSObject();
-            DCSMBObj.Members.Add(new PSNoteProperty("SMB Port Open", (isPortOpened ? true : false)));
-            DCSMBObj.Members.Add(new PSNoteProperty("SMB1(NT LM 0.12)", (SMBv1 ? true : false)));
-            DCSMBObj.Members.Add(new PSNoteProperty("SMB2(0x0202)", (SMBv2_0x0202 ? true : false)));
-            DCSMBObj.Members.Add(new PSNoteProperty("SMB2(0x0210)", (SMBv2_0x0210 ? true : false)));
-            DCSMBObj.Members.Add(new PSNoteProperty("SMB3(0x0300)", (SMBv2_0x0300 ? true : false)));
-            DCSMBObj.Members.Add(new PSNoteProperty("SMB3(0x0302)", (SMBv2_0x0302 ? true : false)));
-            DCSMBObj.Members.Add(new PSNoteProperty("SMB3(0x0311)", (SMBv2_0x0311 ? true : false)));
+			if (SMBv3_0x0311)
+			{
+				SMBSigning = DoesServerSupportDialectWithSmbV2(computer, 0x0311, true);
+			}
+			else if (SMBv3_0x0302)
+			{
+				SMBSigning = DoesServerSupportDialectWithSmbV2(computer, 0x0302, true);
+			}
+			else if (SMBv3_0x0300)
+			{
+				SMBSigning = DoesServerSupportDialectWithSmbV2(computer, 0x0300, true);
+			}
+			else if (SMBv2_0x0210)
+			{
+				SMBSigning = DoesServerSupportDialectWithSmbV2(computer, 0x0210, true);
+			}
+			else if (SMBv2_0x0202)
+			{
+				SMBSigning = DoesServerSupportDialectWithSmbV2(computer, 0x0202, true);
+			}
+            DCSMBObj.Members.Add(new PSNoteProperty("SMB Port Open", isPortOpened));
+            DCSMBObj.Members.Add(new PSNoteProperty("SMB1(NT LM 0.12)", SMBv1));
+            DCSMBObj.Members.Add(new PSNoteProperty("SMB2(0x0202)", SMBv2_0x0202));
+            DCSMBObj.Members.Add(new PSNoteProperty("SMB2(0x0210)", SMBv2_0x0210));
+            DCSMBObj.Members.Add(new PSNoteProperty("SMB3(0x0300)", SMBv3_0x0300));
+            DCSMBObj.Members.Add(new PSNoteProperty("SMB3(0x0302)", SMBv3_0x0302));
+            DCSMBObj.Members.Add(new PSNoteProperty("SMB3(0x0311)", SMBv3_0x0311));
+            DCSMBObj.Members.Add(new PSNoteProperty("SMB Signing", SMBSigning));
             return DCSMBObj;
 		}		
 	}
 }
 "@
 
-Add-Type -TypeDefinition $PingCastleSMBScanner
+Add-Type -TypeDefinition $PingCastleSMBScannerSource
 
 Function Get-DateDiff
 {
@@ -7155,7 +7191,7 @@ Function Invoke-ADRecon
         [bool] $UseAltCreds = $false
     )
 
-    [string] $ADReconVersion = "v180428"
+    [string] $ADReconVersion = "v180429"
     Write-Output "[*] ADRecon $ADReconVersion by Prashant Mahajan (@prashant3535) from Sense of Security."
 
     If ($GenExcel)
