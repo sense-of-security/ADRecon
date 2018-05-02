@@ -1865,27 +1865,27 @@ namespace PingCastle.Scanners
 		struct SMB_Header {
 			[FieldOffset(0)]
 			public UInt32 Protocol;
-			[FieldOffset(4)] 
+			[FieldOffset(4)]
 			public byte Command;
-			[FieldOffset(5)] 
+			[FieldOffset(5)]
 			public int Status;
-			[FieldOffset(9)] 
+			[FieldOffset(9)]
 			public byte  Flags;
-			[FieldOffset(10)] 
+			[FieldOffset(10)]
 			public UInt16 Flags2;
-			[FieldOffset(12)] 
+			[FieldOffset(12)]
 			public UInt16 PIDHigh;
-			[FieldOffset(14)] 
+			[FieldOffset(14)]
 			public UInt64 SecurityFeatures;
-			[FieldOffset(22)] 
+			[FieldOffset(22)]
 			public UInt16 Reserved;
-			[FieldOffset(24)] 
+			[FieldOffset(24)]
 			public UInt16 TID;
-			[FieldOffset(26)] 
+			[FieldOffset(26)]
 			public UInt16 PIDLow;
-			[FieldOffset(28)] 
+			[FieldOffset(28)]
 			public UInt16 UID;
-			[FieldOffset(30)] 
+			[FieldOffset(30)]
 			public UInt16 MID;
 		};
 		// https://msdn.microsoft.com/en-us/library/cc246529.aspx
@@ -2052,11 +2052,20 @@ namespace PingCastle.Scanners
 				stream.Write(packet, 0, packet.Length);
 				stream.Flush();
 				byte[] netbios = new byte[4];
-				stream.Read(netbios, 0, 4);
+				if (stream.Read(netbios, 0, netbios.Length) != netbios.Length)
+                {
+                    return false;
+                }
 				byte[] smbHeader = new byte[Marshal.SizeOf(typeof(SMB_Header))];
-				stream.Read(smbHeader, 0, smbHeader.Length);
+				if (stream.Read(smbHeader, 0, smbHeader.Length) != smbHeader.Length)
+                {
+                    return false;
+                }
 				byte[] negotiateresponse = new byte[3];
-				stream.Read(negotiateresponse, 0, negotiateresponse.Length);
+				if (stream.Read(negotiateresponse, 0, negotiateresponse.Length) != negotiateresponse.Length)
+                {
+                    return false;
+                }
 				if (negotiateresponse[1] == 0 && negotiateresponse[2] == 0)
 				{
 					Trace.WriteLine("Checking " + server + " for SMBV1 dialect " + dialect + " = Supported");
@@ -2091,23 +2100,38 @@ namespace PingCastle.Scanners
 				stream.Write(packet, 0, packet.Length);
 				stream.Flush();
 				byte[] netbios = new byte[4];
-				stream.Read(netbios, 0, 4);
+				if( stream.Read(netbios, 0, netbios.Length) != netbios.Length)
+                {
+                    return false;
+                }
 				byte[] smbHeader = new byte[Marshal.SizeOf(typeof(SMB2_Header))];
-				stream.Read(smbHeader, 0, smbHeader.Length);
+				if (stream.Read(smbHeader, 0, smbHeader.Length) != smbHeader.Length)
+                {
+                    return false;
+                }
 				if (smbHeader[8] != 0 || smbHeader[9] != 0 || smbHeader[10] != 0 || smbHeader[11] != 0)
 				{
 					Trace.WriteLine("Checking " + server + " for SMBV2 dialect 0x" + dialect.ToString("X2") + " = Not supported via error code");
 					return false;
 				}
 				byte[] negotiateresponse = new byte[6];
-				stream.Read(negotiateresponse, 0, negotiateresponse.Length);
+				if (stream.Read(negotiateresponse, 0, negotiateresponse.Length) != negotiateresponse.Length)
+                {
+                    return false;
+                }
                 if (checkSMBSigning)
                 {
+                    // https://support.microsoft.com/en-in/help/887429/overview-of-server-message-block-signing
+                    // https://msdn.microsoft.com/en-us/library/cc246561.aspx
 				    if (negotiateresponse[2] == 3)
 				    {
 					    Trace.WriteLine("Checking " + server + " for SMBV2 SMB Signing dialect 0x" + dialect.ToString("X2") + " = Supported");
 					    return true;
 				    }
+                    else
+                    {
+                        return false;
+                    }
                 }
 				int selectedDialect = negotiateresponse[5] * 0x100 + negotiateresponse[4];
 				if (selectedDialect == dialect)
@@ -2156,7 +2180,7 @@ namespace PingCastle.Scanners
 				return false;
 			}
 		}
-		public static string Name { get { return "smb"; } }        
+		public static string Name { get { return "smb"; } }
 		public static PSObject GetPSObject(string computer)
 		{
             PSObject DCSMBObj = new PSObject();
@@ -2169,6 +2193,7 @@ namespace PingCastle.Scanners
                 DCSMBObj.Members.Add(new PSNoteProperty("SMB3(0x0300)", null));
                 DCSMBObj.Members.Add(new PSNoteProperty("SMB3(0x0302)", null));
                 DCSMBObj.Members.Add(new PSNoteProperty("SMB3(0x0311)", null));
+                DCSMBObj.Members.Add(new PSNoteProperty("SMB Signing", null));
                 return DCSMBObj;
             }
             bool isPortOpened = true;
@@ -2233,12 +2258,10 @@ namespace PingCastle.Scanners
             DCSMBObj.Members.Add(new PSNoteProperty("SMB3(0x0311)", SMBv3_0x0311));
             DCSMBObj.Members.Add(new PSNoteProperty("SMB Signing", SMBSigning));
             return DCSMBObj;
-		}		
+		}
 	}
 }
 "@
-
-Add-Type -TypeDefinition $PingCastleSMBScannerSource
 
 Function Get-DateDiff
 {
@@ -7264,6 +7287,7 @@ Function Invoke-ADRecon
 
     Try
     {
+        Add-Type -TypeDefinition $PingCastleSMBScannerSource
         $CLR4 = ([System.Reflection.Assembly]::GetExecutingAssembly().ImageRuntimeVersion)[1]
         If ($Protocol -eq 'ADWS')
         {
