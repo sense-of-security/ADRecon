@@ -4,7 +4,7 @@
 
 ADRecon is a tool which extracts various artifacts (as highlighted below) out of an AD environment in a specially formatted Microsoft Excel report that includes summary views with metrics to facilitate analysis.
 The report can provide a holistic picture of the current state of the target AD environment.
-The tool is useful to various classes of security professionals like auditors, DIFR, students, administrators, etc. It can also be an invaluable post-exploitation tool for a penetration tester.
+The tool is useful to various classes of security professionals like auditors, DFIR, students, administrators, etc. It can also be an invaluable post-exploitation tool for a penetration tester.
 It can be run from any workstation that is connected to the environment, even hosts that are not domain members. Furthermore, the tool can be executed in the context of a non-privileged (i.e. standard domain user) accounts. Fine Grained Password Policy, LAPS and BitLocker may require Privileged user accounts.
 The tool will use Microsoft Remote Server Administration Tools (RSAT) if available, otherwise it will communicate with the Domain Controller using LDAP.
 The following information is gathered by the tool:
@@ -76,7 +76,7 @@ PS C:\>.\ADRecon.ps1 -Protocol LDAP -DomainController <IP or FQDN> -Credential <
 To run ADRecon with specific modules on a non-member host with RSAT. (Default OutputType is STDOUT with -Collect parameter)
 
 ```
-PS C:\>.\ADRecon.ps1 -Protocol ADWS -DomainController <IP or FQDN> -Credential <domain\username> -Collect Domian, DCs
+PS C:\>.\ADRecon.ps1 -Protocol ADWS -DomainController <IP or FQDN> -Credential <domain\username> -Collect Domian, DomainControllers
 ```
 
 To generate the ADRecon-Report.xlsx based on ADRecon output (CSV Files).
@@ -110,8 +110,8 @@ When you run ADRecon, a `ADRecon-Report-<timestamp>` folder will be created whic
     Valid values include: Forest, Domain, PasswordPolicy, DCs, Users, UserSPNs, Groups, GroupMembers, OUs, OUPermissions, GPOs, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker.
 
 -OutputType <String>
-    Output Type; Comma seperated; e.g CSV,STDOUT,Excel (Default STDOUT with -Collect parameter, else CSV and Excel).
-    Valid values include: STDOUT, CSV, Excel.
+    Output Type; Comma seperated; e.g STDOUT,CSV,XML,JSON,HTML,Excel (Default STDOUT with -Collect parameter, else CSV and Excel).
+    Valid values include: STDOUT, CSV, XML, JSON, HTML, Excel, All (excludes STDOUT).
 
 -DormantTimeSpan <Int>
     Timespan for Dormant accounts. (Default 90 days)
@@ -121,9 +121,6 @@ When you run ADRecon, a `ADRecon-Report-<timestamp>` folder will be created whic
 
 -Threads <Int>
     The number of threads to use during processing objects (Default 10)
-
--FlushCount <Int>
-    The number of processed objects which will be flushed to disk. (Default -1; Flush after all objects are processed).
 
 -Log <Switch>
     Create ADRecon Log using Start-Transcript
@@ -135,7 +132,7 @@ When you run ADRecon, a `ADRecon-Report-<timestamp>` folder will be created whic
 - Add Domain Trust Enumeration.
 - Gather ACLs for the useraccountcontrol attribute and the ms-mcs-admpwd LAPS attribute to determine which users can read the values.
 - Gather DS_CONTROL_ACCESS and Extended Rights, such as User-Force-Change-Password, DS-Replication-Get-Changes, DS-Replication-Get-Changes-All, etc. which can be used as alternative attack vectors.
-- Additional export and storage option: export to ~STDOUT~, SQLite, xml, html.
+- Additional export and storage option: export to ~STDOUT~, SQLite, ~xml~, ~html~, ~json~.
 - List issues identified and provide recommended remediation advice based on analysis of the data.
 
 ### Bugs, Issues and Feature Requests
