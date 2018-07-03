@@ -14,8 +14,9 @@
     The following information is gathered by the tool:
     - Forest;
     - Domains in the Forest and other attributes such as Sites;
-    - Domain Password Policy;
-    - Domain Controllers and their roles;
+    - Default Password Policy;
+    - Fine Grained Password Policy (if implemented);
+    - Domain Controllers, SMB versions, whether SMB Signing is supported and FSMO roles;
     - Users and their attributes;
     - Service Principal Names;
     - Groups and memberships;
@@ -71,7 +72,7 @@
 
 .PARAMETER Collect
     What attributes to collect; Comma separated; e.g Forest,Domain (Default all)
-    Valid values include: Forest, Domain, PasswordPolicy, DomainControllers, Users, UserSPNs, Groups, GroupMembers, OUs, OUPermissions, GPOs, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker.
+    Valid values include: Forest, Domain, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, Groups, GroupMembers, OUs, OUPermissions, GPOs, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker.
 
 .PARAMETER OutputType
     Output Type; Comma seperated; e.g STDOUT,CSV,XML,JSON,HTML,Excel (Default STDOUT with -Collect parameter, else CSV and Excel).
@@ -223,7 +224,7 @@ param
     [string] $OutputDir,
 
     [Parameter(Mandatory = $false, HelpMessage = "What attributes to collect; Comma separated; e.g Forest,Domain (Default all) Valid values include: Forest, Domain, PasswordPolicy, DomainControllers, Users, UserSPNs, Groups, GroupMembers, OUs, OUPermissions, GPOs, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker")]
-    [ValidateSet('Forest', 'Domain', 'PasswordPolicy', 'DomainControllers', 'Users', 'UserSPNs', 'Groups', 'GroupMembers', 'OUs', 'OUPermissions', 'GPOs', 'GPOReport', 'DNSZones', 'Printers', 'Computers', 'ComputerSPNs', 'LAPS', 'BitLocker', 'Default')]
+    [ValidateSet('Forest', 'Domain', 'PasswordPolicy', 'FineGrainedPasswordPolicy', 'DomainControllers', 'Users', 'UserSPNs', 'Groups', 'GroupMembers', 'OUs', 'OUPermissions', 'GPOs', 'GPOReport', 'DNSZones', 'Printers', 'Computers', 'ComputerSPNs', 'LAPS', 'BitLocker', 'Default')]
     [array] $Collect = 'Default',
 
     [Parameter(Mandatory = $false, HelpMessage = "Output type; Comma seperated; e.g STDOUT,CSV,XML,JSON,HTML,Excel (Default STDOUT with -Collect parameter, else CSV and Excel)")]
@@ -6998,6 +6999,7 @@ Function Invoke-ADRecon
         'Forest' { $ADRForest = $true }
         'Domain' {$ADRDomain = $true }
         'PasswordPolicy' { $ADRPasswordPolicy = $true }
+        'FineGrainedPasswordPolicy' { $ADRFineGrainedPasswordPolicy = $true }
         'DomainControllers' { $ADRDCs = $true }
         'Users' { $ADRUsers = $true }
         'UserSPNs' { $ADRUserSPNs = $true }
@@ -7022,6 +7024,7 @@ Function Invoke-ADRecon
             $ADRForest = $true
             $ADRDomain = $true
             $ADRPasswordPolicy = $true
+            $ADRFineGrainedPasswordPolicy = $true
             $ADRDCs = $true
             $ADRUsers = $true
             $ADRUserSPNs = $true
@@ -7291,6 +7294,10 @@ Function Invoke-ADRecon
             Export-ADR $ADRObject $ADROutputDir $OutputType "DefaultPasswordPolicy"
             Remove-Variable ADRObject
         }
+        Remove-Variable ADRPasswordPolicy
+    }
+    If ($ADRFineGrainedPasswordPolicy)
+    {
         Write-Output "[-] Fine Grained Password Policy - May need a Privileged Account"
         $ADRObject = Get-ADRFineGrainedPasswordPolicy $Protocol $UseAltCreds $objDomain
         If ($ADRObject)
@@ -7298,6 +7305,7 @@ Function Invoke-ADRecon
             Export-ADR $ADRObject $ADROutputDir $OutputType "FineGrainedPasswordPolicy"
             Remove-Variable ADRObject
         }
+        Remove-Variable ADRFineGrainedPasswordPolicy
     }
     If ($ADRDCs)
     {
