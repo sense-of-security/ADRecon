@@ -2236,28 +2236,29 @@ Function Export-ADRExcel
         $ADFileName = -join($ReportPath,'\','AboutADRecon.csv')
         If (Test-Path $ADFileName)
         {
-            $worksheet= $workbook.Worksheets.Item(1)
-            $worksheet.Name = "About ADRecon"
-            Get-ADRExcelImport $ADFileName 1
-            $worksheet.Hyperlinks.Add($worksheet.Cells.Item(3,2) , "https://github.com/sense-of-security/ADRecon", "" , "", "github.com/sense-of-security/ADRecon") | Out-Null
-            $usedRange = $worksheet.UsedRange
-            $usedRange.EntireColumn.AutoFit() | Out-Null
+            Get-ADRExcelImport $ADFileName 2
+            Remove-Variable ADFileName
+
+            $workbook.Worksheets.Item(1).Name = "About ADRecon"
+            $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item(3,2) , "https://github.com/sense-of-security/ADRecon", "" , "", "github.com/sense-of-security/ADRecon") | Out-Null
+            $workbook.Worksheets.Item(1).UsedRange.EntireColumn.AutoFit() | Out-Null
         }
 
         $ADFileName = -join($ReportPath,'\','Forest.csv')
         If (Test-Path $ADFileName)
         {
             Get-ADRExcelWorkbook("Forest")
-            Get-ADRExcelImport $ADFileName 1
+            Get-ADRExcelImport $ADFileName 2
         }
 
         $ADFileName = -join($ReportPath,'\','Domain.csv')
         If (Test-Path $ADFileName)
         {
             Get-ADRExcelWorkbook("Domain")
-            Get-ADRExcelImport $ADFileName 1
+            Get-ADRExcelImport $ADFileName 2
             $DomainObj = Import-CSV -Path $ADFileName
-            $DomainName = -join($DomainObj.Name,"-")
+            Remove-Variable ADFileName
+            $DomainName = -join($DomainObj[0].Value,"-")
             Remove-Variable DomainObj
         }
 
@@ -2265,14 +2266,14 @@ Function Export-ADRExcel
         If (Test-Path $ADFileName)
         {
             Get-ADRExcelWorkbook("Fine Grained Password Policy")
-            Get-ADRExcelImport $ADFileName 1
+            Get-ADRExcelImport $ADFileName 2
         }
 
         $ADFileName = -join($ReportPath,'\','DefaultPasswordPolicy.csv')
         If (Test-Path $ADFileName)
         {
             Get-ADRExcelWorkbook("Default Password Policy")
-            Get-ADRExcelImport $ADFileName 1
+            Get-ADRExcelImport $ADFileName 2
         }
 
         $ADFileName = -join($ReportPath,'\','DCs.csv')
@@ -3065,10 +3066,8 @@ Function Get-ADRDomain
         }
         If ($ADDomain)
         {
-            $ADDomainObj = New-Object PSObject
-            $ADDomainObj | Add-Member -MemberType NoteProperty -Name "Category" -Value "Value"
-            $ADDomainObj | Add-Member -MemberType NoteProperty -Name "Name" -Value $ADDomain.DNSRoot
-            $ADDomainObj | Add-Member -MemberType NoteProperty -Name "NetBIOS" -Value $ADDomain.NetBIOSName
+            $DomainObj = @()
+
             # Values taken from https://technet.microsoft.com/en-us/library/hh852281(v=wps.630).aspx
             $FLAD = @{
 	            0 = "Windows2000";
@@ -3082,23 +3081,36 @@ Function Get-ADRDomain
             }
             $DomainMode = $FLAD[[convert]::ToInt32($ADDomain.DomainMode)] + "Domain"
             Remove-Variable FLAD
-            If ($DomainMode)
+            If (-Not $DomainMode)
             {
-                $ADDomainObj | Add-Member -MemberType NoteProperty -Name "Functional Level" -Value $DomainMode
-                Remove-Variable DomainMode
+                $DomainMode = $ADDomain.DomainMode
             }
-            Else
+
+            $ObjValues = @("Name", $ADDomain.DNSRoot, "NetBIOS", $ADDomain.NetBIOSName, "Functional Level", $DomainMode, "DomainSID", $ADDomain.DomainSID.Value)
+
+            For ($i = 0; $i -lt $($ObjValues.Count); $i++)
             {
-                $ADDomainObj | Add-Member -MemberType NoteProperty -Name "Functional Level" -Value $ADDomain.DomainMode
+                $Obj = New-Object PSObject
+                $Obj | Add-Member -MemberType NoteProperty -Name "Category" -Value $ObjValues[$i]
+                $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $ObjValues[$i+1]
+                $i++
+                $DomainObj += $Obj
             }
-            $ADDomainObj | Add-Member -MemberType NoteProperty -Name "DomainSID "-Value $ADDomain.DomainSID.Value
+            Remove-Variable DomainMode
+
             For($i=0; $i -lt $ADDomain.ReplicaDirectoryServers.Count; $i++)
             {
-                $ADDomainObj | Add-Member -MemberType NoteProperty -Name "Domain Controller -$i" -Value $ADDomain.ReplicaDirectoryServers[$i]
+                $Obj = New-Object PSObject
+                $Obj | Add-Member -MemberType NoteProperty -Name "Category" -Value "Domain Controller"
+                $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $ADDomain.ReplicaDirectoryServers[$i]
+                $DomainObj += $Obj
             }
             For($i=0; $i -lt $ADDomain.ReadOnlyReplicaDirectoryServers.Count; $i++)
             {
-                $ADDomainObj | Add-Member -MemberType NoteProperty -Name "Read Only Domain Controller -$i" -Value $ADDomain.ReadOnlyReplicaDirectoryServers[$i]
+                $Obj = New-Object PSObject
+                $Obj | Add-Member -MemberType NoteProperty -Name "Category" -Value "Read Only Domain Controller"
+                $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $ADDomain.ReadOnlyReplicaDirectoryServers[$i]
+                $DomainObj += $Obj
             }
 
             Try
@@ -3150,17 +3162,26 @@ Function Get-ADRDomain
             }
             If ($DomainCreation)
             {
-                $ADDomainObj | Add-Member -MemberType NoteProperty -Name "Creation Date" -Value $DomainCreation.whenCreated
+                $Obj = New-Object PSObject
+                $Obj | Add-Member -MemberType NoteProperty -Name "Category" -Value "Creation Date"
+                $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $DomainCreation.whenCreated
+                $DomainObj += $Obj
                 Remove-Variable DomainCreation
             }
             If ($RIDsIssued)
             {
-                $ADDomainObj | Add-Member -MemberType NoteProperty -Name "RIDs Issued" -Value $RIDsIssued
+                $Obj = New-Object PSObject
+                $Obj | Add-Member -MemberType NoteProperty -Name "Category" -Value "RIDs Issued"
+                $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $RIDsIssued
+                $DomainObj += $Obj
                 Remove-Variable RIDsIssued
             }
             If ($RIDsRemaining)
             {
-                $ADDomainObj | Add-Member -MemberType NoteProperty -Name "RIDs Remaining" -Value $RIDsRemaining
+                $Obj = New-Object PSObject
+                $Obj | Add-Member -MemberType NoteProperty -Name "Category" -Value "RIDs Remaining"
+                $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $RIDsRemaining
+                $DomainObj += $Obj
                 Remove-Variable RIDsRemaining
             }
         }
@@ -3253,10 +3274,8 @@ Function Get-ADRDomain
 
         If ($ADDomain)
         {
-            $ADDomainObj = New-Object PSObject
-            $ADDomainObj | Add-Member -MemberType NoteProperty -Name "Category" -Value "Value"
-            $ADDomainObj | Add-Member -MemberType NoteProperty -Name "Name" -Value $ADDomain.Name
-            $ADDomainObj | Add-Member -MemberType NoteProperty -Name "NetBIOS" -Value $objDomain.name.value
+            $DomainObj = @()
+
             # Values taken from https://technet.microsoft.com/en-us/library/hh852281(v=wps.630).aspx
             $FLAD = @{
 	            0 = "Windows2000";
@@ -3270,30 +3289,54 @@ Function Get-ADRDomain
             }
             $DomainMode = $FLAD[[convert]::ToInt32($objDomainRootDSE.domainFunctionality,10)] + "Domain"
             Remove-Variable FLAD
-            $ADDomainObj | Add-Member -MemberType NoteProperty -Name "Functional Level" -Value $DomainMode
+
+            $ObjValues = @("Name", $ADDomain.Name, "NetBIOS", $objDomain.dc.value, "Functional Level", $DomainMode, "DomainSID", $ADDomainSID.Value)
+
+            For ($i = 0; $i -lt $($ObjValues.Count); $i++)
+            {
+                $Obj = New-Object PSObject
+                $Obj | Add-Member -MemberType NoteProperty -Name "Category" -Value $ObjValues[$i]
+                $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $ObjValues[$i+1]
+                $i++
+                $DomainObj += $Obj
+            }
             Remove-Variable DomainMode
-            $ADDomainObj | Add-Member -MemberType NoteProperty -Name "DomainSID "-Value $ADDomainSID.Value
+
             For($i=0; $i -lt $ADDomain.DomainControllers.Count; $i++)
             {
-                $ADDomainObj | Add-Member -MemberType NoteProperty -Name "Domain Controller -$i" -Value $ADDomain.DomainControllers[$i]
+                $Obj = New-Object PSObject
+                $Obj | Add-Member -MemberType NoteProperty -Name "Category" -Value "Domain Controller"
+                $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $ADDomain.DomainControllers[$i]
+                $DomainObj += $Obj
             }
-            $ADDomainObj | Add-Member -MemberType NoteProperty -Name "Creation Date" -Value $objDomain.whencreated.value
+
+            $Obj = New-Object PSObject
+            $Obj | Add-Member -MemberType NoteProperty -Name "Category" -Value "Creation Date"
+            $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $objDomain.whencreated.value
+            $DomainObj += $Obj
+
             If ($RIDsIssued)
             {
-                $ADDomainObj | Add-Member -MemberType NoteProperty -Name "RIDs Issued" -Value $RIDsIssued
+                $Obj = New-Object PSObject
+                $Obj | Add-Member -MemberType NoteProperty -Name "Category" -Value "RIDs Issued"
+                $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $RIDsIssued
+                $DomainObj += $Obj
                 Remove-Variable RIDsIssued
             }
             If ($RIDsRemaining)
             {
-                $ADDomainObj | Add-Member -MemberType NoteProperty -Name "RIDs Remaining" -Value $RIDsRemaining
+                $Obj = New-Object PSObject
+                $Obj | Add-Member -MemberType NoteProperty -Name "Category" -Value "RIDs Remaining"
+                $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $RIDsRemaining
+                $DomainObj += $Obj
                 Remove-Variable RIDsRemaining
             }
         }
     }
 
-    If ($ADDomainObj)
+    If ($DomainObj)
     {
-        Return $ADDomainObj
+        Return $DomainObj
     }
     Else
     {
@@ -3416,9 +3459,8 @@ Function Get-ADRForest
                 Write-Warning "[EXCEPTION] $($_.Exception.Message)"
             }
 
-            $ADForestObj = New-Object PSObject
-            $ADForestObj | Add-Member -MemberType NoteProperty -Name "Category" -Value "Value"
-            $ADForestObj | Add-Member -MemberType NoteProperty -Name "Name" -Value $ADForest.Name
+            $ForestObj = @()
+
             # Values taken from https://technet.microsoft.com/en-us/library/hh852281(v=wps.630).aspx
             $FLAD = @{
                 0 = "Windows2000";
@@ -3432,55 +3474,73 @@ Function Get-ADRForest
             }
             $ForestMode = $FLAD[[convert]::ToInt32($ADForest.ForestMode)] + "Forest"
             Remove-Variable FLAD
-            If ($ForestMode)
+
+            If (-Not $ForestMode)
             {
-                $ADForestObj | Add-Member -MemberType NoteProperty -Name "Functional Level" -Value $ForestMode
-                Remove-Variable ForestMode
+                $ForestMode = $ADForest.ForestMode
             }
-            Else
+
+            $ObjValues = @("Name", $ADForest.Name, "Functional Level", $ForestMode, "Domain Naming Master", $ADForest.DomainNamingMaster, "Schema Master", $ADForest.SchemaMaster, "RootDomain", $ADForest.RootDomain, "Domain Count", $ADForest.Domains.Count, "Site Count", $ADForest.Sites.Count, "Global Catalog Count", $ADForest.GlobalCatalogs.Count)
+
+            For ($i = 0; $i -lt $($ObjValues.Count); $i++)
             {
-                $ADForestObj | Add-Member -MemberType NoteProperty -Name "Functional Level" -Value $ADForest.ForestMode
+                $Obj = New-Object PSObject
+                $Obj | Add-Member -MemberType NoteProperty -Name "Category" -Value $ObjValues[$i]
+                $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $ObjValues[$i+1]
+                $i++
+                $ForestObj += $Obj
             }
-            $ADForestObj | Add-Member -MemberType NoteProperty -Name "Domain Naming Master" -Value $ADForest.DomainNamingMaster
-            $ADForestObj | Add-Member -MemberType NoteProperty -Name "Schema Master" -Value $ADForest.SchemaMaster
-            $ADForestObj | Add-Member -MemberType NoteProperty -Name "RootDomain" -Value $ADForest.RootDomain
-            $ADForestObj | Add-Member -MemberType NoteProperty -Name "Domain Count" -Value $ADForest.Domains.Count
-            $ADForestObj | Add-Member -MemberType NoteProperty -Name "Site Count" -Value $ADForest.Sites.Count
-            $ADForestObj | Add-Member -MemberType NoteProperty -Name "Global Catalog Count" -Value $ADForest.GlobalCatalogs.Count
+            Remove-Variable ForestMode
+
             For($i=0; $i -lt $ADForest.Domains.Count; $i++)
             {
-                $ADForestObj | Add-Member -MemberType NoteProperty -Name "Domain -$i" -Value $ADForest.Domains[$i]
+                $Obj = New-Object PSObject
+                $Obj | Add-Member -MemberType NoteProperty -Name "Category" -Value "Domain"
+                $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $ADForest.Domains[$i]
+                $ForestObj += $Obj
             }
             For($i=0; $i -lt $ADForest.Sites.Count; $i++)
             {
-                $ADForestObj | Add-Member -MemberType NoteProperty -Name "Site -$i" -Value $ADForest.Sites[$i]
+                $Obj = New-Object PSObject
+                $Obj | Add-Member -MemberType NoteProperty -Name "Category" -Value "Site"
+                $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $ADForest.Sites[$i]
+                $ForestObj += $Obj
             }
             For($i=0; $i -lt $ADForest.GlobalCatalogs.Count; $i++)
             {
-                $ADForestObj | Add-Member -MemberType NoteProperty -Name "GlobalCatalog -$i" -Value $ADForest.GlobalCatalogs[$i]
+                $Obj = New-Object PSObject
+                $Obj | Add-Member -MemberType NoteProperty -Name "Category" -Value "GlobalCatalog"
+                $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $ADForest.GlobalCatalogs[$i]
+                $ForestObj += $Obj
             }
-            Remove-Variable ADForest
             If ($ADRecycleBin)
             {
+                $Obj = New-Object PSObject
+                $Obj | Add-Member -MemberType NoteProperty -Name "Category" -Value "Recycle Bin Enabled"
                 If ($ADRecycleBin.EnabledScopes.Count -eq 0)
                 {
-                    $ADForestObj | Add-Member -MemberType NoteProperty -Name "Recycle Bin Enabled" -Value $false
+                    $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $false
                 }
                 Else
                 {
-                    $ADForestObj | Add-Member -MemberType NoteProperty -Name "Recycle Bin Enabled" -Value $true
+                    $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $true
                 }
+                $ForestObj += $Obj
                 Remove-Variable ADRecycleBin
             }
+            $Obj = New-Object PSObject
+            $Obj | Add-Member -MemberType NoteProperty -Name "Category" -Value "Tombstone Lifetime"
             If ($ADForestTombstoneLifetime)
             {
-                $ADForestObj | Add-Member -MemberType NoteProperty -Name "Tombstone Lifetime" -Value $ADForestTombstoneLifetime
+                $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $ADForestTombstoneLifetime
                 Remove-Variable ADForestTombstoneLifetime
             }
             Else
             {
-                $ADForestObj | Add-Member -MemberType NoteProperty -Name "Tombstone Lifetime" -Value "Not Retrieved"
+                $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value "Not Retrieved"
             }
+            $ForestObj += $Obj
+            Remove-Variable ADForest
         }
     }
 
@@ -3556,72 +3616,91 @@ Function Get-ADRForest
 
         }
 
-        # Values taken from https://technet.microsoft.com/en-us/library/hh852281(v=wps.630).aspx
-        $FLAD = @{
-	        0 = "Windows2000";
-	        1 = "Windows2003/Interim";
-	        2 = "Windows2003";
-	        3 = "Windows2008";
-	        4 = "Windows2008R2";
-	        5 = "Windows2012";
-	        6 = "Windows2012R2";
-	        7 = "Windows2016"
-        }
-
         If ($ADForest)
         {
-            $ADForestObj = New-Object PSObject
-            $ADForestObj | Add-Member -MemberType NoteProperty -Name "Category" -Value "Value"
-            $ADForestObj | Add-Member -MemberType NoteProperty -Name "Name" -Value $ADForest.Name
+            $ForestObj = @()
+
+            # Values taken from https://technet.microsoft.com/en-us/library/hh852281(v=wps.630).aspx
+            $FLAD = @{
+	            0 = "Windows2000";
+	            1 = "Windows2003/Interim";
+	            2 = "Windows2003";
+	            3 = "Windows2008";
+	            4 = "Windows2008R2";
+	            5 = "Windows2012";
+	            6 = "Windows2012R2";
+	            7 = "Windows2016"
+            }
             $ForestMode = $FLAD[[convert]::ToInt32($objDomainRootDSE.forestFunctionality,10)] + "Forest"
-            $ADForestObj | Add-Member -MemberType NoteProperty -Name "Functional Level" -Value $ForestMode
+            Remove-Variable FLAD
+
+            $ObjValues = @("Name", $ADForest.Name, "Functional Level", $ForestMode, "Domain Naming Master", $ADForest.NamingRoleOwner, "Schema Master", $ADForest.SchemaRoleOwner, "RootDomain", $ADForest.RootDomain, "Domain Count", $ADForest.Domains.Count, "Site Count", $ADForest.Sites.Count, "Global Catalog Count", $ADForest.GlobalCatalogs.Count)
+
+            For ($i = 0; $i -lt $($ObjValues.Count); $i++)
+            {
+                $Obj = New-Object PSObject
+                $Obj | Add-Member -MemberType NoteProperty -Name "Category" -Value $ObjValues[$i]
+                $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $ObjValues[$i+1]
+                $i++
+                $ForestObj += $Obj
+            }
             Remove-Variable ForestMode
-            $ADForestObj | Add-Member -MemberType NoteProperty -Name "Domain Naming Master" -Value $ADForest.NamingRoleOwner
-            $ADForestObj | Add-Member -MemberType NoteProperty -Name "Schema Master" -Value $ADForest.SchemaRoleOwner
-            $ADForestObj | Add-Member -MemberType NoteProperty -Name "RootDomain" -Value $ADForest.RootDomain
-            $ADForestObj | Add-Member -MemberType NoteProperty -Name "Domain Count" -Value $ADForest.Domains.Count
-            $ADForestObj | Add-Member -MemberType NoteProperty -Name "Site Count" -Value $ADForest.Sites.Count
-            $ADForestObj | Add-Member -MemberType NoteProperty -Name "Global Catalog Count" -Value $ADForest.GlobalCatalogs.Count
+
             For($i=0; $i -lt $ADForest.Domains.Count; $i++)
             {
-                $ADForestObj | Add-Member -MemberType NoteProperty -Name "Domain -$i" -Value $ADForest.Domains[$i]
+                $Obj = New-Object PSObject
+                $Obj | Add-Member -MemberType NoteProperty -Name "Category" -Value "Domain"
+                $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $ADForest.Domains[$i]
+                $ForestObj += $Obj
             }
             For($i=0; $i -lt $ADForest.Sites.Count; $i++)
             {
-                $ADForestObj | Add-Member -MemberType NoteProperty -Name "Site -$i" -Value $ADForest.Sites[$i]
+                $Obj = New-Object PSObject
+                $Obj | Add-Member -MemberType NoteProperty -Name "Category" -Value "Site"
+                $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $ADForest.Sites[$i]
+                $ForestObj += $Obj
             }
             For($i=0; $i -lt $ADForest.GlobalCatalogs.Count; $i++)
             {
-                $ADForestObj | Add-Member -MemberType NoteProperty -Name "GlobalCatalog -$i" -Value $ADForest.GlobalCatalogs[$i]
+                $Obj = New-Object PSObject
+                $Obj | Add-Member -MemberType NoteProperty -Name "Category" -Value "GlobalCatalog"
+                $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $ADForest.GlobalCatalogs[$i]
+                $ForestObj += $Obj
             }
             If ($ADRecycleBin)
             {
+                $Obj = New-Object PSObject
+                $Obj | Add-Member -MemberType NoteProperty -Name "Category" -Value "Recycle Bin Enabled"
                 If ($ADRecycleBin.Properties.EnabledScopes.Count -eq 0)
                 {
-                    $ADForestObj | Add-Member -MemberType NoteProperty -Name "Recycle Bin Enabled" -Value $false
+                    $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $false
                 }
                 Else
                 {
-                    $ADForestObj | Add-Member -MemberType NoteProperty -Name "Recycle Bin Enabled" -Value $true
+                    $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $true
                 }
+                $ForestObj += $Obj
                 Remove-Variable ADRecycleBin
             }
+            $Obj = New-Object PSObject
+            $Obj | Add-Member -MemberType NoteProperty -Name "Category" -Value "Tombstone Lifetime"
             If ($ADForestTombstoneLifetime)
             {
-                $ADForestObj | Add-Member -MemberType NoteProperty -Name "Tombstone Lifetime" -Value $ADForestTombstoneLifetime
+                $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $ADForestTombstoneLifetime
                 Remove-Variable ADForestTombstoneLifetime
             }
             Else
             {
-                $ADForestObj | Add-Member -MemberType NoteProperty -Name "Tombstone Lifetime" -Value "Not Retrieved"
+                $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value "Not Retrieved"
             }
+            $ForestObj += $Obj
             Remove-Variable ADForest
         }
     }
 
-    If ($ADForestObj)
+    If ($ForestObj)
     {
-        Return $ADForestObj
+        Return $ForestObj
     }
     Else
     {
@@ -3678,17 +3757,19 @@ Function Get-ADRDefaultPasswordPolicy
 
         If ($ADpasspolicy)
         {
-            $ADPassPolObj = New-Object PSObject
-            $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Policy" -Value "Value"
-            $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Enforce password history" -Value $ADpasspolicy.PasswordHistoryCount
-            $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Maximum password age (days)" -Value $ADpasspolicy.MaxPasswordAge.days
-            $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Minimum password age (days)" -Value $ADpasspolicy.MinPasswordAge.days
-            $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Minimum password length" -Value $ADpasspolicy.MinPasswordLength
-            $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Password must meet complexity requirements" -Value $ADpasspolicy.ComplexityEnabled
-            $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Store password using reversible encryption for all users in the domain" -Value $ADpasspolicy.ReversibleEncryptionEnabled
-            $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Account lockout duration (mins)" -Value $ADpasspolicy.LockoutDuration.minutes
-            $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Account lockout threshold" -Value $ADpasspolicy.LockoutThreshold
-            $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Reset account lockout counter after (mins)" -Value $ADpasspolicy.LockoutObservationWindow.minutes
+            $ADPassPolObj = @()
+
+            $ObjValues = @("Enforce password history", $ADpasspolicy.PasswordHistoryCount, "Maximum password age (days)", $ADpasspolicy.MaxPasswordAge.days, "Minimum password age (days)", $ADpasspolicy.MinPasswordAge.days, "Minimum password length", $ADpasspolicy.MinPasswordLength, "Password must meet complexity requirements", $ADpasspolicy.ComplexityEnabled, "Store password using reversible encryption for all users in the domain", $ADpasspolicy.ReversibleEncryptionEnabled, "Account lockout duration (mins)", $ADpasspolicy.LockoutDuration.minutes, "Account lockout threshold", $ADpasspolicy.LockoutThreshold, "Reset account lockout counter after (mins)", $ADpasspolicy.LockoutObservationWindow.minutes)
+
+            For ($i = 0; $i -lt $($ObjValues.Count); $i++)
+            {
+                $Obj = New-Object PSObject
+                $Obj | Add-Member -MemberType NoteProperty -Name "Policy" -Value $ObjValues[$i]
+                $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $ObjValues[$i+1]
+                $i++
+                $ADPassPolObj += $Obj
+            }
+
             Remove-Variable ADpasspolicy
         }
     }
@@ -3697,6 +3778,8 @@ Function Get-ADRDefaultPasswordPolicy
     {
         If ($ObjDomain)
         {
+            $ADPassPolObj = @()
+
             #Value taken from https://msdn.microsoft.com/en-us/library/ms679431(v=vs.85).aspx
             $pwdProperties = @{
                 "DOMAIN_PASSWORD_COMPLEX" = 1;
@@ -3707,32 +3790,38 @@ Function Get-ADRDefaultPasswordPolicy
                 "DOMAIN_REFUSE_PASSWORD_CHANGE" = 32
             }
 
-            $ADPassPolObj = New-Object PSObject
-            $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Policy" -Value "Value"
-            $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Enforce password history" -Value $ObjDomain.PwdHistoryLength.value
-            $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Maximum password age (days)" -Value $($ObjDomain.ConvertLargeIntegerToInt64($ObjDomain.maxpwdage.value) /-864000000000)
-            $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Minimum password age (days)" -Value $($ObjDomain.ConvertLargeIntegerToInt64($ObjDomain.minpwdage.value) /-864000000000)
-            $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Minimum password length" -Value $ObjDomain.MinPwdLength.value
             If (($ObjDomain.pwdproperties.value -band $pwdProperties["DOMAIN_PASSWORD_COMPLEX"]) -eq $pwdProperties["DOMAIN_PASSWORD_COMPLEX"])
             {
-                $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Password must meet complexity requirements" -Value $true
+                $ComplexPasswords = $true
             }
             Else
             {
-                $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Password must meet complexity requirements" -Value $false
+                $ComplexPasswords = $false
             }
+
             If (($ObjDomain.pwdproperties.value -band $pwdProperties["DOMAIN_PASSWORD_STORE_CLEARTEXT"]) -eq $pwdProperties["DOMAIN_PASSWORD_STORE_CLEARTEXT"])
             {
-                $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Store password using reversible encryption for all users in the domain" -Value $true
+                $ReversibleEncryption = $true
             }
             Else
             {
-                $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Store password using reversible encryption for all users in the domain" -Value $false
+                $ReversibleEncryption = $false
             }
+
+            $ObjValues = @("Enforce password history", $ObjDomain.PwdHistoryLength.value, "Maximum password age (days)", $($ObjDomain.ConvertLargeIntegerToInt64($ObjDomain.maxpwdage.value) /-864000000000), "Minimum password age (days)", $($ObjDomain.ConvertLargeIntegerToInt64($ObjDomain.minpwdage.value) /-864000000000), "Minimum password length", $ObjDomain.MinPwdLength.value, "Password must meet complexity requirements", $ComplexPasswords, "Store password using reversible encryption for all users in the domain", $ReversibleEncryption, "Account lockout duration (mins)", $($ObjDomain.ConvertLargeIntegerToInt64($ObjDomain.lockoutduration.value)/-600000000), "Account lockout threshold", $ObjDomain.LockoutThreshold.value, "Reset account lockout counter after (mins)", $($ObjDomain.ConvertLargeIntegerToInt64($ObjDomain.lockoutobservationWindow.value)/-600000000))
+
+            For ($i = 0; $i -lt $($ObjValues.Count); $i++)
+            {
+                $Obj = New-Object PSObject
+                $Obj | Add-Member -MemberType NoteProperty -Name "Policy" -Value $ObjValues[$i]
+                $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $ObjValues[$i+1]
+                $i++
+                $ADPassPolObj += $Obj
+            }
+
             Remove-Variable pwdProperties
-            $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Account lockout duration (mins)" -Value $($ObjDomain.ConvertLargeIntegerToInt64($ObjDomain.lockoutduration.value)/-600000000)
-            $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Account lockout threshold" -Value $ObjDomain.LockoutThreshold.value
-            $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Reset account lockout counter after (mins)" -Value $($ObjDomain.ConvertLargeIntegerToInt64($ObjDomain.lockoutobservationWindow.value)/-600000000)
+            Remove-Variable ComplexPasswords
+            Remove-Variable ReversibleEncryption
         }
     }
 
@@ -3795,23 +3884,23 @@ Function Get-ADRFineGrainedPasswordPolicy
 
         If ($ADFinepasspolicy)
         {
-            $ADPassPolObj = New-Object PSObject
-            $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Policy" -Value "Value"
-            $i = 0
+            $ADPassPolObj = @()
+
             $ADFinepasspolicy | ForEach-Object {
-                $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Name -$i" -Value $($_.Name)
-                $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Applies To -$i" -Value $($_.AppliesTo)
-                $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Enforce password history -$i" -Value $_.PasswordHistoryCount
-                $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Maximum password age (days) -$i" -Value $_.MaxPasswordAge.days
-                $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Minimum password age (days) -$i" -Value $_.MinPasswordAge.days
-                $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Minimum password length -$i" -Value $_.MinPasswordLength
-                $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Password must meet complexity requirements -$i" -Value $_.ComplexityEnabled
-                $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Store password using reversible encryption -$i" -Value $_.ReversibleEncryptionEnabled
-                $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Account lockout duration (mins) -$i" -Value $_.LockoutDuration.minutes
-                $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Account lockout threshold -$i" -Value $_.LockoutThreshold
-                $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Reset account lockout counter after (mins) -$i" -Value $_.LockoutObservationWindow.minutes
-                $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Precedence -$i" -Value $($_.Precedence)
-                $i ++
+                For($i=0; $i -lt $($_.AppliesTo.Count); $i++)
+                {
+                    $AppliesTo = $AppliesTo + "," + $_.AppliesTo[$i]
+                }
+                $AppliesTo = $AppliesTo.TrimStart(",")
+                $ObjValues = @("Name", $($_.Name), "Applies To", $AppliesTo, "Enforce password history", $_.PasswordHistoryCount, "Maximum password age (days)", $_.MaxPasswordAge.days, "Minimum password age (days)", $_.MinPasswordAge.days, "Minimum password length", $_.MinPasswordLength, "Password must meet complexity requirements", $_.ComplexityEnabled, "Store password using reversible encryption", $_.ReversibleEncryptionEnabled, "Account lockout duration (mins)", $_.LockoutDuration.minutes, "Account lockout threshold", $_.LockoutThreshold, "Reset account lockout counter after (mins)", $_.LockoutObservationWindow.minutes, "Precedence", $($_.Precedence))
+                For ($i = 0; $i -lt $($ObjValues.Count); $i++)
+                {
+                    $Obj = New-Object PSObject
+                    $Obj | Add-Member -MemberType NoteProperty -Name "Policy" -Value $ObjValues[$i]
+                    $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $ObjValues[$i+1]
+                    $i++
+                    $ADPassPolObj += $Obj
+                }
             }
             Remove-Variable ADFinepasspolicy
         }
@@ -3837,26 +3926,24 @@ Function Get-ADRFineGrainedPasswordPolicy
 
             If ($ADFinepasspolicy)
             {
-                $cnt = $($ADFinepasspolicy | Measure-Object | Select-Object -ExpandProperty Count)
-                If ($cnt -ge 1)
+                If ([ADRecon.LDAPClass]::ObjectCount($ADFinepasspolicy) -ge 1)
                 {
-                    $ADPassPolObj = New-Object PSObject
-                    $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Policy" -Value "Value"
-                    $i = 0
+                    $ADPassPolObj = @()
                     $ADFinepasspolicy | ForEach-Object {
-                        $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Name -$i" -Value $($_.Properties.name)
-                        $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Applies To -$i" -Value $($_.Properties.'msds-psoappliesto')
-                        $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Enforce password history -$i" -Value $($_.Properties.'msds-passwordhistorylength')
-                        $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Maximum password age (days) -$i" -Value $($($_.Properties.'msds-maximumpasswordage') /-864000000000)
-                        $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Minimum password age (days) -$i" -Value $($($_.Properties.'msds-minimumpasswordage') /-864000000000)
-                        $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Minimum password length -$i" -Value $($_.Properties.'msds-minimumpasswordlength')
-                        $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Password must meet complexity requirements -$i" -Value $($_.Properties.'msds-passwordcomplexityenabled')
-                        $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Store password using reversible encryption -$i" -Value $($_.Properties.'msds-passwordreversibleencryptionenabled')
-                        $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Account lockout duration (mins) -$i" -Value $($($_.Properties.'msds-lockoutduration')/-600000000)
-                        $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Account lockout threshold -$i" -Value $($_.Properties.'msds-lockoutthreshold')
-                        $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Reset account lockout counter after (mins) -$i" -Value $($($_.Properties.'msds-lockoutobservationwindow')/-600000000)
-                        $ADPassPolObj | Add-Member -MemberType NoteProperty -Name "Precedence -$i" -Value $($_.Properties.'msds-passwordsettingsprecedence')
-                        $i ++
+                        For($i=0; $i -lt $($_.Properties.'msds-psoappliesto'.Count); $i++)
+                        {
+                            $AppliesTo = $AppliesTo + "," + $_.Properties.'msds-psoappliesto'[$i]
+                        }
+                        $AppliesTo = $AppliesTo.TrimStart(",")
+                        $ObjValues = @("Name", $($_.Properties.name), "Applies To", $AppliesTo, "Enforce password history", $($_.Properties.'msds-passwordhistorylength'), "Maximum password age (days)", $($($_.Properties.'msds-maximumpasswordage') /-864000000000), "Minimum password age (days)", $($($_.Properties.'msds-minimumpasswordage') /-864000000000), "Minimum password length", $($_.Properties.'msds-minimumpasswordlength'), "Password must meet complexity requirements", $($_.Properties.'msds-passwordcomplexityenabled'), "Store password using reversible encryption", $($_.Properties.'msds-passwordreversibleencryptionenabled'), "Account lockout duration (mins)", $($($_.Properties.'msds-lockoutduration')/-600000000), "Account lockout threshold", $($_.Properties.'msds-lockoutthreshold'), "Reset account lockout counter after (mins)", $($($_.Properties.'msds-lockoutobservationwindow')/-600000000), "Precedence", $($_.Properties.'msds-passwordsettingsprecedence'))
+                        For ($i = 0; $i -lt $($ObjValues.Count); $i++)
+                        {
+                            $Obj = New-Object PSObject
+                            $Obj | Add-Member -MemberType NoteProperty -Name "Policy" -Value $ObjValues[$i]
+                            $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $ObjValues[$i+1]
+                            $i++
+                            $ADPassPolObj += $Obj
+                        }
                     }
                 }
                 Remove-Variable ADFinepasspolicy
@@ -3895,6 +3982,10 @@ Function Get-ADRDC
     [DirectoryServices.DirectoryEntry]
     Domain Directory Entry object.
 
+.PARAMETER creds
+    [Management.Automation.PSCredential]
+    Credentials.
+
 .OUTPUTS
     PSObject.
 #>
@@ -3906,7 +3997,10 @@ Function Get-ADRDC
         [bool] $UseAltCreds,
 
         [Parameter(Mandatory = $false)]
-        [DirectoryServices.DirectoryEntry] $objDomain
+        [DirectoryServices.DirectoryEntry] $objDomain,
+
+        [Parameter(Mandatory = $false)]
+        [Management.Automation.PSCredential] $creds = [Management.Automation.PSCredential]::Empty
     )
 
     If ($Protocol -eq 'ADWS')
@@ -6746,6 +6840,102 @@ Function Remove-EmptyADROutputDir
     }
 }
 
+Function Get-ADRAbout
+{
+<#
+.SYNOPSIS
+    Returns information about ADRecon.
+
+.DESCRIPTION
+    Returns information about ADRecon.
+
+.PARAMETER Protocol
+    [string]
+    Which protocol to use; ADWS (default) or LDAP.
+
+.PARAMETER UseAltCreds
+    [bool]
+    Whether to use provided credentials or not.
+
+.PARAMETER date
+    [DateTime]
+    Date
+
+.PARAMETER ADReconVersion
+    [string]
+    ADRecon Version.
+
+.PARAMETER creds
+    [Management.Automation.PSCredential]
+    Credentials.
+
+.PARAMETER RanonComputer
+    [string]
+    Details of the Computer running ADRecon.
+
+.PARAMETER TotalTime
+    [string]
+    TotalTime.
+
+.OUTPUTS
+    PSObject.
+#>
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Protocol,
+
+        [Parameter(Mandatory = $true)]
+        [bool] $UseAltCreds,
+
+        [Parameter(Mandatory = $true)]
+        [DateTime] $date,
+
+        [Parameter(Mandatory = $true)]
+        [string] $ADReconVersion,
+
+        [Parameter(Mandatory = $false)]
+        [Management.Automation.PSCredential] $Credential = [Management.Automation.PSCredential]::Empty,
+
+        [Parameter(Mandatory = $true)]
+        [string] $RanonComputer,
+
+        [Parameter(Mandatory = $true)]
+        [string] $TotalTime
+    )
+
+    $AboutADRecon = @()
+
+    If ($Protocol -eq 'ADWS')
+    {
+        $Version = "RSAT Version"
+    }
+    Else
+    {
+        $Version = "LDAP Version"
+    }
+
+    If ($Credential -ne [Management.Automation.PSCredential]::Empty)
+    {
+        $Username = $($Credential.UserName)
+    }
+    Else
+    {
+        $Username = $([Environment]::UserName)
+    }
+
+    $ObjValues = @("Date", $($date), "ADRecon", "https://github.com/sense-of-security/ADRecon", $Version, $($ADReconVersion), "Ran as user", $Username, "Ran on computer", $RanonComputer, "Execution Time (mins)", $($TotalTime))
+
+    For ($i = 0; $i -lt $($ObjValues.Count); $i++)
+    {
+        $Obj = New-Object PSObject
+        $Obj | Add-Member -MemberType NoteProperty -Name "Category" -Value $ObjValues[$i]
+        $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $ObjValues[$i+1]
+        $i++
+        $AboutADRecon += $Obj
+    }
+    Return $AboutADRecon
+}
+
 Function Invoke-ADRecon
 {
 <#
@@ -6829,14 +7019,14 @@ Function Invoke-ADRecon
         [bool] $UseAltCreds = $false
     )
 
-    [string] $ADReconVersion = "v180629"
+    [string] $ADReconVersion = "v180630"
     Write-Output "[*] ADRecon $ADReconVersion by Prashant Mahajan (@prashant3535) from Sense of Security."
 
     If ($GenExcel)
     {
         If (!(Test-Path $GenExcel))
         {
-            Write-Output "[ERROR] Invalid Path ... Exiting"
+            Write-Output "[Invoke-ADRecon] Invalid Path ... Exiting"
             Return $null
         }
         Export-ADRExcel $GenExcel
@@ -6861,11 +7051,12 @@ Function Invoke-ADRecon
     }
     Catch
     {
-        Write-Output "[EXCEPTION] $($_.Exception.Message)"
+        Write-Output "[Invoke-ADRecon] $($_.Exception.Message)"
     }
     If ($SaveVerbosePreference)
     {
         $script:VerbosePreference = $SaveVerbosePreference
+        Remove-Variable SaveVerbosePreference
     }
 
     switch ($computerdomainrole)
@@ -6888,6 +7079,11 @@ Function Invoke-ADRecon
         5 { [string] $computerrole = "Primary Domain Controller" }
         default { Write-Output "Computer Role could not be identified." }
     }
+
+    $RanonComputer = "$($computer.domain)\$([Environment]::MachineName) - $($computerrole)"
+    Remove-Variable computer
+    Remove-Variable computerdomainrole
+    Remove-Variable computerrole
 
     If (($DCIP -ne "") -or ($creds -ne [Management.Automation.PSCredential]::Empty))
     {
@@ -6989,10 +7185,7 @@ Function Invoke-ADRecon
         }
     }
 
-    Write-Output "[*] Running on $($computer.domain)\$($env:computername) - $($computerrole)"
-
-    Remove-Variable computer
-    Remove-Variable computerdomainrole
+    Write-Output "[*] Running on $RanonComputer"
 
     Switch ($Collect)
     {
@@ -7310,7 +7503,7 @@ Function Invoke-ADRecon
     If ($ADRDCs)
     {
         Write-Output "[-] Domain Controllers"
-        $ADRObject = Get-ADRDC $Protocol $UseAltCreds $objDomain
+        $ADRObject = Get-ADRDC $Protocol $UseAltCreds $objDomain $creds
         If ($ADRObject)
         {
             Export-ADR $ADRObject $ADROutputDir $OutputType "DCs"
@@ -7448,43 +7641,12 @@ Function Invoke-ADRecon
         Write-Output "[-] Domain GPO Report - May take some time"
         Get-ADRGPOReport $Protocol $UseAltCreds $ADROutputDir
     }
-    If ($ADRDomainAccountsusedforServiceLogon)
-    {
-        Write-Output "[-] Domain Accounts used for Service Logon"
-        $ADRObject = Get-ADRDomainAccountsusedforServiceLogon $Protocol $UseAltCreds $objDomain $creds $PageSize $Threads
-        If ($ADRObject)
-        {
-            Export-ADR $ADRObject $ADROutputDir $OutputType "DomainAccountsusedforServiceLogon"
-            Remove-Variable ADRObject
-        }
-    }
 
-    $AboutADRecon = New-Object PSObject
-    $AboutADRecon | Add-Member -MemberType NoteProperty -Name "Category" -Value "Value"
-    $AboutADRecon | Add-Member -MemberType NoteProperty -Name "Date" -Value $($date)
-    $AboutADRecon | Add-Member -MemberType NoteProperty -Name "ADRecon" -Value "https://github.com/sense-of-security/ADRecon"
-    If ($Protocol -eq 'ADWS')
-    {
-        $AboutADRecon | Add-Member -MemberType NoteProperty -Name "RSAT Version" -Value $($ADReconVersion)
-    }
-    Else
-    {
-        $AboutADRecon | Add-Member -MemberType NoteProperty -Name "LDAP Version" -Value $($ADReconVersion)
-    }
-    If ($UseAltCreds)
-    {
-        $AboutADRecon | Add-Member -MemberType NoteProperty -Name "Ran as user" -Value $($creds.UserName)
-    }
-    Else
-    {
-        $AboutADRecon | Add-Member -MemberType NoteProperty -Name "Ran as user" -Value $([Environment]::UserName)
-    }
-    $AboutADRecon | Add-Member -MemberType NoteProperty -Name "Ran from" -Value $([Environment]::MachineName)
-    $AboutADRecon | Add-Member -MemberType NoteProperty -Name "Computer Role" -Value $($computerrole)
     $TotalTime = "{0:N2}" -f ((Get-DateDiff (Get-Date) $date).TotalMinutes)
-    $AboutADRecon | Add-Member -MemberType NoteProperty -Name "Execution Time (mins)" -Value $($TotalTime)
 
-    If ( ($OutputType.Contains("CSV")) -or ($OutputType.Contains("XML")) -or ($OutputType.Contains("JSON")) -or ($OutputType.Contains("HTML")) )
+    $AboutADRecon = Get-ADRAbout $Protocol $UseAltCreds $date $ADReconVersion $creds $RanonComputer $TotalTime
+
+    If ( ($OutputType -Contains "CSV") -or ($OutputType -Contains "XML") -or ($OutputType -Contains "JSON") -or ($OutputType -Contains "HTML") )
     {
         If ($AboutADRecon)
         {
@@ -7531,7 +7693,7 @@ Function Invoke-ADRecon
     }
 
     Remove-Variable ADReconVersion
-    Remove-Variable computerrole
+    Remove-Variable RanonComputer
 }
 
 If ($Log)
