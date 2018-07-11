@@ -2769,7 +2769,8 @@ Function Export-ADRCSV
     }
     Catch
     {
-        Write-Error "[EXCEPTION] Failed to export $($ADFileName). $($_.Exception.Message)"
+        Write-Warning "[Export-ADRCSV] Failed to export $($ADFileName)."
+        Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
     }
 }
 
@@ -2809,7 +2810,8 @@ Function Export-ADRXML
     }
     Catch
     {
-        Write-Error "[EXCEPTION] Failed to export $($ADFileName). $($_.Exception.Message)"
+        Write-Warning "[Export-ADRXML] Failed to export $($ADFileName)."
+        Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
     }
 }
 
@@ -2849,7 +2851,8 @@ Function Export-ADRJSON
     }
     Catch
     {
-        Write-Error "[EXCEPTION] Failed to export $($ADFileName). $($_.Exception.Message)"
+        Write-Warning "[Export-ADRJSON] Failed to export $($ADFileName)."
+        Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
     }
 }
 
@@ -2923,7 +2926,8 @@ table {
     }
     Catch
     {
-        Write-Error "[EXCEPTION] Failed to export $($ADFileName). $($_.Exception.Message)"
+        Write-Warning "[Export-ADRHTML] Failed to export $($ADFileName)."
+        Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
     }
 }
 
@@ -2971,7 +2975,30 @@ Function Export-ADR
         {
             If ($ADRModuleName -ne "AboutADRecon")
             {
-                $ADRObj
+                If ($ADRObj -is [array])
+                {
+                    # Fix for InvalidOperationException: The object of type "Microsoft.PowerShell.Commands.Internal.Format.FormatStartData" is not valid or not in the correct sequence.
+                    If ($PSVersionTable.PSVersion.Major -ne 2)
+                    {
+                        $ADRObj
+                    }
+                    Else
+                    {
+                        $ADRObj | Out-String -Stream
+                    }
+                }
+                Else
+                {
+                    # Fix for InvalidOperationException: The object of type "Microsoft.PowerShell.Commands.Internal.Format.FormatStartData" is not valid or not in the correct sequence.
+                    If ($PSVersionTable.PSVersion.Major -ne 2)
+                    {
+                        $ADRObj | Format-List
+                    }
+                    Else
+                    {
+                        $ADRObj | Format-List | Out-String -Stream
+                    }
+                }
             }
         }
         'CSV'
