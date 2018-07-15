@@ -2276,7 +2276,7 @@ Function Export-ADRExcel
             Get-ADRExcelImport $ADFileName 2
         }
 
-        $ADFileName = -join($ReportPath,'\','DCs.csv')
+        $ADFileName = -join($ReportPath,'\','DomainControllers.csv')
         If (Test-Path $ADFileName)
         {
             Get-ADRExcelWorkbook("Domain Controllers")
@@ -3049,11 +3049,11 @@ Function Get-ADRDomain
     [DirectoryServices.DirectoryEntry]
     RootDSE Directory Entry object.
 
-.PARAMETER DCIP
+.PARAMETER DomainController
     [string]
     IP Address of the Domain Controller.
 
-.PARAMETER creds
+.PARAMETER Credential
     [Management.Automation.PSCredential]
     Credentials.
 
@@ -3074,10 +3074,10 @@ Function Get-ADRDomain
         [DirectoryServices.DirectoryEntry] $objDomainRootDSE,
 
         [Parameter(Mandatory = $false)]
-        [string] $DCIP,
+        [string] $DomainController,
 
         [Parameter(Mandatory = $false)]
-        [Management.Automation.PSCredential] $creds = [Management.Automation.PSCredential]::Empty
+        [Management.Automation.PSCredential] $Credential = [Management.Automation.PSCredential]::Empty
     )
 
     If ($Protocol -eq 'ADWS')
@@ -3153,7 +3153,7 @@ Function Get-ADRDomain
             {
                 Try
                 {
-                    $ADForest = Get-ADForest -Server $DCIP
+                    $ADForest = Get-ADForest -Server $DomainController
                 }
                 Catch
                 {
@@ -3219,7 +3219,7 @@ Function Get-ADRDomain
         If ($UseAltCreds)
         {
             $DomainFQDN = Get-DNtoFQDN($objDomain.distinguishedName)
-            $DomainContext = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext("Domain",$($DomainFQDN),$($creds.UserName),$($creds.GetNetworkCredential().password))
+            $DomainContext = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext("Domain",$($DomainFQDN),$($Credential.UserName),$($Credential.GetNetworkCredential().password))
             Try
             {
                 $ADDomain = [System.DirectoryServices.ActiveDirectory.Domain]::GetDomain($DomainContext)
@@ -3232,7 +3232,7 @@ Function Get-ADRDomain
             Remove-Variable DomainContext
             # Get RIDAvailablePool
             $SearchPath = "CN=RID Manager$,CN=System"
-            $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DCIP)/$SearchPath,$($objDomain.distinguishedName)", $creds.UserName,$creds.GetNetworkCredential().Password
+            $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DomainController)/$SearchPath,$($objDomain.distinguishedName)", $Credential.UserName,$Credential.GetNetworkCredential().Password
             $objSearcherPath = New-Object System.DirectoryServices.DirectorySearcher $objSearchPath
             $objSearcherPath.PropertiesToLoad.AddRange(("ridavailablepool"))
             $objSearcherResult = $objSearcherPath.FindAll()
@@ -3248,7 +3248,7 @@ Function Get-ADRDomain
             Remove-Variable RIDproperty
             Remove-Variable totalSIDS
             Remove-Variable temp64val
-            $ForestContext = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext("Forest",$($ADDomain.Forest),$($creds.UserName),$($creds.GetNetworkCredential().password))
+            $ForestContext = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext("Forest",$($ADDomain.Forest),$($Credential.UserName),$($Credential.GetNetworkCredential().password))
             Try
             {
                 $ADForest = [System.DirectoryServices.ActiveDirectory.Forest]::GetForest($ForestContext)
@@ -3264,7 +3264,7 @@ Function Get-ADRDomain
             If ($GlobalCatalog)
             {
                 $DN = "GC://$($GlobalCatalog.IPAddress)/$($objDomain.distinguishedname)"
-                $ADObject = New-Object -TypeName System.DirectoryServices.DirectoryEntry -ArgumentList ($($DN),$($creds.UserName),$($creds.GetNetworkCredential().password))
+                $ADObject = New-Object -TypeName System.DirectoryServices.DirectoryEntry -ArgumentList ($($DN),$($Credential.UserName),$($Credential.GetNetworkCredential().password))
                 $ADDomainSID = New-Object System.Security.Principal.SecurityIdentifier($ADObject.objectSid[0], 0)
                 $ADObject.Dispose()
             }
@@ -3396,11 +3396,11 @@ Function Get-ADRForest
     [DirectoryServices.DirectoryEntry]
     RootDSE Directory Entry object.
 
-.PARAMETER DCIP
+.PARAMETER DomainController
     [string]
     IP Address of the Domain Controller.
 
-.PARAMETER creds
+.PARAMETER Credential
     [Management.Automation.PSCredential]
     Credentials.
 
@@ -3421,10 +3421,10 @@ Function Get-ADRForest
         [DirectoryServices.DirectoryEntry] $objDomainRootDSE,
 
         [Parameter(Mandatory = $false)]
-        [string] $DCIP,
+        [string] $DomainController,
 
         [Parameter(Mandatory = $false)]
-        [Management.Automation.PSCredential] $creds = [Management.Automation.PSCredential]::Empty
+        [Management.Automation.PSCredential] $Credential = [Management.Automation.PSCredential]::Empty
     )
 
     If ($Protocol -eq 'ADWS')
@@ -3453,7 +3453,7 @@ Function Get-ADRForest
         {
             Try
             {
-                $ADForest = Get-ADForest -Server $DCIP
+                $ADForest = Get-ADForest -Server $DomainController
             }
             Catch
             {
@@ -3576,7 +3576,7 @@ Function Get-ADRForest
         If ($UseAltCreds)
         {
             $DomainFQDN = Get-DNtoFQDN($objDomain.distinguishedName)
-            $DomainContext = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext("Domain",$($DomainFQDN),$($creds.UserName),$($creds.GetNetworkCredential().password))
+            $DomainContext = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext("Domain",$($DomainFQDN),$($Credential.UserName),$($Credential.GetNetworkCredential().password))
             Try
             {
                 $ADDomain = [System.DirectoryServices.ActiveDirectory.Domain]::GetDomain($DomainContext)
@@ -3588,7 +3588,7 @@ Function Get-ADRForest
             }
             Remove-Variable DomainContext
 
-            $ForestContext = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext("Forest",$($ADDomain.Forest),$($creds.UserName),$($creds.GetNetworkCredential().password))
+            $ForestContext = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext("Forest",$($ADDomain.Forest),$($Credential.UserName),$($Credential.GetNetworkCredential().password))
             Remove-Variable ADDomain
             Try
             {
@@ -3605,7 +3605,7 @@ Function Get-ADRForest
             Try
             {
                 $SearchPath = "CN=Recycle Bin Feature,CN=Optional Features,CN=Directory Service,CN=Windows NT,CN=Services,CN=Configuration"
-                $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DCIP)/$($SearchPath),$($objDomain.distinguishedName)", $creds.UserName,$creds.GetNetworkCredential().Password
+                $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DomainController)/$($SearchPath),$($objDomain.distinguishedName)", $Credential.UserName,$Credential.GetNetworkCredential().Password
                 $objSearcherPath = New-Object System.DirectoryServices.DirectorySearcher $objSearchPath
                 $ADRecycleBin = $objSearcherPath.FindAll()
                 Remove-Variable SearchPath
@@ -3619,7 +3619,7 @@ Function Get-ADRForest
 
             # Get Tombstone Lifetime
             $SearchPath = "CN=Directory Service,CN=Windows NT,CN=Services"
-            $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DCIP)/$SearchPath,$($objDomainRootDSE.configurationNamingContext)", $creds.UserName,$creds.GetNetworkCredential().Password
+            $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DomainController)/$SearchPath,$($objDomainRootDSE.configurationNamingContext)", $Credential.UserName,$Credential.GetNetworkCredential().Password
             $objSearcherPath = New-Object System.DirectoryServices.DirectorySearcher $objSearchPath
             $objSearcherPath.Filter="(name=Directory Service)"
             $objSearcherResult = $objSearcherPath.FindAll()
@@ -3988,7 +3988,7 @@ Function Get-ADRFineGrainedPasswordPolicy
     }
 }
 
-Function Get-ADRDC
+Function Get-ADRDomainController
 {
 <#
 .SYNOPSIS
@@ -4009,7 +4009,7 @@ Function Get-ADRDC
     [DirectoryServices.DirectoryEntry]
     Domain Directory Entry object.
 
-.PARAMETER creds
+.PARAMETER Credential
     [Management.Automation.PSCredential]
     Credentials.
 
@@ -4027,7 +4027,7 @@ Function Get-ADRDC
         [DirectoryServices.DirectoryEntry] $objDomain,
 
         [Parameter(Mandatory = $false)]
-        [Management.Automation.PSCredential] $creds = [Management.Automation.PSCredential]::Empty
+        [Management.Automation.PSCredential] $Credential = [Management.Automation.PSCredential]::Empty
     )
 
     If ($Protocol -eq 'ADWS')
@@ -4115,7 +4115,7 @@ Function Get-ADRDC
         If ($UseAltCreds)
         {
             $DomainFQDN = Get-DNtoFQDN($objDomain.distinguishedName)
-            $DomainContext = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext("Domain",$($DomainFQDN),$($creds.UserName),$($creds.GetNetworkCredential().password))
+            $DomainContext = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext("Domain",$($DomainFQDN),$($Credential.UserName),$($Credential.GetNetworkCredential().password))
             Try
             {
                 $ADDomain = [System.DirectoryServices.ActiveDirectory.Domain]::GetDomain($DomainContext)
@@ -4250,7 +4250,7 @@ Function Get-ADRUser
     {
         Try
         {
-            $ADUsers = Get-ADUser -Filter * -ResultPageSize $PageSize -Properties AdminCount,AllowReversiblePasswordEncryption,CannotChangePassword,CanonicalName,Description,DistinguishedName,DoesNotRequirePreAuth,Enabled,LastLogonDate,LockedOut,LogonWorkstations,Name,PasswordLastSet,PasswordNeverExpires,PasswordNotRequired,primaryGroupID,pwdlastset,SamAccountName,SID,SIDHistory,TrustedForDelegation,TrustedToAuthForDelegation,whenChanged,whenCreated
+            $ADUsers = @( Get-ADUser -Filter * -ResultPageSize $PageSize -Properties AdminCount,AllowReversiblePasswordEncryption,CannotChangePassword,CanonicalName,Description,DistinguishedName,DoesNotRequirePreAuth,Enabled,LastLogonDate,LockedOut,LogonWorkstations,Name,PasswordLastSet,PasswordNeverExpires,PasswordNotRequired,primaryGroupID,pwdlastset,SamAccountName,SID,SIDHistory,TrustedForDelegation,TrustedToAuthForDelegation,whenChanged,whenCreated )
         }
         Catch
         {
@@ -4419,7 +4419,7 @@ Function Get-ADRUserSPN
     {
         Try
         {
-            $ADUsers = Get-ADObject -LDAPFilter "(&(!objectClass=computer)(servicePrincipalName=*))" -Properties Name,sAMAccountName,servicePrincipalName,pwdLastSet,Description -ResultPageSize $PageSize
+            $ADUsers = @( Get-ADObject -LDAPFilter "(&(!objectClass=computer)(servicePrincipalName=*))" -Properties Name,sAMAccountName,servicePrincipalName,pwdLastSet,Description -ResultPageSize $PageSize )
         }
         Catch
         {
@@ -4429,41 +4429,8 @@ Function Get-ADRUserSPN
 
         If ($ADUsers)
         {
-            $UserSPNCount = [ADRecon.ADWSClass]::ObjectCount($ADUsers)
-            Write-Verbose "[*] Total UserSPN's: $UserSPNCount"
-            # Temporary solution for exception in [ADRecon.ADWSClass]::UserSPNParser
-            # System.InvalidCastException: Unable to cast object of type 'Microsoft.ActiveDirectory.Management.ADObject' to type 'System.Management.Automation.PSObject'.
-            If ($UserSPNCount -eq 1)
-            {
-                Remove-Variable UserSPNCount
-                $UserSPNObj = @()
-                $ADUsers | ForEach-Object {
-                    For($i=0; $i -lt $_.servicePrincipalName.count; $i++)
-                    {
-                        $Obj = New-Object PSObject
-                        [array] $SPNObjectArray = $_.servicePrincipalName[$i] -Split("/")
-                        $Obj | Add-Member -MemberType NoteProperty -Name "Name" -Value $_.Name
-                        $Obj | Add-Member -MemberType NoteProperty -Name "Username" -Value $_.sAMAccountName
-                        $Obj | Add-Member -MemberType NoteProperty -Name "Service" -Value $SPNObjectArray[0]
-                        $Obj | Add-Member -MemberType NoteProperty -Name "Host" -Value $SPNObjectArray[1]
-                        If ($null -ne $_.pwdLastSet)
-                        {
-                            $pwdlastSet = [datetime]::FromFileTime($_.pwdLastSet)
-                        }
-                        Else
-                        {
-                            $pwdlastSet = "-"
-                        }
-                        $Obj | Add-Member -MemberType NoteProperty -Name "Password Last Set" -Value $pwdlastSet
-                        $Obj | Add-Member -MemberType NoteProperty -Name "Description" -Value $_.description
-                        $UserSPNObj += $Obj
-                    }
-                }
-            }
-            Else
-            {
-                $UserSPNObj = [ADRecon.ADWSClass]::UserSPNParser($ADUsers, $Threads)
-            }
+            Write-Verbose "[*] Total UserSPNs: $([ADRecon.ADWSClass]::ObjectCount($ADUsers))"
+            $UserSPNObj = [ADRecon.ADWSClass]::UserSPNParser($ADUsers, $Threads)
             Remove-Variable ADUsers
         }
     }
@@ -4558,7 +4525,7 @@ Function Get-ADRGroup
     {
         Try
         {
-            $ADGroups = Get-ADGroup -Filter * -ResultPageSize $PageSize -Properties CanonicalName,DistinguishedName,Description,SamAccountName,SID,managedBy,whenChanged,whenCreated
+            $ADGroups = @( Get-ADGroup -Filter * -ResultPageSize $PageSize -Properties CanonicalName,DistinguishedName,Description,SamAccountName,SID,managedBy,whenChanged,whenCreated )
         }
         Catch
         {
@@ -4664,7 +4631,7 @@ Function Get-ADRGroupMember
     {
         Try
         {
-            $ADGroups = Get-ADObject -LDAPFilter '(memberof=*)' -Properties DistinguishedName,sAMAccountName,memberof,samaccounttype
+            $ADGroups = @( Get-ADObject -LDAPFilter '(memberof=*)' -Properties DistinguishedName,sAMAccountName,memberof,samaccounttype )
         }
         Catch
         {
@@ -4862,11 +4829,11 @@ Function Get-ADROUPermission
     [DirectoryServices.DirectoryEntry]
     Domain Directory Entry object.
 
-.PARAMETER DCIP
+.PARAMETER DomainController
     [string]
     IP Address of the Domain Controller.
 
-.PARAMETER creds
+.PARAMETER Credential
     [Management.Automation.PSCredential]
     Credentials.
 
@@ -4891,10 +4858,10 @@ Function Get-ADROUPermission
         [DirectoryServices.DirectoryEntry] $objDomain,
 
         [Parameter(Mandatory = $false)]
-        [string] $DCIP,
+        [string] $DomainController,
 
         [Parameter(Mandatory = $false)]
-        [Management.Automation.PSCredential] $creds = [Management.Automation.PSCredential]::Empty,
+        [Management.Automation.PSCredential] $Credential = [Management.Automation.PSCredential]::Empty,
 
         [Parameter(Mandatory = $true)]
         [int] $PageSize
@@ -4975,7 +4942,7 @@ Function Get-ADROUPermission
         If ($UseAltCreds)
         {
             $DomainFQDN = Get-DNtoFQDN($objDomain.distinguishedName)
-            $DomainContext = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext("Domain",$($DomainFQDN),$($creds.UserName),$($creds.GetNetworkCredential().password))
+            $DomainContext = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext("Domain",$($DomainFQDN),$($Credential.UserName),$($Credential.GetNetworkCredential().password))
             Try
             {
                 $ADDomain = [System.DirectoryServices.ActiveDirectory.Domain]::GetDomain($DomainContext)
@@ -4985,7 +4952,7 @@ Function Get-ADROUPermission
                 Write-Error "[EXCEPTION] $($_.Exception.Message)"
             }
 
-            $ForestContext = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext("Forest",$($ADDomain.Forest),$($creds.UserName),$($creds.GetNetworkCredential().password))
+            $ForestContext = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext("Forest",$($ADDomain.Forest),$($Credential.UserName),$($Credential.GetNetworkCredential().password))
             Try
             {
                 $ADForest = [System.DirectoryServices.ActiveDirectory.Forest]::GetForest($ForestContext)
@@ -5007,7 +4974,7 @@ Function Get-ADROUPermission
             {
                 If ($UseAltCreds)
                 {
-                    $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DCIP)/$($SchemaPath)", $creds.UserName,$creds.GetNetworkCredential().Password
+                    $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DomainController)/$($SchemaPath)", $Credential.UserName,$Credential.GetNetworkCredential().Password
                     $objSearcherPath = New-Object System.DirectoryServices.DirectorySearcher $objSearchPath
                 }
                 Else
@@ -5038,7 +5005,7 @@ Function Get-ADROUPermission
 
                 If ($UseAltCreds)
                 {
-                    $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DCIP)/$($SchemaPath.replace("Schema","Extended-Rights"))", $creds.UserName,$creds.GetNetworkCredential().Password
+                    $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DomainController)/$($SchemaPath.replace("Schema","Extended-Rights"))", $Credential.UserName,$Credential.GetNetworkCredential().Password
                     $objSearcherPath = New-Object System.DirectoryServices.DirectorySearcher $objSearchPath
                 }
                 Else
@@ -5071,7 +5038,7 @@ Function Get-ADROUPermission
             {
                 ForEach ($OU in $ADOUs)
                 {
-                    $OUPermissions += (New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DCIP)/$($OU.Properties.distinguishedname)", $creds.UserName,$creds.GetNetworkCredential().Password).PsBase.ObjectSecurity.access | Select-Object @{name='organizationalUnit';expression={$OU.properties.distinguishedname}}, `
+                    $OUPermissions += (New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DomainController)/$($OU.Properties.distinguishedname)", $Credential.UserName,$Credential.GetNetworkCredential().Password).PsBase.ObjectSecurity.access | Select-Object @{name='organizationalUnit';expression={$OU.properties.distinguishedname}}, `
                        @{name='objectTypeName';expression={$GUIDs[$_.objectType.ToString()]}}, `
                        @{name='inheritedObjectTypeName';expression={$GUIDs[$_.inheritedObjectType.ToString()]}}, `
                        *
@@ -5123,7 +5090,7 @@ Function Get-ADRGPO
     [DirectoryServices.DirectoryEntry]
     Domain Directory Entry object.
 
-.PARAMETER creds
+.PARAMETER Credential
     [Management.Automation.PSCredential]
     Credentials.
 
@@ -5501,11 +5468,11 @@ Function Get-ADRDNSZone
     [DirectoryServices.DirectoryEntry]
     Domain Directory Entry object.
 
-.PARAMETER DCIP
+.PARAMETER DomainController
     [string]
     IP Address of the Domain Controller.
 
-.PARAMETER creds
+.PARAMETER Credential
     [Management.Automation.PSCredential]
     Credentials.
 
@@ -5534,10 +5501,10 @@ Function Get-ADRDNSZone
         [DirectoryServices.DirectoryEntry] $objDomain,
 
         [Parameter(Mandatory = $false)]
-        [string] $DCIP,
+        [string] $DomainController,
 
         [Parameter(Mandatory = $false)]
-        [Management.Automation.PSCredential] $creds = [Management.Automation.PSCredential]::Empty,
+        [Management.Automation.PSCredential] $Credential = [Management.Automation.PSCredential]::Empty,
 
         [Parameter(Mandatory = $true)]
         [int] $PageSize,
@@ -5689,7 +5656,7 @@ Function Get-ADRDNSZone
         $SearchPath = "CN=MicrosoftDNS,DC=DomainDnsZones"
         If ($UseAltCreds)
         {
-            $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DCIP)/$($SearchPath),$($objDomain.distinguishedName)", $creds.UserName,$creds.GetNetworkCredential().Password
+            $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DomainController)/$($SearchPath),$($objDomain.distinguishedName)", $Credential.UserName,$Credential.GetNetworkCredential().Password
         }
         Else
         {
@@ -5721,7 +5688,7 @@ Function Get-ADRDNSZone
         $SearchPath = "CN=MicrosoftDNS,DC=ForestDnsZones"
         If ($UseAltCreds)
         {
-            $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DCIP)/$($SearchPath),$($objDomain.distinguishedName)", $creds.UserName,$creds.GetNetworkCredential().Password
+            $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DomainController)/$($SearchPath),$($objDomain.distinguishedName)", $Credential.UserName,$Credential.GetNetworkCredential().Password
         }
         Else
         {
@@ -5759,7 +5726,7 @@ Function Get-ADRDNSZone
             $DNSZoneArray | ForEach-Object {
                 If ($UseAltCreds)
                 {
-                    $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DCIP)/$($_.Properties.distinguishedname)", $creds.UserName,$creds.GetNetworkCredential().Password
+                    $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DomainController)/$($_.Properties.distinguishedname)", $Credential.UserName,$Credential.GetNetworkCredential().Password
                 }
                 Else
                 {
@@ -6054,7 +6021,7 @@ Function Get-ADRComputer
     {
         Try
         {
-            $ADComputers = Get-ADComputer -Filter * -ResultPageSize $PageSize -Properties Name,DNSHostName,Description,Enabled,IPv4Address,'msDS-SupportedEncryptionTypes','msDS-AllowedToDelegateTo',OperatingSystem,LastLogonDate,PasswordLastSet,primaryGroupID,TrustedForDelegation,TrustedToAuthForDelegation,SamAccountName,SID,SIDHistory,whenChanged,whenCreated,DistinguishedName
+            $ADComputers = @( Get-ADComputer -Filter * -ResultPageSize $PageSize -Properties Name,DNSHostName,Description,Enabled,IPv4Address,'msDS-SupportedEncryptionTypes','msDS-AllowedToDelegateTo',OperatingSystem,LastLogonDate,PasswordLastSet,primaryGroupID,TrustedForDelegation,TrustedToAuthForDelegation,SamAccountName,SID,SIDHistory,whenChanged,whenCreated,DistinguishedName )
         }
         Catch
         {
@@ -6064,74 +6031,8 @@ Function Get-ADRComputer
 
         If ($ADComputers)
         {
-            $ComputerCount = [ADRecon.ADWSClass]::ObjectCount($ADComputers)
-            Write-Verbose "[*] Total Computers: $ComputerCount"
-            # Temporary solution for exception in [ADRecon.ADWSClass]::ComputerParser
-            # System.InvalidCastException: Unable to cast object of type 'Microsoft.ActiveDirectory.Management.ADComputer' to type 'System.Management.Automation.PSObject'.
-            If ($ComputerCount -eq 1)
-            {
-                $ADComputers | ForEach-Object {
-                    $ComputerObj = New-Object PSObject
-                    $ComputerObj | Add-Member -MemberType NoteProperty -Name Name -Value $($_.Name)
-                    $ComputerObj | Add-Member -MemberType NoteProperty -Name DNSHostName -Value $($_.DNSHostName)
-                    $ComputerObj | Add-Member -MemberType NoteProperty -Name Enabled -Value $($_.Enabled)
-                    $ComputerObj | Add-Member -MemberType NoteProperty -Name IPv4Address -Value $($_.IPv4Address)
-                    If ($null -ne $_.OperatingSystem)
-                    {
-                        $ComputerObj | Add-Member -MemberType NoteProperty -Name OperatingSystem -Value $($_.OperatingSystem)
-                    }
-                    Else
-                    {
-                        $ComputerObj | Add-Member -MemberType NoteProperty -Name OperatingSystem -Value "-"
-                    }
-                    If ($null -eq $_.LastLogonDate)
-                    {
-                        $ComputerObj | Add-Member -MemberType NoteProperty -Name "Days Since Last Logon" -Value "-"
-                    }
-                    Else
-                    {
-                        $DDiff = (Get-DateDiff $_.LastLogonDate $date).Days
-                        $ComputerObj | Add-Member -MemberType NoteProperty -Name "Days Since Last Logon" -Value $DDiff
-                    }
-                    If ($null -eq $_.PasswordLastSet)
-                    {
-                        $ComputerObj | Add-Member -MemberType NoteProperty -Name "Days Since Last Password Change" -Value "-"
-                    }
-                    Else
-                    {
-                        $DDiff = (Get-DateDiff $_.PasswordLastSet $date).Days
-                        $ComputerObj | Add-Member -MemberType NoteProperty -Name "Days Since Last Password Change" -Value $DDiff
-                    }
-                    $ComputerObj | Add-Member -MemberType NoteProperty -Name "Trusted for Delegation" -Value $($_.TrustedForDelegation)
-                    $ComputerObj | Add-Member -MemberType NoteProperty -Name "Trusted to Auth for Delegation" -Value $($_.TrustedToAuthForDelegation)
-                    $ComputerObj | Add-Member -MemberType NoteProperty -Name "Username" -Value $($_.SamAccountName)
-                    $ComputerObj | Add-Member -MemberType NoteProperty -Name "Primary Group ID" -Value $($_.primaryGroupID)
-                    $ComputerObj | Add-Member -MemberType NoteProperty -Name "Description" -Value $($_.Description)
-                    If ($null -eq $_.PasswordLastSet)
-                    {
-                        $ComputerObj | Add-Member -MemberType NoteProperty -Name "Password LastSet" -Value "-"
-                    }
-                    Else
-                    {
-                        $ComputerObj | Add-Member -MemberType NoteProperty -Name "Password LastSet" -Value $($_.PasswordLastSet)
-                    }
-                    If ($null -eq $_.LastLogonDate)
-                    {
-                        $ComputerObj | Add-Member -MemberType NoteProperty -Name "Last Logon Date" -Value "-"
-                    }
-                    Else
-                    {
-                        $ComputerObj | Add-Member -MemberType NoteProperty -Name "Last Logon Date" -Value $($_.LastLogonDate)
-                    }
-                    $ComputerObj | Add-Member -MemberType NoteProperty -Name "whenCreated" -Value $($_.whenCreated)
-                    $ComputerObj | Add-Member -MemberType NoteProperty -Name "whenChanged" -Value $($_.whenChanged)
-                    $ComputerObj | Add-Member -MemberType NoteProperty -Name 'Distinguished Name' -Value $($_.DistinguishedName)
-                }
-            }
-            Else
-            {
-                $ComputerObj = [ADRecon.ADWSClass]::ComputerParser($ADComputers, $date, $DormantTimeSpan, $Threads)
-            }
+            Write-Verbose "[*] Total Computers: $([ADRecon.ADWSClass]::ObjectCount($ADComputers))"
+            $ComputerObj = [ADRecon.ADWSClass]::ComputerParser($ADComputers, $date, $DormantTimeSpan, $PassMaxAge, $Threads)
             Remove-Variable ADComputers
         }
     }
@@ -6226,7 +6127,7 @@ Function Get-ADRComputerSPN
     {
         Try
         {
-            $ADComputers = Get-ADObject -LDAPFilter "(&(objectClass=computer)(servicePrincipalName=*))" -Properties name,dnshostname,servicePrincipalName -ResultPageSize $PageSize
+            $ADComputers = @( Get-ADObject -LDAPFilter "(&(objectClass=computer)(servicePrincipalName=*))" -Properties name,dnshostname,servicePrincipalName -ResultPageSize $PageSize )
         }
         Catch
         {
@@ -6236,30 +6137,8 @@ Function Get-ADRComputerSPN
 
         If ($ADComputers)
         {
-            $ComputerSPNCount = [ADRecon.ADWSClass]::ObjectCount($ADComputers)
-            Write-Verbose "[*] Total ComputerSPN's: $ComputerSPNCount"
-            # Temporary solution for exception in [ADRecon.ADWSClass]::ComputerSPNParser
-            # System.InvalidCastException: Unable to cast object of type 'Microsoft.ActiveDirectory.Management.ADComputer' to type 'System.Management.Automation.PSObject'.
-            If ($ComputerSPNCount -eq 1)
-            {
-                $ComputerSPNObj = @()
-                $ADComputers | ForEach-Object {
-                    For($i=0; $i -lt $_.servicePrincipalName.count; $i++)
-                    {
-                        $Obj = New-Object PSObject
-                        [array] $SPNObjectArray = $_.servicePrincipalName[$i] -Split("/")
-                        $Obj | Add-Member -MemberType NoteProperty -Name "Name" -Value $_.Name
-                        $Obj | Add-Member -MemberType NoteProperty -Name "Service" -Value $SPNObjectArray[0]
-                        $Obj | Add-Member -MemberType NoteProperty -Name "Host" -Value $SPNObjectArray[1]
-                        $ComputerSPNObj += $Obj
-                        Remove-Variable SPNObjectArray
-                    }
-                }
-            }
-            Else
-            {
-                $ComputerSPNObj = [ADRecon.ADWSClass]::ComputerSPNParser($ADComputers, $Threads)
-            }
+            Write-Verbose "[*] Total ComputerSPNs: $([ADRecon.ADWSClass]::ObjectCount($ADComputers))"
+            $ComputerSPNObj = [ADRecon.ADWSClass]::ComputerSPNParser($ADComputers, $Threads)
             Remove-Variable ADComputers
         }
     }
@@ -6517,11 +6396,11 @@ Function Get-ADRBitLocker
     [DirectoryServices.DirectoryEntry]
     Domain Directory Entry object.
 
-.PARAMETER DCIP
+.PARAMETER DomainController
     [string]
     IP Address of the Domain Controller.
 
-.PARAMETER creds
+.PARAMETER Credential
     [Management.Automation.PSCredential]
     Credentials.
 
@@ -6539,10 +6418,10 @@ Function Get-ADRBitLocker
         [DirectoryServices.DirectoryEntry] $objDomain,
 
         [Parameter(Mandatory = $false)]
-        [string] $DCIP,
+        [string] $DomainController,
 
         [Parameter(Mandatory = $false)]
-        [Management.Automation.PSCredential] $creds = [Management.Automation.PSCredential]::Empty
+        [Management.Automation.PSCredential] $Credential = [Management.Automation.PSCredential]::Empty
     )
 
     If ($Protocol -eq 'ADWS')
@@ -6662,7 +6541,7 @@ Function Get-ADRBitLocker
                             # Grab the TPM Owner Info from the msTPM-InformationObject
                             If ($UseAltCreds)
                             {
-                                $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DCIP)/$($TempComp.Properties.'mstpm-tpminformationforcomputer')", $creds.UserName,$creds.GetNetworkCredential().Password
+                                $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DomainController)/$($TempComp.Properties.'mstpm-tpminformationforcomputer')", $Credential.UserName,$Credential.GetNetworkCredential().Password
                                 $objSearcherPath = New-Object System.DirectoryServices.DirectorySearcher $objSearchPath
                                 $objSearcherPath.PropertiesToLoad.AddRange(("mstpm-ownerinformation"))
                                 $TPMObject = $objSearcherPath.FindAll()
@@ -6892,7 +6771,7 @@ Function Get-ADRAbout
     [string]
     ADRecon Version.
 
-.PARAMETER creds
+.PARAMETER Credential
     [Management.Automation.PSCredential]
     Credentials.
 
@@ -6980,11 +6859,11 @@ Function Invoke-ADRecon
     [array]
     What attributes to collect; Forest, Domain, PasswordPolicy, DCs, Users, UserSPNs, Groups, GroupMembers, OUs, OUPermissions, GPOs, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker
 
-.PARAMETER DCIP
+.PARAMETER DomainController
     [string]
     IP Address of the Domain Controller.
 
-.PARAMETER creds
+.PARAMETER Credential
     [Management.Automation.PSCredential]
     Credentials.
 
@@ -7022,10 +6901,10 @@ Function Invoke-ADRecon
         [array] $Collect,
 
         [Parameter(Mandatory = $false)]
-        [string] $DCIP,
+        [string] $DomainController,
 
         [Parameter(Mandatory = $false)]
-        [Management.Automation.PSCredential] $creds = [Management.Automation.PSCredential]::Empty,
+        [Management.Automation.PSCredential] $Credential = [Management.Automation.PSCredential]::Empty,
 
         [Parameter(Mandatory = $true)]
         [array] $OutputType,
@@ -7112,11 +6991,18 @@ Function Invoke-ADRecon
     Remove-Variable computerdomainrole
     Remove-Variable computerrole
 
-    If (($DCIP -ne "") -or ($creds -ne [Management.Automation.PSCredential]::Empty))
+    # If either DomainController or Credentials are provided, treat as non-member
+    If (($DomainController -ne "") -or ($Credential -ne [Management.Automation.PSCredential]::Empty))
     {
+        # Disable loading of default drive on member
+        If (($Protocol -eq 'ADWS') -and (-Not $UseAltCreds))
+        {
+            $Env:ADPS_LoadDefaultDrive = 0
+        }
         $UseAltCreds = $true
     }
 
+    # Import ActiveDirectory module
     If ($Protocol -eq 'ADWS')
     {
         Try
@@ -7128,19 +7014,26 @@ Function Invoke-ADRecon
             If ($SaveVerbosePreference)
             {
                 $script:VerbosePreference = $SaveVerbosePreference
+                Remove-Variable SaveVerbosePreference
             }
         }
         Catch
         {
-            Write-Warning "ActiveDirectory Module from RSAT (Remote Server Administration Tools) is not installed. ... Continuing with LDAP"
+            Write-Warning "[Invoke-ADRecon] Error importing ActiveDirectory Module from RSAT (Remote Server Administration Tools) ... Continuing with LDAP"
             $Protocol = 'LDAP'
             If ($SaveVerbosePreference)
             {
                 $script:VerbosePreference = $SaveVerbosePreference
+                Remove-Variable SaveVerbosePreference
             }
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
         }
     }
 
+    # Compile C# code
+    # Suppress Debug output
+    $SaveDebugPreference = $script:DebugPreference
+    $script:DebugPreference = 'SilentlyContinue'
     Try
     {
         Add-Type -TypeDefinition $PingCastleSMBScannerSource
@@ -7149,11 +7042,11 @@ Function Invoke-ADRecon
         {
             If ($CLR -eq "4")
             {
-                Add-Type -TypeDefinition $ADWSSource -ReferencedAssemblies ([system.reflection.assembly]::LoadWithPartialName("Microsoft.ActiveDirectory.Management")).Location
+                Add-Type -TypeDefinition $ADWSSource -ReferencedAssemblies ([System.Reflection.Assembly]::LoadWithPartialName("Microsoft.ActiveDirectory.Management")).Location
             }
             Else
             {
-                Add-Type -TypeDefinition $ADWSSource -ReferencedAssemblies ([system.reflection.assembly]::LoadWithPartialName("Microsoft.ActiveDirectory.Management")).Location -Language CSharpVersion3
+                Add-Type -TypeDefinition $ADWSSource -ReferencedAssemblies ([System.Reflection.Assembly]::LoadWithPartialName("Microsoft.ActiveDirectory.Management")).Location -Language CSharpVersion3
             }
         }
 
@@ -7161,53 +7054,64 @@ Function Invoke-ADRecon
         {
             If ($CLR -eq "4")
             {
-                Add-Type -TypeDefinition $LDAPSource -ReferencedAssemblies ([system.reflection.assembly]::LoadWithPartialName("System.DirectoryServices")).Location
+                Add-Type -TypeDefinition $LDAPSource -ReferencedAssemblies ([System.Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices")).Location
             }
             Else
             {
-                Add-Type -TypeDefinition $LDAPSource -ReferencedAssemblies ([system.reflection.assembly]::LoadWithPartialName("System.DirectoryServices")).Location -Language CSharpVersion3
-            }
-            # Allow running using RUNAS from a non-domain joined machine
-            # runas /user:<Domain FQDN>\<Username> /netonly powershell.exe
-            If (($DCIP -eq "") -and ($creds -eq [Management.Automation.PSCredential]::Empty))
-            {
-                Try
-                {
-                    $objDomain = [ADSI]""
-                    $UseAltCreds = $false
-                    $objDomain.Dispose()
-                }
-                Catch
-                {
-                    $UseAltCreds = $true
-                }
+                Add-Type -TypeDefinition $LDAPSource -ReferencedAssemblies ([System.Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices")).Location -Language CSharpVersion3
             }
         }
     }
     Catch
     {
-        Write-Output "[ERROR] $($_.Exception.Message)"
+        Write-Output "[Invoke-ADRecon] $($_.Exception.Message)"
         Return $null
     }
-
-    If ($UseAltCreds -and (($DCIP -eq "") -or ($creds -eq [Management.Automation.PSCredential]::Empty)))
+    If ($SaveDebugPreference)
     {
-        If (($DCIP -ne "") -and ($creds -eq [Management.Automation.PSCredential]::Empty))
+        $script:DebugPreference = $SaveDebugPreference
+        Remove-Variable SaveDebugPreference
+    }
+
+    # Allow running using RUNAS from a non-domain joined machine
+    # runas /user:<Domain FQDN>\<Username> /netonly powershell.exe
+    If (($Protocol -eq 'LDAP') -and ($UseAltCreds) -and ($DomainController -eq "") -and ($Credential -eq [Management.Automation.PSCredential]::Empty))
+    {
+        Try
+        {
+            $objDomain = [ADSI]""
+            If(!($objDomain.name))
+            {
+                Write-Verbose "[Invoke-ADRecon] RUNAS Check, LDAP bind Unsuccessful"
+            }
+            $UseAltCreds = $false
+            $objDomain.Dispose()
+        }
+        Catch
+        {
+            $UseAltCreds = $true
+        }
+    }
+
+    If ($UseAltCreds -and (($DomainController -eq "") -or ($Credential -eq [Management.Automation.PSCredential]::Empty)))
+    {
+
+        If (($DomainController -ne "") -and ($Credential -eq [Management.Automation.PSCredential]::Empty))
         {
             Try
             {
-                $creds = Get-Credential
+                $Credential = Get-Credential
             }
             Catch
             {
-                Write-Output "[ERROR] $($_.Exception.Message)"
+                Write-Output "[Invoke-ADRecon] $($_.Exception.Message)"
                 Return $null
             }
         }
         Else
         {
             Write-Output "Run Get-Help .\ADRecon.ps1 -Examples for additional information."
-            Write-Output "[ERROR] Use the -DomainController and -Credential parameter."`n
+            Write-Output "[Invoke-ADRecon] Use the -DomainController and -Credential parameter."`n
             Return $null
         }
     }
@@ -7220,7 +7124,7 @@ Function Invoke-ADRecon
         'Domain' {$ADRDomain = $true }
         'PasswordPolicy' { $ADRPasswordPolicy = $true }
         'FineGrainedPasswordPolicy' { $ADRFineGrainedPasswordPolicy = $true }
-        'DomainControllers' { $ADRDCs = $true }
+        'DomainControllers' { $ADRDomainControllers = $true }
         'Users' { $ADRUsers = $true }
         'UserSPNs' { $ADRUserSPNs = $true }
         'Groups' { $ADRGroups = $true }
@@ -7236,7 +7140,7 @@ Function Invoke-ADRecon
         'DNSZones' { $ADRDNSZones = $true }
         'Printers' { $ADRPrinters = $true }
         'Computers' { $ADRComputers = $true }
-        'ComputerSPNs' { $ADRCopmuterSPNs = $true }
+        'ComputerSPNs' { $ADRComputerSPNs = $true }
         'BitLocker' { $ADRBitLocker = $true }
         'LAPS' { $ADRLAPS = $true }
         'Default'
@@ -7245,7 +7149,7 @@ Function Invoke-ADRecon
             $ADRDomain = $true
             $ADRPasswordPolicy = $true
             $ADRFineGrainedPasswordPolicy = $true
-            $ADRDCs = $true
+            $ADRDomainControllers = $true
             $ADRUsers = $true
             $ADRUserSPNs = $true
             $ADRGroups = $true
@@ -7257,7 +7161,7 @@ Function Invoke-ADRecon
             $ADRDNSZones = $true
             $ADRPrinters = $true
             $ADRComputers = $true
-            $ADRCopmuterSPNs = $true
+            $ADRComputerSPNs = $true
             $ADRLAPS = $true
             $ADRBitLocker = $true
             If ($OutputType -eq "Default")
@@ -7330,7 +7234,7 @@ Function Invoke-ADRecon
             New-Item $ADROutputDir -type directory | Out-Null
             If (!(Test-Path $ADROutputDir))
             {
-                Write-Output "[ERROR] Invalid OutputDir Path ... Exiting"
+                Write-Output "[Invoke-ADRecon] Error, invalid OutputDir Path ... Exiting"
                 Return $null
             }
         }
@@ -7339,12 +7243,12 @@ Function Invoke-ADRecon
     }
     ElseIf ($ADRCreate)
     {
-        $ADROutputDir =  -join($returndir,'\','ADRecon-Report-',$date.day,$date.Month,$date.Year,$date.Hour,$date.Minute,$date.Second)
+        $ADROutputDir =  -join($returndir,'\','ADRecon-Report-',$(Get-Date -UFormat %Y%m%d%H%M%S))
         New-Item $ADROutputDir -type directory | Out-Null
         If (!(Test-Path $ADROutputDir))
         {
-            Write-Output "[ERROR] Could not create output directory"
-            return $null
+            Write-Output "[Invoke-ADRecon] Error, could not create output directory"
+            Return $null
         }
         $ADROutputDir = $((Convert-Path $ADROutputDir).TrimEnd("\"))
         Remove-Variable ADRCreate
@@ -7360,9 +7264,10 @@ Function Invoke-ADRecon
         New-Item $CSVPath -type directory | Out-Null
         If (!(Test-Path $CSVPath))
         {
-            Write-Output "[ERROR] Could not create output directory"
-            return $null
+            Write-Output "[Invoke-ADRecon] Error, could not create output directory"
+            Return $null
         }
+        Remove-Variable ADRCSV
     }
 
     If ($ADRXML)
@@ -7371,9 +7276,10 @@ Function Invoke-ADRecon
         New-Item $XMLPath -type directory | Out-Null
         If (!(Test-Path $XMLPath))
         {
-            Write-Output "[ERROR] Could not create output directory"
-            return $null
+            Write-Output "[Invoke-ADRecon] Error, could not create output directory"
+            Return $null
         }
+        Remove-Variable ADRXML
     }
 
     If ($ADRJSON)
@@ -7382,9 +7288,10 @@ Function Invoke-ADRecon
         New-Item $JSONPath -type directory | Out-Null
         If (!(Test-Path $JSONPath))
         {
-            Write-Output "[ERROR] Could not create output directory"
-            return $null
+            Write-Output "[Invoke-ADRecon] Error, could not create output directory"
+            Return $null
         }
+        Remove-Variable ADRJSON
     }
 
     If ($ADRHTML)
@@ -7393,22 +7300,24 @@ Function Invoke-ADRecon
         New-Item $HTMLPath -type directory | Out-Null
         If (!(Test-Path $HTMLPath))
         {
-            Write-Output "[ERROR] Could not create output directory"
-            return $null
+            Write-Output "[Invoke-ADRecon] Error, could not create output directory"
+            Return $null
         }
+        Remove-Variable ADRHTML
     }
 
+    # AD Login
     If ($UseAltCreds -and ($Protocol -eq 'ADWS'))
     {
         If (!(Test-Path ADR:))
         {
             Try
             {
-                New-PSDrive -PSProvider ActiveDirectory -Name ADR -Root "" -Server $DCIP -Credential $creds -ErrorAction Stop | Out-Null
+                New-PSDrive -PSProvider ActiveDirectory -Name ADR -Root "" -Server $DomainController -Credential $Credential -ErrorAction Stop | Out-Null
             }
             Catch
             {
-                Write-Output "[EXCEPTION] $($_.Exception.Message)"
+                Write-Output "[Invoke-ADRecon] $($_.Exception.Message)"
                 If ($ADROutputDir)
                 {
                     Remove-EmptyADROutputDir $ADROutputDir $OutputType
@@ -7421,11 +7330,11 @@ Function Invoke-ADRecon
             Remove-PSDrive ADR
             Try
             {
-                New-PSDrive -PSProvider ActiveDirectory -Name ADR -Root "" -Server $DCIP -Credential $creds -ErrorAction Stop | Out-Null
+                New-PSDrive -PSProvider ActiveDirectory -Name ADR -Root "" -Server $DomainController -Credential $Credential -ErrorAction Stop | Out-Null
             }
             Catch
             {
-                Write-Output "[EXCEPTION] $($_.Exception.Message)"
+                Write-Output "[Invoke-ADRecon] $($_.Exception.Message)"
                 If ($ADROutputDir)
                 {
                     Remove-EmptyADROutputDir $ADROutputDir $OutputType
@@ -7434,6 +7343,7 @@ Function Invoke-ADRecon
             }
         }
         Set-Location ADR:
+        Write-Debug "ADR PSDrive Created"
     }
 
     If ($Protocol -eq 'LDAP')
@@ -7442,12 +7352,12 @@ Function Invoke-ADRecon
         {
             Try
             {
-                $objDomain = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DCIP)", $creds.UserName,$creds.GetNetworkCredential().Password
-                $objDomainRootDSE = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DCIP)/RootDSE", $creds.UserName,$creds.GetNetworkCredential().Password
+                $objDomain = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DomainController)", $Credential.UserName,$Credential.GetNetworkCredential().Password
+                $objDomainRootDSE = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DomainController)/RootDSE", $Credential.UserName,$Credential.GetNetworkCredential().Password
             }
             Catch
             {
-                Write-Output "[ERROR] $($_.Exception.Message)"
+                Write-Output "[Invoke-ADRecon] $($_.Exception.Message)"
                 If ($ADROutputDir)
                 {
                     Remove-EmptyADROutputDir $ADROutputDir $OutputType
@@ -7456,7 +7366,7 @@ Function Invoke-ADRecon
             }
             If(!($objDomain.name))
             {
-                Write-Output "[ERROR] LDAP bind Unsuccessful"
+                Write-Output "[Invoke-ADRecon] LDAP bind Unsuccessful"
                 If ($ADROutputDir)
                 {
                     Remove-EmptyADROutputDir $ADROutputDir $OutputType
@@ -7474,7 +7384,7 @@ Function Invoke-ADRecon
             $objDomainRootDSE = ([ADSI] "LDAP://RootDSE")
             If(!($objDomain.name))
             {
-                Write-Output "[ERROR] LDAP bind Unsuccessful"
+                Write-Output "[Invoke-ADRecon] LDAP bind Unsuccessful"
                 If ($ADROutputDir)
                 {
                     Remove-EmptyADROutputDir $ADROutputDir $OutputType
@@ -7482,28 +7392,31 @@ Function Invoke-ADRecon
                 Return $null
             }
         }
+        Write-Debug "LDAP Bing Successful"
     }
 
     Write-Output "[*] Commencing - $date"
     If ($ADRDomain)
     {
         Write-Output "[-] Domain"
-        $ADRObject = Get-ADRDomain $Protocol $UseAltCreds $objDomain $objDomainRootDSE $DCIP $creds
+        $ADRObject = Get-ADRDomain $Protocol $UseAltCreds $objDomain $objDomainRootDSE $DomainController $Credential
         If ($ADRObject)
         {
             Export-ADR $ADRObject $ADROutputDir $OutputType "Domain"
             Remove-Variable ADRObject
         }
+        Remove-Variable ADRDomain
     }
     If ($ADRForest)
     {
         Write-Output "[-] Forest"
-        $ADRObject = Get-ADRForest $Protocol $UseAltCreds $objDomain $objDomainRootDSE $DCIP $creds
+        $ADRObject = Get-ADRForest $Protocol $UseAltCreds $objDomain $objDomainRootDSE $DomainController $Credential
         If ($ADRObject)
         {
             Export-ADR $ADRObject $ADROutputDir $OutputType "Forest"
             Remove-Variable ADRObject
         }
+        Remove-Variable ADRForest
     }
     If ($ADRPasswordPolicy)
     {
@@ -7527,49 +7440,53 @@ Function Invoke-ADRecon
         }
         Remove-Variable ADRFineGrainedPasswordPolicy
     }
-    If ($ADRDCs)
+    If ($ADRDomainControllers)
     {
         Write-Output "[-] Domain Controllers"
-        $ADRObject = Get-ADRDC $Protocol $UseAltCreds $objDomain $creds
+        $ADRObject = Get-ADRDomainController $Protocol $UseAltCreds $objDomain $Credential
         If ($ADRObject)
         {
-            Export-ADR $ADRObject $ADROutputDir $OutputType "DCs"
+            Export-ADR $ADRObject $ADROutputDir $OutputType "DomainControllers"
             Remove-Variable ADRObject
         }
+        Remove-Variable ADRDomainControllers
     }
     If ($ADRUsers)
     {
-        Write-Output "[-] Domain Users - May take some time"
+        Write-Output "[-] Users - May take some time"
         $ADRObject = Get-ADRUser $Protocol $UseAltCreds $date $objDomain $DormantTimeSpan $PageSize $Threads
         If ($ADRObject)
         {
             Export-ADR $ADRObject $ADROutputDir $OutputType "Users"
             Remove-Variable ADRObject
         }
+        Remove-Variable ADRUsers
     }
     If ($ADRUserSPNs)
     {
-        Write-Output "[-] Domain User SPNs"
+        Write-Output "[-] User SPNs"
         $ADRObject = Get-ADRUserSPN $Protocol $UseAltCreds $objDomain $PageSize $Threads
         If ($ADRObject)
         {
             Export-ADR $ADRObject $ADROutputDir $OutputType "UserSPNs"
             Remove-Variable ADRObject
         }
+        Remove-Variable ADRUserSPNs
     }
     If ($ADRGroups)
     {
-        Write-Output "[-] Domain Groups - May take some time"
+        Write-Output "[-] Groups - May take some time"
         $ADRObject = Get-ADRGroup $Protocol $UseAltCreds $objDomain $PageSize $Threads
         If ($ADRObject)
         {
             Export-ADR $ADRObject $ADROutputDir $OutputType "Groups"
             Remove-Variable ADRObject
         }
+        Remove-Variable ADRGroups
     }
     If ($ADRGroupMembers)
     {
-        Write-Output "[-] Domain Group Memberships - May take some time"
+        Write-Output "[-] Group Memberships - May take some time"
 
         $ADRObject = Get-ADRGroupMember $Protocol $UseAltCreds $objDomain $PageSize $Threads
         If ($ADRObject)
@@ -7577,71 +7494,79 @@ Function Invoke-ADRecon
             Export-ADR $ADRObject $ADROutputDir $OutputType "GroupMembers"
             Remove-Variable ADRObject
         }
+        Remove-Variable ADRGroupMembers
     }
     If ($ADROUs)
     {
-        Write-Output "[-] Domain OrganizationalUnits (OUs)"
+        Write-Output "[-] OrganizationalUnits (OUs)"
         $ADRObject = Get-ADROU $Protocol $UseAltCreds $objDomain $PageSize
         If ($ADRObject)
         {
             Export-ADR $ADRObject $ADROutputDir $OutputType "OUs"
             Remove-Variable ADRObject
         }
+        Remove-Variable ADROUs
     }
     If ($ADROUPermissions)
     {
         Write-Output "[-] Domain OrganizationalUnits Permissions - May take some time"
-        $ADRObject = Get-ADROUPermission $Protocol $UseAltCreds $objDomain $DCIP $creds $PageSize
+        $ADRObject = Get-ADROUPermission $Protocol $UseAltCreds $objDomain $DomainController $Credential $PageSize
         If ($ADRObject)
         {
             Export-ADR $ADRObject $ADROutputDir $OutputType "OUPermissions"
             Remove-Variable ADRObject
         }
+        Remove-Variable ADROUPermissions
     }
     If ($ADRGPOs)
     {
-        Write-Output "[-] Domain GPOs"
+        Write-Output "[-] GPOs"
         $ADRObject = Get-ADRGPO $Protocol $UseAltCreds $objDomain $PageSize
         If ($ADRObject)
         {
             Export-ADR $ADRObject $ADROutputDir $OutputType "GPOs"
             Remove-Variable ADRObject
         }
+        Remove-Variable ADRGPOs
     }
     If ($ADRDNSZones)
     {
-        Write-Output "[-] Domain DNS Zones and Records"
-        Get-ADRDNSZone $Protocol $UseAltCreds $ADROutputDir $objDomain $DCIP $creds $PageSize $OutputType
+        Write-Output "[-] DNS Zones and Records"
+        Get-ADRDNSZone $Protocol $UseAltCreds $ADROutputDir $objDomain $DomainController $Credential $PageSize $OutputType
+        Remove-Variable ADRDNSZones
     }
     If ($ADRPrinters)
     {
-        Write-Output "[-] Domain Printers"
+        Write-Output "[-] Printers"
         $ADRObject = Get-ADRPrinter $Protocol $UseAltCreds $objDomain $PageSize
         If ($ADRObject)
         {
             Export-ADR $ADRObject $ADROutputDir $OutputType "Printers"
             Remove-Variable ADRObject
         }
+        Remove-Variable ADRPrinters
     }
     If ($ADRComputers)
     {
-        Write-Output "[-] Domain Computers - May take some time"
+        Write-Output "[-] Computers - May take some time"
         $ADRObject = Get-ADRComputer $Protocol $UseAltCreds $date $objDomain $DormantTimeSpan $PageSize $Threads
         If ($ADRObject)
         {
             Export-ADR $ADRObject $ADROutputDir $OutputType "Computers"
             Remove-Variable ADRObject
         }
+        Remove-Variable ADRComputers
     }
-    If ($ADRCopmuterSPNs)
+    If ($ADRComputerSPNs)
     {
-        Write-Output "[-] Domain Computer SPNs"
+        Write-Output "[-] Computer SPNs"
         $ADRObject = Get-ADRComputerSPN $Protocol $UseAltCreds $objDomain $PageSize $Threads
         If ($ADRObject)
         {
             Export-ADR $ADRObject $ADROutputDir $OutputType "ComputerSPNs"
             Remove-Variable ADRObject
         }
+        Remove-Variable ADRComputerSPNs
     }
     If ($ADRLAPS)
     {
@@ -7652,26 +7577,29 @@ Function Invoke-ADRecon
             Export-ADR $ADRObject $ADROutputDir $OutputType "LAPS"
             Remove-Variable ADRObject
         }
+        Remove-Variable ADRLAPS
     }
     If ($ADRBitLocker)
     {
         Write-Output "[-] BitLocker Recovery Keys - Needs Privileged Account"
-        $ADRObject = Get-ADRBitLocker $Protocol $UseAltCreds $objDomain $DCIP $creds
+        $ADRObject = Get-ADRBitLocker $Protocol $UseAltCreds $objDomain $DomainController $Credential
         If ($ADRObject)
         {
             Export-ADR $ADRObject $ADROutputDir $OutputType "BitLockerRecoveryKeys"
             Remove-Variable ADRObject
         }
+        Remove-Variable ADRBitLocker
     }
     If ($ADRGPOReport)
     {
-        Write-Output "[-] Domain GPO Report - May take some time"
+        Write-Output "[-] GPOReport - May take some time"
         Get-ADRGPOReport $Protocol $UseAltCreds $ADROutputDir
+        Remove-Variable ADRGPOReport
     }
 
     $TotalTime = "{0:N2}" -f ((Get-DateDiff (Get-Date) $date).TotalMinutes)
 
-    $AboutADRecon = Get-ADRAbout $Protocol $UseAltCreds $date $ADReconVersion $creds $RanonComputer $TotalTime
+    $AboutADRecon = Get-ADRAbout $Protocol $UseAltCreds $date $ADReconVersion $Credential $RanonComputer $TotalTime
 
     If ( ($OutputType -Contains "CSV") -or ($OutputType -Contains "XML") -or ($OutputType -Contains "JSON") -or ($OutputType -Contains "HTML") )
     {
