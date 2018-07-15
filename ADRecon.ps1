@@ -863,6 +863,8 @@ $LDAPSource = @"
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Net;
 using System.Threading;
 using System.DirectoryServices;
 using System.Security.Principal;
@@ -1328,6 +1330,18 @@ namespace ADRecon
                     bool? Enabled = null;
                     bool? TrustedforDelegation = null;
                     bool? TrustedtoAuthforDelegation = null;
+                    String StrIPAddress = null;
+                    if (AdComputer.Properties["dnshostname"].Count != 0)
+                    {
+                        try
+                        {
+                            StrIPAddress = Convert.ToString(Dns.GetHostEntry(Convert.ToString(AdComputer.Properties["dnshostname"][0])).AddressList[0]);
+                        }
+                        catch
+                        {
+                            StrIPAddress = null;
+                        }
+                    }
                     // When the user is not allowed to query the UserAccountControl attribute.
                     if (AdComputer.Properties["useraccountcontrol"].Count != 0)
                     {
@@ -1361,12 +1375,12 @@ namespace ADRecon
                     ComputerObj.Members.Add(new PSNoteProperty("Name", (AdComputer.Properties["name"].Count != 0 ? AdComputer.Properties["name"][0] : "")));
                     ComputerObj.Members.Add(new PSNoteProperty("DNSHostName", (AdComputer.Properties["dnshostname"].Count != 0 ? AdComputer.Properties["dnshostname"][0] : "")));
                     ComputerObj.Members.Add(new PSNoteProperty("Enabled", Enabled));
+                    ComputerObj.Members.Add(new PSNoteProperty("IPv4Address", StrIPAddress));
                     ComputerObj.Members.Add(new PSNoteProperty("Operating System", (AdComputer.Properties["operatingsystem"].Count != 0 ? AdComputer.Properties["operatingsystem"][0] : "-")));
                     ComputerObj.Members.Add(new PSNoteProperty("Days Since Last Logon", DaysSinceLastLogon));
                     ComputerObj.Members.Add(new PSNoteProperty("Days Since Last Password Change", DaysSinceLastPasswordChange));
                     ComputerObj.Members.Add(new PSNoteProperty("Trusted for Delegation", TrustedforDelegation));
                     ComputerObj.Members.Add(new PSNoteProperty("Trusted to Auth for Delegation", TrustedtoAuthforDelegation));
-
                     ComputerObj.Members.Add(new PSNoteProperty("Username", (AdComputer.Properties["samaccountname"].Count != 0 ? AdComputer.Properties["samaccountname"][0] : "")));
                     ComputerObj.Members.Add(new PSNoteProperty("Primary Group ID", (AdComputer.Properties["primarygroupid"].Count != 0 ? AdComputer.Properties["primarygroupid"][0] : "")));
                     ComputerObj.Members.Add(new PSNoteProperty("Description", (AdComputer.Properties["Description"].Count != 0 ? AdComputer.Properties["Description"][0] : "")));
