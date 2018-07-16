@@ -1481,9 +1481,9 @@ using System.Text;
 using System.Runtime.InteropServices;
 using System.Management.Automation;
 
-namespace PingCastle.Scanners
+namespace ADRecon
 {
-    public class SmbScanner
+    public class PingCastleScannersSMBScanner
 	{
         [StructLayout(LayoutKind.Explicit)]
 		struct SMB_Header {
@@ -1886,7 +1886,6 @@ namespace PingCastle.Scanners
 	}
 }
 "@
-
 
 Function Get-DateDiff
 {
@@ -2992,26 +2991,12 @@ Function Export-ADR
                 If ($ADRObj -is [array])
                 {
                     # Fix for InvalidOperationException: The object of type "Microsoft.PowerShell.Commands.Internal.Format.FormatStartData" is not valid or not in the correct sequence.
-                    If ($PSVersionTable.PSVersion.Major -ne 2)
-                    {
-                        $ADRObj
-                    }
-                    Else
-                    {
-                        $ADRObj | Out-String -Stream
-                    }
+                    $ADRObj | Out-String -Stream
                 }
                 Else
                 {
                     # Fix for InvalidOperationException: The object of type "Microsoft.PowerShell.Commands.Internal.Format.FormatStartData" is not valid or not in the correct sequence.
-                    If ($PSVersionTable.PSVersion.Major -ne 2)
-                    {
-                        $ADRObj | Format-List
-                    }
-                    Else
-                    {
-                        $ADRObj | Format-List | Out-String -Stream
-                    }
+                    $ADRObj | Format-List | Out-String -Stream
                 }
             }
         }
@@ -3102,7 +3087,8 @@ Function Get-ADRDomain
         }
         Catch
         {
-            Write-Error "[EXCEPTION] $($_.Exception.Message)"
+            Write-Warning "[Get-ADRDomain] Error getting Domain Context"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
             Return $null
         }
         If ($ADDomain)
@@ -3160,7 +3146,8 @@ Function Get-ADRDomain
             }
             Catch
             {
-                Write-Warning "[EXCEPTION] $($_.Exception.Message)"
+                Write-Verbose "[Get-ADRDomain] Error getting Forest Context"
+                Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
             }
 
             If (-Not $ADForest)
@@ -3171,7 +3158,8 @@ Function Get-ADRDomain
                 }
                 Catch
                 {
-                    Write-Error "[EXCEPTION] $($_.Exception.Message)"
+                    Write-Warning "[Get-ADRDomain] Error getting Forest Context"
+                    Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
                 }
             }
             If ($ADForest)
@@ -3199,7 +3187,8 @@ Function Get-ADRDomain
             }
             Catch
             {
-                Write-Warning "[EXCEPTION] $($_.Exception.Message)"
+                Write-Warning "[Get-ADRDomain] Error accessing CN=RID Manager$,CN=System,$($ADDomain.DistinguishedName)"
+                Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
             }
             If ($DomainCreation)
             {
@@ -3240,47 +3229,69 @@ Function Get-ADRDomain
             }
             Catch
             {
-                Write-Error "[EXCEPTION] $($_.Exception.Message)"
+                Write-Warning "[Get-ADRDomain] Error getting Domain Context"
+                Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
                 Return $null
             }
             Remove-Variable DomainContext
             # Get RIDAvailablePool
-            $SearchPath = "CN=RID Manager$,CN=System"
-            $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DomainController)/$SearchPath,$($objDomain.distinguishedName)", $Credential.UserName,$Credential.GetNetworkCredential().Password
-            $objSearcherPath = New-Object System.DirectoryServices.DirectorySearcher $objSearchPath
-            $objSearcherPath.PropertiesToLoad.AddRange(("ridavailablepool"))
-            $objSearcherResult = $objSearcherPath.FindAll()
-            $RIDproperty = $objSearcherResult.Properties.ridavailablepool
-            [int32] $totalSIDS = $($RIDproperty) / ([math]::Pow(2,32))
-            [int64] $temp64val = $totalSIDS * ([math]::Pow(2,32))
-            $RIDsIssued = [int32]($($RIDproperty) - $temp64val)
-            $RIDsRemaining = $totalSIDS - $RIDsIssued
-            Remove-Variable SearchPath
-            $objSearchPath.Dispose()
-            $objSearcherPath.Dispose()
-            $objSearcherResult.Dispose()
-            Remove-Variable RIDproperty
-            Remove-Variable totalSIDS
-            Remove-Variable temp64val
-            $ForestContext = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext("Forest",$($ADDomain.Forest),$($Credential.UserName),$($Credential.GetNetworkCredential().password))
             Try
             {
+                $SearchPath = "CN=RID Manager$,CN=System"
+                $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DomainController)/$SearchPath,$($objDomain.distinguishedName)", $Credential.UserName,$Credential.GetNetworkCredential().Password
+                $objSearcherPath = New-Object System.DirectoryServices.DirectorySearcher $objSearchPath
+                $objSearcherPath.PropertiesToLoad.AddRange(("ridavailablepool"))
+                $objSearcherResult = $objSearcherPath.FindAll()
+                $RIDproperty = $objSearcherResult.Properties.ridavailablepool
+                [int32] $totalSIDS = $($RIDproperty) / ([math]::Pow(2,32))
+                [int64] $temp64val = $totalSIDS * ([math]::Pow(2,32))
+                $RIDsIssued = [int32]($($RIDproperty) - $temp64val)
+                $RIDsRemaining = $totalSIDS - $RIDsIssued
+                Remove-Variable SearchPath
+                $objSearchPath.Dispose()
+                $objSearcherPath.Dispose()
+                $objSearcherResult.Dispose()
+                Remove-Variable RIDproperty
+                Remove-Variable totalSIDS
+                Remove-Variable temp64val
+            }
+            Catch
+            {
+                Write-Warning "[Get-ADRDomain] Error accessing CN=RID Manager$,CN=System,$($SearchPath),$($objDomain.distinguishedName)"
+                Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+            }
+            Try
+            {
+                $ForestContext = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext("Forest",$($ADDomain.Forest),$($Credential.UserName),$($Credential.GetNetworkCredential().password))
                 $ADForest = [System.DirectoryServices.ActiveDirectory.Forest]::GetForest($ForestContext)
             }
             Catch
             {
-                Write-Error "[EXCEPTION] $($_.Exception.Message)"
-                Return $null
+                Write-Warning "[Get-ADRDomain] Error getting Forest Context"
+                Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
             }
-            Remove-Variable ForestContext
-
-            $GlobalCatalog = $ADForest.FindGlobalCatalog()
+            If ($ForestContext)
+            {
+                Remove-Variable ForestContext
+            }
+            If ($ADForest)
+            {
+                $GlobalCatalog = $ADForest.FindGlobalCatalog()
+            }
             If ($GlobalCatalog)
             {
                 $DN = "GC://$($GlobalCatalog.IPAddress)/$($objDomain.distinguishedname)"
-                $ADObject = New-Object -TypeName System.DirectoryServices.DirectoryEntry -ArgumentList ($($DN),$($Credential.UserName),$($Credential.GetNetworkCredential().password))
-                $ADDomainSID = New-Object System.Security.Principal.SecurityIdentifier($ADObject.objectSid[0], 0)
-                $ADObject.Dispose()
+                Try
+                {
+                    $ADObject = New-Object -TypeName System.DirectoryServices.DirectoryEntry -ArgumentList ($($DN),$($Credential.UserName),$($Credential.GetNetworkCredential().password))
+                    $ADDomainSID = New-Object System.Security.Principal.SecurityIdentifier($ADObject.objectSid[0], 0)
+                    $ADObject.Dispose()
+                }
+                Catch
+                {
+                    Write-Warning "[Get-ADRDomain] Error retrieving Domain SID"
+                    Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+                }
             }
         }
         Else
@@ -3297,20 +3308,29 @@ Function Get-ADRDomain
             }
             Catch
             {
-                Write-Warning "[EXCEPTION] $($_.Exception.Message)"
+                Write-Warning "[Get-ADRDomain] Error retrieving Domain SID."
+                Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
                 $ADDomainSID = New-Object System.Security.Principal.SecurityIdentifier($objDomain.objectSid[0], 0)
             }
             # Get RIDAvailablePool
-            $RIDManager = ([ADSI]"LDAP://CN=RID Manager$,CN=System,$($objDomain.distinguishedName)")
-            $RIDproperty = $ObjDomain.ConvertLargeIntegerToInt64($RIDManager.Properties.rIDAvailablePool.value)
-            [int32] $totalSIDS = $($RIDproperty) / ([math]::Pow(2,32))
-            [int64] $temp64val = $totalSIDS * ([math]::Pow(2,32))
-            $RIDsIssued = [int32]($($RIDproperty) - $temp64val)
-            $RIDsRemaining = $totalSIDS - $RIDsIssued
-            Remove-Variable RIDManager
-            Remove-Variable RIDproperty
-            Remove-Variable totalSIDS
-            Remove-Variable temp64val
+            Try
+            {
+                $RIDManager = ([ADSI]"LDAP://CN=RID Manager$,CN=System,$($objDomain.distinguishedName)")
+                $RIDproperty = $ObjDomain.ConvertLargeIntegerToInt64($RIDManager.Properties.rIDAvailablePool.value)
+                [int32] $totalSIDS = $($RIDproperty) / ([math]::Pow(2,32))
+                [int64] $temp64val = $totalSIDS * ([math]::Pow(2,32))
+                $RIDsIssued = [int32]($($RIDproperty) - $temp64val)
+                $RIDsRemaining = $totalSIDS - $RIDsIssued
+                Remove-Variable RIDManager
+                Remove-Variable RIDproperty
+                Remove-Variable totalSIDS
+                Remove-Variable temp64val
+            }
+            Catch
+            {
+                Write-Warning "[Get-ADRDomain] Error accessing CN=RID Manager$,CN=System,$($SearchPath),$($objDomain.distinguishedName)"
+                Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+            }
         }
 
         If ($ADDomain)
@@ -3449,7 +3469,8 @@ Function Get-ADRForest
         }
         Catch
         {
-            Write-Error "[EXCEPTION] $($_.Exception.Message)"
+            Write-Warning "[Get-ADRForest] Error getting Domain Context"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
             Return $null
         }
 
@@ -3459,7 +3480,8 @@ Function Get-ADRForest
         }
         Catch
         {
-            Write-Warning "[EXCEPTION] $($_.Exception.Message)"
+            Write-Verbose "[Get-ADRForest] Error getting Forest Context"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
         }
         Remove-Variable ADDomain
 
@@ -3471,22 +3493,15 @@ Function Get-ADRForest
             }
             Catch
             {
-                Write-Error "[EXCEPTION] $($_.Exception.Message)"
+                Write-Warning "[Get-ADRForest] Error getting Forest Context"
+                Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
                 Return $null
             }
         }
 
         If ($ADForest)
         {
-            Try
-            {
-                $ADRecycleBin = Get-ADOptionalFeature -Filter 'name -like "Recycle Bin Feature"'
-            }
-            Catch
-            {
-                Write-Warning "[EXCEPTION] $($_.Exception.Message)"
-            }
-
+            # Get Tombstone Lifetime
             Try
             {
                 $ADForestCNC = (Get-ADRootDSE).configurationNamingContext
@@ -3497,7 +3512,36 @@ Function Get-ADRForest
             }
             Catch
             {
-                Write-Warning "[EXCEPTION] $($_.Exception.Message)"
+                Write-Warning "[Get-ADRForest] Error retrieving Tombstone Lifetime"
+                Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+            }
+
+            # Check Recycle Bin Feature Status
+            If ([convert]::ToInt32($ADForest.ForestMode) -ge 6)
+            {
+                Try
+                {
+                    $ADRecycleBin = Get-ADOptionalFeature -Identity "Recycle Bin Feature"
+                }
+                Catch
+                {
+                    Write-Warning "[Get-ADRForest] Error retrieving Recycle Bin Feature"
+                    Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+                }
+            }
+
+            # Check Privileged Access Management Feature status
+            If ([convert]::ToInt32($ADForest.ForestMode) -ge 7)
+            {
+                Try
+                {
+                    $PrivilegedAccessManagement = Get-ADOptionalFeature -Identity "Privileged Access Management Feature"
+                }
+                Catch
+                {
+                    Write-Warning "[Get-ADRForest] Error retrieving Privileged Acceess Management Feature"
+                    Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+                }
             }
 
             $ForestObj = @()
@@ -3554,21 +3598,7 @@ Function Get-ADRForest
                 $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $ADForest.GlobalCatalogs[$i]
                 $ForestObj += $Obj
             }
-            If ($ADRecycleBin)
-            {
-                $Obj = New-Object PSObject
-                $Obj | Add-Member -MemberType NoteProperty -Name "Category" -Value "Recycle Bin Enabled"
-                If ($ADRecycleBin.EnabledScopes.Count -eq 0)
-                {
-                    $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $false
-                }
-                Else
-                {
-                    $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $true
-                }
-                $ForestObj += $Obj
-                Remove-Variable ADRecycleBin
-            }
+
             $Obj = New-Object PSObject
             $Obj | Add-Member -MemberType NoteProperty -Name "Category" -Value "Tombstone Lifetime"
             If ($ADForestTombstoneLifetime)
@@ -3581,6 +3611,64 @@ Function Get-ADRForest
                 $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value "Not Retrieved"
             }
             $ForestObj += $Obj
+
+            $Obj = New-Object PSObject
+            $Obj | Add-Member -MemberType NoteProperty -Name "Category" -Value "Recycle Bin (2008 R2 onwards)"
+            If ($ADRecycleBin)
+            {
+                If ($ADRecycleBin.EnabledScopes.Count -gt 0)
+                {
+                    $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value "Enabled"
+                    $ForestObj += $Obj
+                    For($i=0; $i -lt $($ADRecycleBin.EnabledScopes.Count); $i++)
+                    {
+                        $Obj = New-Object PSObject
+                        $Obj | Add-Member -MemberType NoteProperty -Name "Category" -Value "Enabled Scope"
+                        $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $ADRecycleBin.EnabledScopes[$i]
+                        $ForestObj += $Obj
+                    }
+                }
+                Else
+                {
+                    $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value "Disabled"
+                    $ForestObj += $Obj
+                }
+                Remove-Variable ADRecycleBin
+            }
+            Else
+            {
+                $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value "Disabled"
+                $ForestObj += $Obj
+            }
+
+            $Obj = New-Object PSObject
+            $Obj | Add-Member -MemberType NoteProperty -Name "Category" -Value "Privileged Access Management (2016 onwards)"
+            If ($PrivilegedAccessManagement)
+            {
+                If ($PrivilegedAccessManagement.EnabledScopes.Count -gt 0)
+                {
+                    $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value "Enabled"
+                    $ForestObj += $Obj
+                    For($i=0; $i -lt $($PrivilegedAccessManagement.EnabledScopes.Count); $i++)
+                    {
+                        $Obj = New-Object PSObject
+                        $Obj | Add-Member -MemberType NoteProperty -Name "Category" -Value "Enabled Scope"
+                        $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $PrivilegedAccessManagement.EnabledScopes[$i]
+                        $ForestObj += $Obj
+                    }
+                }
+                Else
+                {
+                    $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value "Disabled"
+                    $ForestObj += $Obj
+                }
+                Remove-Variable PrivilegedAccessManagement
+            }
+            Else
+            {
+                $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value "Disabled"
+                $ForestObj += $Obj
+            }
             Remove-Variable ADForest
         }
     }
@@ -3597,7 +3685,8 @@ Function Get-ADRForest
             }
             Catch
             {
-                Write-Error "[EXCEPTION] $($_.Exception.Message)"
+                Write-Warning "[Get-ADRForest] Error getting Domain Context"
+                Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
                 Return $null
             }
             Remove-Variable DomainContext
@@ -3610,51 +3699,88 @@ Function Get-ADRForest
             }
             Catch
             {
-                Write-Error "[EXCEPTION] $($_.Exception.Message)"
+                Write-Warning "[Get-ADRForest] Error getting Forest Context"
+                Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
                 Return $null
             }
             Remove-Variable ForestContext
 
-            # Check AD Recycle Bin Status
+            # Get Tombstone Lifetime
             Try
             {
-                $SearchPath = "CN=Recycle Bin Feature,CN=Optional Features,CN=Directory Service,CN=Windows NT,CN=Services,CN=Configuration"
-                $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DomainController)/$($SearchPath),$($objDomain.distinguishedName)", $Credential.UserName,$Credential.GetNetworkCredential().Password
+                $SearchPath = "CN=Directory Service,CN=Windows NT,CN=Services"
+                $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DomainController)/$SearchPath,$($objDomainRootDSE.configurationNamingContext)", $Credential.UserName,$Credential.GetNetworkCredential().Password
                 $objSearcherPath = New-Object System.DirectoryServices.DirectorySearcher $objSearchPath
-                $ADRecycleBin = $objSearcherPath.FindAll()
+                $objSearcherPath.Filter="(name=Directory Service)"
+                $objSearcherResult = $objSearcherPath.FindAll()
+                $ADForestTombstoneLifetime = $objSearcherResult.Properties.tombstoneLifetime
                 Remove-Variable SearchPath
                 $objSearchPath.Dispose()
                 $objSearcherPath.Dispose()
+                $objSearcherResult.Dispose()
             }
             Catch
             {
-                Write-Warning "[EXCEPTION] $($_.Exception.Message)"
+                Write-Warning "[Get-ADRForest] Error retrieving Tombstone Lifetime"
+                Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
             }
-
-            # Get Tombstone Lifetime
-            $SearchPath = "CN=Directory Service,CN=Windows NT,CN=Services"
-            $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DomainController)/$SearchPath,$($objDomainRootDSE.configurationNamingContext)", $Credential.UserName,$Credential.GetNetworkCredential().Password
-            $objSearcherPath = New-Object System.DirectoryServices.DirectorySearcher $objSearchPath
-            $objSearcherPath.Filter="(name=Directory Service)"
-            $objSearcherResult = $objSearcherPath.FindAll()
-            $ADForestTombstoneLifetime = $objSearcherResult.Properties.tombstoneLifetime
-            Remove-Variable SearchPath
-            $objSearchPath.Dispose()
-            $objSearcherPath.Dispose()
-            $objSearcherResult.Dispose()
-
+            # Check Recycle Bin Feature Status
+            If ([convert]::ToInt32($objDomainRootDSE.forestFunctionality,10) -ge 6)
+            {
+                Try
+                {
+                    $SearchPath = "CN=Recycle Bin Feature,CN=Optional Features,CN=Directory Service,CN=Windows NT,CN=Services,CN=Configuration"
+                    $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DomainController)/$($SearchPath),$($objDomain.distinguishedName)", $Credential.UserName,$Credential.GetNetworkCredential().Password
+                    $objSearcherPath = New-Object System.DirectoryServices.DirectorySearcher $objSearchPath
+                    $ADRecycleBin = $objSearcherPath.FindAll()
+                    Remove-Variable SearchPath
+                    $objSearchPath.Dispose()
+                    $objSearcherPath.Dispose()
+                }
+                Catch
+                {
+                    Write-Warning "[Get-ADRForest] Error retrieving Recycle Bin Feature"
+                    Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+                }
+            }
+            # Check Privileged Access Management Feature status
+            If ([convert]::ToInt32($objDomainRootDSE.forestFunctionality,10) -ge 7)
+            {
+                Try
+                {
+                    $SearchPath = "CN=Privileged Access Management Feature,CN=Optional Features,CN=Directory Service,CN=Windows NT,CN=Services,CN=Configuration"
+                    $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DomainController)/$($SearchPath),$($objDomain.distinguishedName)", $Credential.UserName,$Credential.GetNetworkCredential().Password
+                    $objSearcherPath = New-Object System.DirectoryServices.DirectorySearcher $objSearchPath
+                    $PrivilegedAccessManagement = $objSearcherPath.FindAll()
+                    Remove-Variable SearchPath
+                    $objSearchPath.Dispose()
+                    $objSearcherPath.Dispose()
+                }
+                Catch
+                {
+                    Write-Warning "[Get-ADRForest] Error retrieving Privileged Access Management Feature"
+                    Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+                }
+            }
         }
         Else
         {
             $ADDomain = [System.DirectoryServices.ActiveDirectory.Domain]::GetCurrentDomain()
             $ADForest = [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest()
 
-            # Check AD Recycle Bin Status
-            $ADRecycleBin = ([ADSI]"LDAP://CN=Recycle Bin Feature,CN=Optional Features,CN=Directory Service,CN=Windows NT,CN=Services,CN=Configuration,$($objDomain.distinguishedName)")
-
             # Get Tombstone Lifetime
             $ADForestTombstoneLifetime = ([ADSI]"LDAP://CN=Directory Service,CN=Windows NT,CN=Services,$($objDomainRootDSE.configurationNamingContext)").tombstoneLifetime.value
 
+            # Check Recycle Bin Feature Status
+            If ([convert]::ToInt32($objDomainRootDSE.forestFunctionality,10) -ge 6)
+            {
+                $ADRecycleBin = ([ADSI]"LDAP://CN=Recycle Bin Feature,CN=Optional Features,CN=Directory Service,CN=Windows NT,CN=Services,CN=Configuration,$($objDomain.distinguishedName)")
+            }
+            # Check Privileged Access Management Feature Status
+            If ([convert]::ToInt32($objDomainRootDSE.forestFunctionality,10) -ge 7)
+            {
+                $PrivilegedAccessManagement = ([ADSI]"LDAP://CN=Privileged Access Management Feature,CN=Optional Features,CN=Directory Service,CN=Windows NT,CN=Services,CN=Configuration,$($objDomain.distinguishedName)")
+            }
         }
 
         If ($ADForest)
@@ -3670,7 +3796,7 @@ Function Get-ADRForest
 	            4 = "Windows2008R2";
 	            5 = "Windows2012";
 	            6 = "Windows2012R2";
-	            7 = "Windows2016"
+                7 = "Windows2016"
             }
             $ForestMode = $FLAD[[convert]::ToInt32($objDomainRootDSE.forestFunctionality,10)] + "Forest"
             Remove-Variable FLAD
@@ -3708,21 +3834,7 @@ Function Get-ADRForest
                 $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $ADForest.GlobalCatalogs[$i]
                 $ForestObj += $Obj
             }
-            If ($ADRecycleBin)
-            {
-                $Obj = New-Object PSObject
-                $Obj | Add-Member -MemberType NoteProperty -Name "Category" -Value "Recycle Bin Enabled"
-                If ($ADRecycleBin.Properties.EnabledScopes.Count -eq 0)
-                {
-                    $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $false
-                }
-                Else
-                {
-                    $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $true
-                }
-                $ForestObj += $Obj
-                Remove-Variable ADRecycleBin
-            }
+
             $Obj = New-Object PSObject
             $Obj | Add-Member -MemberType NoteProperty -Name "Category" -Value "Tombstone Lifetime"
             If ($ADForestTombstoneLifetime)
@@ -3735,6 +3847,65 @@ Function Get-ADRForest
                 $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value "Not Retrieved"
             }
             $ForestObj += $Obj
+
+            $Obj = New-Object PSObject
+            $Obj | Add-Member -MemberType NoteProperty -Name "Category" -Value "Recycle Bin (2008 R2 onwards)"
+            If ($ADRecycleBin)
+            {
+                If ($ADRecycleBin.Properties.'msDS-EnabledFeatureBL'.Count -gt 0)
+                {
+                    $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value "Enabled"
+                    $ForestObj += $Obj
+                    For($i=0; $i -lt $($ADRecycleBin.Properties.'msDS-EnabledFeatureBL'.Count); $i++)
+                    {
+                        $Obj = New-Object PSObject
+                        $Obj | Add-Member -MemberType NoteProperty -Name "Category" -Value "Enabled Scope"
+                        $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $ADRecycleBin.Properties.'msDS-EnabledFeatureBL'[$i]
+                        $ForestObj += $Obj
+                    }
+                }
+                Else
+                {
+                    $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value "Disabled"
+                    $ForestObj += $Obj
+                }
+                Remove-Variable ADRecycleBin
+            }
+            Else
+            {
+                $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value "Disabled"
+                $ForestObj += $Obj
+            }
+
+            $Obj = New-Object PSObject
+            $Obj | Add-Member -MemberType NoteProperty -Name "Category" -Value "Privileged Access Management (2016 onwards)"
+            If ($PrivilegedAccessManagement)
+            {
+                If ($PrivilegedAccessManagement.Properties.'msDS-EnabledFeatureBL'.Count -gt 0)
+                {
+                    $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value "Enabled"
+                    $ForestObj += $Obj
+                    For($i=0; $i -lt $($PrivilegedAccessManagement.Properties.'msDS-EnabledFeatureBL'.Count); $i++)
+                    {
+                        $Obj = New-Object PSObject
+                        $Obj | Add-Member -MemberType NoteProperty -Name "Category" -Value "Enabled Scope"
+                        $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $PrivilegedAccessManagement.Properties.'msDS-EnabledFeatureBL'[$i]
+                        $ForestObj += $Obj
+                    }
+                }
+                Else
+                {
+                    $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value "Disabled"
+                    $ForestObj += $Obj
+                }
+                Remove-Variable PrivilegedAccessManagement
+            }
+            Else
+            {
+                $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value "Disabled"
+                $ForestObj += $Obj
+            }
+
             Remove-Variable ADForest
         }
     }
@@ -3792,7 +3963,8 @@ Function Get-ADRDefaultPasswordPolicy
         }
         Catch
         {
-            Write-Error "[EXCEPTION] $($_.Exception.Message)"
+            Write-Warning "[Get-ADRDefaultPasswordPolicy] Error while enumerating the Default Password Policy"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
             Return $null
         }
 
@@ -3919,7 +4091,8 @@ Function Get-ADRFineGrainedPasswordPolicy
         }
         Catch
         {
-            Write-Error "[EXCEPTION] $($_.Exception.Message)"
+            Write-Warning "[Get-ADRFineGrainedPasswordPolicy] Error while enumerating the Fine Grained Password Policy"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
             Return $null
         }
 
@@ -3961,7 +4134,8 @@ Function Get-ADRFineGrainedPasswordPolicy
             }
             Catch
             {
-                Write-Error "[EXCEPTION] $($_.Exception.Message)"
+                Write-Warning "[Get-ADRFineGrainedPasswordPolicy] Error while enumerating the Fine Grained Password Policy"
+                Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
                 Return $null
             }
 
@@ -3971,11 +4145,11 @@ Function Get-ADRFineGrainedPasswordPolicy
                 {
                     $ADPassPolObj = @()
                     $ADFinepasspolicy | ForEach-Object {
-                        For($i=0; $i -lt $($_.Properties.'msds-psoappliesto'.Count); $i++)
-                        {
-                            $AppliesTo = $AppliesTo + "," + $_.Properties.'msds-psoappliesto'[$i]
-                        }
-                        $AppliesTo = $AppliesTo.TrimStart(",")
+                    For($i=0; $i -lt $($_.Properties.'msds-psoappliesto'.Count); $i++)
+                    {
+                        $AppliesTo = $AppliesTo + "," + $_.Properties.'msds-psoappliesto'[$i]
+                    }
+                    $AppliesTo = $AppliesTo.TrimStart(",")
                         $ObjValues = @("Name", $($_.Properties.name), "Applies To", $AppliesTo, "Enforce password history", $($_.Properties.'msds-passwordhistorylength'), "Maximum password age (days)", $($($_.Properties.'msds-maximumpasswordage') /-864000000000), "Minimum password age (days)", $($($_.Properties.'msds-minimumpasswordage') /-864000000000), "Minimum password length", $($_.Properties.'msds-minimumpasswordlength'), "Password must meet complexity requirements", $($_.Properties.'msds-passwordcomplexityenabled'), "Store password using reversible encryption", $($_.Properties.'msds-passwordreversibleencryptionenabled'), "Account lockout duration (mins)", $($($_.Properties.'msds-lockoutduration')/-600000000), "Account lockout threshold", $($_.Properties.'msds-lockoutthreshold'), "Reset account lockout counter after (mins)", $($($_.Properties.'msds-lockoutobservationwindow')/-600000000), "Precedence", $($_.Properties.'msds-passwordsettingsprecedence'))
                         For ($i = 0; $i -lt $($ObjValues.Count); $i++)
                         {
@@ -4048,28 +4222,29 @@ Function Get-ADRDomainController
     {
         Try
         {
-            $allDCs = Get-ADDomainController -Filter *
+            $ADDomainControllers = Get-ADDomainController -Filter *
         }
         Catch
         {
-            Write-Error "[EXCEPTION] $($_.Exception.Message)"
+            Write-Warning "[Get-ADRDomainController] Error while enumerating DomainController Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
             Return $null
         }
 
         # DC Info
-        If ($allDCs)
+        If ($ADDomainControllers)
         {
-            Write-Verbose "[*] Total Domain Controllers: $([ADRecon.ADWSClass]::ObjectCount($allDCs))"
+            Write-Verbose "[*] Total Domain Controllers: $([ADRecon.ADWSClass]::ObjectCount($ADDomainControllers))"
             # DC Info
             $DCObj = @()
-            $allDCs | ForEach-Object {
+            $ADDomainControllers | ForEach-Object {
                 # Create the object for each instance.
                 $Obj = New-Object PSObject
                 $Obj | Add-Member -MemberType NoteProperty -Name "Domain" -Value $_.Domain
                 $Obj | Add-Member -MemberType NoteProperty -Name "Site" -Value $_.Site
                 $Obj | Add-Member -MemberType NoteProperty -Name "Name" -Value $_.Name
                 $Obj | Add-Member -MemberType NoteProperty -Name "IPv4Address" -Value $_.IPv4Address
-                $OSVersion = $_.OperatingSystem + $_.OperatingSystemHotfix + $_.OperatingSystemServicePack + $_.OperatingSystemVersion
+                $OSVersion = [ADRecon.ADWSClass]::CleanString($($_.OperatingSystem + " " + $_.OperatingSystemHotfix + " " + $_.OperatingSystemServicePack + " " + $_.OperatingSystemVersion))
                 $Obj | Add-Member -MemberType NoteProperty -Name "Operating System" -Value $OSVersion
                 Remove-Variable OSVersion
                 $Obj | Add-Member -MemberType NoteProperty -Name "Hostname" -Value $_.HostName
@@ -4113,14 +4288,14 @@ Function Get-ADRDomainController
                 {
                     $Obj | Add-Member -MemberType NoteProperty -Name "PDC" -Value $false
                 }
-                $DCSMBObj = [PingCastle.Scanners.SmbScanner]::GetPSObject($_.IPv4Address)
+                $DCSMBObj = [ADRecon.PingCastleScannersSMBScanner]::GetPSObject($_.IPv4Address)
                 ForEach ($Property in $DCSMBObj.psobject.Properties)
                 {
                     $Obj | Add-Member -MemberType NoteProperty -Name $Property.Name -Value $Property.value
                 }
                 $DCObj += $Obj
             }
-            Remove-Variable allDCs
+            Remove-Variable ADDomainControllers
         }
     }
 
@@ -4136,7 +4311,8 @@ Function Get-ADRDomainController
             }
             Catch
             {
-                Write-Error "[EXCEPTION] $($_.Exception.Message)"
+                Write-Warning "[Get-ADRDomainController] Error getting Domain Context"
+                Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
                 Return $null
             }
             Remove-Variable DomainContext
@@ -4156,10 +4332,10 @@ Function Get-ADRDomainController
                 $Obj = New-Object PSObject
                 $Obj | Add-Member -MemberType NoteProperty -Name "Domain" -Value $_.Domain
                 $Obj | Add-Member -MemberType NoteProperty -Name "Site" -Value $_.SiteName
-                $Obj | Add-Member -MemberType NoteProperty -Name "Name" -Value $_.Name
+                $Obj | Add-Member -MemberType NoteProperty -Name "Name" -Value ($_.Name -Split ("\."))[0]
                 $Obj | Add-Member -MemberType NoteProperty -Name "IPAddress" -Value $_.IPAddress
                 $Obj | Add-Member -MemberType NoteProperty -Name "Operating System" -Value $_.OSVersion
-                $Obj | Add-Member -MemberType NoteProperty -Name "Hostname" -Value $_.Hostname
+                $Obj | Add-Member -MemberType NoteProperty -Name "Hostname" -Value $_.Name
                 If ($null -ne $_.Roles)
                 {
                     $Obj | Add-Member -MemberType NoteProperty -Name "Infra" -Value $($_.Roles.Contains("InfrastructureRole"))
@@ -4176,7 +4352,7 @@ Function Get-ADRDomainController
                     $Obj | Add-Member -MemberType NoteProperty -Name "RID" -Value $false
                     $Obj | Add-Member -MemberType NoteProperty -Name "PDC" -Value $false
                 }
-                $DCSMBObj = [PingCastle.Scanners.SmbScanner]::GetPSObject($_.IPAddress)
+                $DCSMBObj = [ADRecon.PingCastleScannersSMBScanner]::GetPSObject($_.IPAddress)
                 ForEach ($Property in $DCSMBObj.psobject.Properties)
                 {
                     $Obj | Add-Member -MemberType NoteProperty -Name $Property.Name -Value $Property.value
