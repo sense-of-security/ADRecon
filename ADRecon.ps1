@@ -252,6 +252,7 @@ $ADWSSource = @"
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Security.Principal;
 using System.Management.Automation;
@@ -267,6 +268,34 @@ namespace ADRecon
         private static readonly HashSet<string> Users = new HashSet<string> ( new String[] { "805306368" } );
         private static readonly HashSet<string> Computers = new HashSet<string> ( new String[] { "805306369" }) ;
         private static readonly HashSet<string> TrustAccounts = new HashSet<string> ( new String[] { "805306370" } );
+
+        [Flags]
+        //Values taken from https://support.microsoft.com/en-au/kb/305144
+        public enum UACFlags
+        {
+            SCRIPT = 1,        // 0x1
+            ACCOUNTDISABLE = 2,        // 0x2
+            HOMEDIR_REQUIRED = 8,        // 0x8
+            LOCKOUT = 16,       // 0x10
+            PASSWD_NOTREQD = 32,       // 0x20
+            PASSWD_CANT_CHANGE = 64,       // 0x40
+            ENCRYPTED_TEXT_PASSWORD_ALLOWED = 128,      // 0x80
+            TEMP_DUPLICATE_ACCOUNT = 256,      // 0x100
+            NORMAL_ACCOUNT = 512,      // 0x200
+            INTERDOMAIN_TRUST_ACCOUNT = 2048,     // 0x800
+            WORKSTATION_TRUST_ACCOUNT = 4096,     // 0x1000
+            SERVER_TRUST_ACCOUNT = 8192,     // 0x2000
+            DONT_EXPIRE_PASSWD = 65536,    // 0x10000
+            MNS_LOGON_ACCOUNT = 131072,   // 0x20000
+            SMARTCARD_REQUIRED = 262144,   // 0x40000
+            TRUSTED_FOR_DELEGATION = 524288,   // 0x80000
+            NOT_DELEGATED = 1048576,  // 0x100000
+            USE_DES_KEY_ONLY = 2097152,  // 0x200000
+            DONT_REQUIRE_PREAUTH = 4194304,  // 0x400000
+            PASSWORD_EXPIRED = 8388608,  // 0x800000
+            TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION = 16777216, // 0x1000000
+            PARTIAL_SECRETS_ACCOUNT = 67108864 // 0x04000000
+        }
 
 		private static readonly Dictionary<String, String> Replacements = new Dictionary<String, String>()
         {
@@ -532,8 +561,34 @@ namespace ADRecon
                 {
                     PSObject AdUser = (PSObject) record;
                     List<PSObject> SPNList = new List<PSObject>();
-                    DateTime PasswordLastSet = DateTime.FromFileTime((long)AdUser.Members["pwdLastSet"].Value);
+                    bool? Enabled = null;
+                    String Memberof = null;
+                    DateTime? PasswordLastSet = null;
+
+                    // When the user is not allowed to query the UserAccountControl attribute.
+                    if (AdUser.Members["userAccountControl"].Value != null)
+                    {
+                        var userFlags = (UACFlags) AdUser.Members["userAccountControl"].Value;
+                        Enabled = !((userFlags & UACFlags.ACCOUNTDISABLE) == UACFlags.ACCOUNTDISABLE);
+                    }
+                    if (Convert.ToString(AdUser.Members["pwdLastSet"].Value) != "0")
+                    {
+                        PasswordLastSet = DateTime.FromFileTime((long)AdUser.Members["pwdLastSet"].Value);
+                    }
                     Microsoft.ActiveDirectory.Management.ADPropertyValueCollection SPNs = (Microsoft.ActiveDirectory.Management.ADPropertyValueCollection)AdUser.Members["servicePrincipalName"].Value;
+                    Microsoft.ActiveDirectory.Management.ADPropertyValueCollection MemberOfAttribute = (Microsoft.ActiveDirectory.Management.ADPropertyValueCollection)AdUser.Members["memberof"].Value;
+                    if (MemberOfAttribute.Value is System.String[])
+                    {
+                        foreach (String Member in (System.String[])MemberOfAttribute.Value)
+                        {
+                            Memberof = Memberof + "," + ((Convert.ToString(Member)).Split(',')[0]).Split('=')[1];
+                        }
+                        Memberof = Memberof.TrimStart(',');
+                    }
+                    else
+                    {
+                        Memberof = ((Convert.ToString(MemberOfAttribute.Value)).Split(',')[0]).Split('=')[1];
+                    }
                     if (SPNs.Value is System.String[])
                     {
                         foreach (String SPN in (System.String[])SPNs.Value)
@@ -542,10 +597,12 @@ namespace ADRecon
                             PSObject UserSPNObj = new PSObject();
                             UserSPNObj.Members.Add(new PSNoteProperty("Name", AdUser.Members["Name"].Value));
                             UserSPNObj.Members.Add(new PSNoteProperty("Username", AdUser.Members["SamAccountName"].Value));
+                            UserSPNObj.Members.Add(new PSNoteProperty("Enabled", Enabled));
                             UserSPNObj.Members.Add(new PSNoteProperty("Service", SPNArray[0]));
                             UserSPNObj.Members.Add(new PSNoteProperty("Host", SPNArray[1]));
                             UserSPNObj.Members.Add(new PSNoteProperty("Password Last Set", PasswordLastSet));
                             UserSPNObj.Members.Add(new PSNoteProperty("Description", AdUser.Members["Description"].Value));
+                            UserSPNObj.Members.Add(new PSNoteProperty("Memberof", Memberof));
                             SPNList.Add( UserSPNObj );
                         }
                     }
@@ -555,10 +612,12 @@ namespace ADRecon
                         PSObject UserSPNObj = new PSObject();
                         UserSPNObj.Members.Add(new PSNoteProperty("Name", AdUser.Members["Name"].Value));
                         UserSPNObj.Members.Add(new PSNoteProperty("Username", AdUser.Members["SamAccountName"].Value));
+                        UserSPNObj.Members.Add(new PSNoteProperty("Enabled", Enabled));
                         UserSPNObj.Members.Add(new PSNoteProperty("Service", SPNArray[0]));
                         UserSPNObj.Members.Add(new PSNoteProperty("Host", SPNArray[1]));
                         UserSPNObj.Members.Add(new PSNoteProperty("Password Last Set", PasswordLastSet));
                         UserSPNObj.Members.Add(new PSNoteProperty("Description", AdUser.Members["Description"].Value));
+                        UserSPNObj.Members.Add(new PSNoteProperty("Memberof", Memberof));
                         SPNList.Add( UserSPNObj );
                     }
                     return SPNList.ToArray();
@@ -785,17 +844,30 @@ namespace ADRecon
                 {
                     PSObject AdComputer = (PSObject) record;
                     List<PSObject> SPNList = new List<PSObject>();
+
                     Microsoft.ActiveDirectory.Management.ADPropertyValueCollection SPNs = (Microsoft.ActiveDirectory.Management.ADPropertyValueCollection)AdComputer.Members["servicePrincipalName"].Value;
                     if (SPNs.Value is System.String[])
                     {
                         foreach (String SPN in (System.String[])SPNs.Value)
                         {
+                            bool flag = true;
                             String[] SPNArray = SPN.Split('/');
-                            PSObject ComputerSPNObj = new PSObject();
-                            ComputerSPNObj.Members.Add(new PSNoteProperty("Name", AdComputer.Members["Name"].Value));
-                            ComputerSPNObj.Members.Add(new PSNoteProperty("Service", SPNArray[0]));
-                            ComputerSPNObj.Members.Add(new PSNoteProperty("Host", SPNArray[1]));
-                            SPNList.Add( ComputerSPNObj );
+                            foreach (PSObject Obj in SPNList)
+                            {
+                                if ( (String) Obj.Members["Service"].Value == SPNArray[0] )
+                                {
+                                    Obj.Members["Host"].Value = String.Join(",", (Obj.Members["Host"].Value + "," + SPNArray[1]).Split(',').Distinct().ToArray());
+                                    flag = false;
+                                }
+                            }
+                            if (flag)
+                            {
+                                PSObject ComputerSPNObj = new PSObject();
+                                ComputerSPNObj.Members.Add(new PSNoteProperty("Name", AdComputer.Members["Name"].Value));
+                                ComputerSPNObj.Members.Add(new PSNoteProperty("Service", SPNArray[0]));
+                                ComputerSPNObj.Members.Add(new PSNoteProperty("Host", SPNArray[1]));
+                                SPNList.Add( ComputerSPNObj );
+                            }
                         }
                     }
                     else
@@ -1189,18 +1261,41 @@ namespace ADRecon
                 {
                     SearchResult AdUser = (SearchResult) record;
                     List<PSObject> SPNList = new List<PSObject>();
-                    DateTime PasswordLastSet = DateTime.FromFileTime((long)(AdUser.Properties["pwdLastSet"][0]));
+                    bool? Enabled = null;
+                    String Memberof = null;
+                    DateTime? PasswordLastSet = null;
+
+                    if (AdUser.Properties["pwdlastset"].Count != 0)
+                    {
+                        if (Convert.ToString(AdUser.Properties["pwdlastset"][0]) != "0")
+                        {
+                            PasswordLastSet = DateTime.FromFileTime((long)(AdUser.Properties["pwdLastSet"][0]));
+                        }
+                    }
+                    // When the user is not allowed to query the UserAccountControl attribute.
+                    if (AdUser.Properties["useraccountcontrol"].Count != 0)
+                    {
+                        var userFlags = (UACFlags) AdUser.Properties["useraccountcontrol"][0];
+                        Enabled = !((userFlags & UACFlags.ACCOUNTDISABLE) == UACFlags.ACCOUNTDISABLE);
+                    }
                     String Description = (AdUser.Properties["Description"].Count != 0 ? Convert.ToString(AdUser.Properties["Description"][0]) : "");
+                    foreach (String Member in AdUser.Properties["memberof"])
+                    {
+                        Memberof = Memberof + "," + ((Convert.ToString(Member)).Split(',')[0]).Split('=')[1];
+                    }
+                    Memberof = Memberof.TrimStart(',');
                     foreach (String SPN in AdUser.Properties["serviceprincipalname"])
                     {
                         String[] SPNArray = SPN.Split('/');
                         PSObject UserSPNObj = new PSObject();
                         UserSPNObj.Members.Add(new PSNoteProperty("Name", AdUser.Properties["name"][0]));
                         UserSPNObj.Members.Add(new PSNoteProperty("Username", AdUser.Properties["samaccountname"][0]));
+                        UserSPNObj.Members.Add(new PSNoteProperty("Enabled", Enabled));
                         UserSPNObj.Members.Add(new PSNoteProperty("Service", SPNArray[0]));
                         UserSPNObj.Members.Add(new PSNoteProperty("Host", SPNArray[1]));
                         UserSPNObj.Members.Add(new PSNoteProperty("Password Last Set", PasswordLastSet));
                         UserSPNObj.Members.Add(new PSNoteProperty("Description", Description));
+                        UserSPNObj.Members.Add(new PSNoteProperty("Memberof", Memberof));
                         SPNList.Add( UserSPNObj );
                     }
                     return SPNList.ToArray();
@@ -1407,14 +1502,27 @@ namespace ADRecon
                 {
                     SearchResult AdComputer = (SearchResult) record;
                     List<PSObject> SPNList = new List<PSObject>();
+
                     foreach (String SPN in AdComputer.Properties["serviceprincipalname"])
                     {
                         String[] SPNArray = SPN.Split('/');
-                        PSObject ComputerSPNObj = new PSObject();
-                        ComputerSPNObj.Members.Add(new PSNoteProperty("Name", AdComputer.Properties["name"][0]));
-                        ComputerSPNObj.Members.Add(new PSNoteProperty("Service", SPNArray[0]));
-                        ComputerSPNObj.Members.Add(new PSNoteProperty("Host", SPNArray[1]));
-                        SPNList.Add( ComputerSPNObj );
+                        bool flag = true;
+                        foreach (PSObject Obj in SPNList)
+                        {
+                            if ( (String) Obj.Members["Service"].Value == SPNArray[0] )
+                            {
+                                Obj.Members["Host"].Value = String.Join(",", (Obj.Members["Host"].Value + "," + SPNArray[1]).Split(',').Distinct().ToArray());
+                                flag = false;
+                            }
+                        }
+                        if (flag)
+                        {
+                            PSObject ComputerSPNObj = new PSObject();
+                            ComputerSPNObj.Members.Add(new PSNoteProperty("Name", AdComputer.Properties["name"][0]));
+                            ComputerSPNObj.Members.Add(new PSNoteProperty("Service", SPNArray[0]));
+                            ComputerSPNObj.Members.Add(new PSNoteProperty("Host", SPNArray[1]));
+                            SPNList.Add( ComputerSPNObj );
+                        }
                     }
                     return SPNList.ToArray();
                 }
@@ -2341,14 +2449,6 @@ Function Export-ADRExcel
         $ADFileName = -join($ReportPath,'\','ComputerSPNs.csv')
         If (Test-Path $ADFileName)
         {
-            $CompObj = Import-CSV -Path $ADFileName
-            $ADCompStat = $CompObj | Sort-Object Name,Service -Unique | Select-Object Name,Service
-            Remove-Variable CompObj
-
-            $ADFileName = -join($ReportPath,'\','ComputerSPNsStats.csv')
-            $ADCompStat | Export-Csv -Path $ADFileName -NoTypeInformation
-            Remove-Variable ADCompStat
-
             Get-ADRExcelWorkbook("Computer SPNs")
             Get-ADRExcelImport $ADFileName 2
         }
@@ -2480,7 +2580,7 @@ Function Export-ADRExcel
             $excel.Windows.Item(1).Displaygridlines=$false
         }
 
-        $ADFileName = -join($ReportPath,'\','ComputerSPNsStats.csv')
+        $ADFileName = -join($ReportPath,'\','ComputerSPNs.csv')
         If (Test-Path $ADFileName)
         {
             $CompObj = Import-CSV -Path $ADFileName
@@ -4609,11 +4709,12 @@ Function Get-ADRUserSPN
     {
         Try
         {
-            $ADUsers = @( Get-ADObject -LDAPFilter "(&(!objectClass=computer)(servicePrincipalName=*))" -Properties Name,sAMAccountName,servicePrincipalName,pwdLastSet,Description -ResultPageSize $PageSize )
+            $ADUsers = @( Get-ADObject -LDAPFilter "(&(samAccountType=805306368)(servicePrincipalName=*))" -Properties Name,Description,memberOf,sAMAccountName,servicePrincipalName,pwdLastSet,userAccountControl -ResultPageSize $PageSize )
         }
         Catch
         {
-            Write-Error "[EXCEPTION] $($_.Exception.Message)"
+            Write-Warning "[Get-ADRUserSPN] Error while enumerating UserSPN Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
             Return $null
         }
 
@@ -4629,8 +4730,8 @@ Function Get-ADRUserSPN
     {
         $objSearcher = New-Object System.DirectoryServices.DirectorySearcher $objDomain
         $ObjSearcher.PageSize = $PageSize
-        $ObjSearcher.Filter = "(&(!objectClass=computer)(servicePrincipalName=*))"
-        $ObjSearcher.PropertiesToLoad.AddRange(("name","samaccountname","serviceprincipalname","pwdlastset","description"))
+        $ObjSearcher.Filter = "(&(samAccountType=805306368)(servicePrincipalName=*))"
+        $ObjSearcher.PropertiesToLoad.AddRange(("name","description","memberof","samaccountname","serviceprincipalname","pwdlastset","useraccountcontrol"))
         $ObjSearcher.SearchScope = "Subtree"
         Try
         {
@@ -4638,14 +4739,15 @@ Function Get-ADRUserSPN
         }
         Catch
         {
-            Write-Error "[EXCEPTION] $($_.Exception.Message)"
+            Write-Warning "[Get-ADRUserSPN] Error while enumerating UserSPN Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
             Return $null
         }
         $ObjSearcher.dispose()
 
         If ($ADUsers)
         {
-            Write-Verbose "[*] Total UserSPN's: $([ADRecon.LDAPClass]::ObjectCount($ADUsers))"
+            Write-Verbose "[*] Total UserSPNs: $([ADRecon.LDAPClass]::ObjectCount($ADUsers))"
             $UserSPNObj = [ADRecon.LDAPClass]::UserSPNParser($ADUsers, $Threads)
             Remove-Variable ADUsers
         }
@@ -6222,7 +6324,7 @@ Function Get-ADRComputer
         If ($ADComputers)
         {
             Write-Verbose "[*] Total Computers: $([ADRecon.ADWSClass]::ObjectCount($ADComputers))"
-            $ComputerObj = [ADRecon.ADWSClass]::ComputerParser($ADComputers, $date, $DormantTimeSpan, $PassMaxAge, $Threads)
+            $ComputerObj = [ADRecon.ADWSClass]::ComputerParser($ADComputers, $date, $DormantTimeSpan, $Threads)
             Remove-Variable ADComputers
         }
     }
@@ -6317,11 +6419,12 @@ Function Get-ADRComputerSPN
     {
         Try
         {
-            $ADComputers = @( Get-ADObject -LDAPFilter "(&(objectClass=computer)(servicePrincipalName=*))" -Properties name,dnshostname,servicePrincipalName -ResultPageSize $PageSize )
+            $ADComputers = @( Get-ADObject -LDAPFilter "(&(samAccountType=805306369)(servicePrincipalName=*))" -Properties Name,servicePrincipalName -ResultPageSize $PageSize )
         }
         Catch
         {
-            Write-Error "[EXCEPTION] $($_.Exception.Message)"
+            Write-Warning "[Get-ADRComputerSPN] Error while enumerating ComputerSPN Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
             Return $null
         }
 
@@ -6337,8 +6440,8 @@ Function Get-ADRComputerSPN
     {
         $objSearcher = New-Object System.DirectoryServices.DirectorySearcher $objDomain
         $ObjSearcher.PageSize = $PageSize
-        $ObjSearcher.Filter = "(&(objectClass=computer)(servicePrincipalName=*))"
-        $ObjSearcher.PropertiesToLoad.AddRange(("name","samaccountname","serviceprincipalname","pwdlastset","description"))
+        $ObjSearcher.Filter = "(&(samAccountType=805306369)(servicePrincipalName=*))"
+        $ObjSearcher.PropertiesToLoad.AddRange(("name","serviceprincipalname"))
         $ObjSearcher.SearchScope = "Subtree"
         Try
         {
@@ -6346,14 +6449,15 @@ Function Get-ADRComputerSPN
         }
         Catch
         {
-            Write-Error "[EXCEPTION] $($_.Exception.Message)"
+            Write-Warning "[Get-ADRComputerSPN] Error while enumerating ComputerSPN Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
             Return $null
         }
         $ObjSearcher.dispose()
 
         If ($ADComputers)
         {
-            Write-Verbose "[*] Total ComputerSPN's: $([ADRecon.LDAPClass]::ObjectCount($ADComputers))"
+            Write-Verbose "[*] Total ComputerSPNs: $([ADRecon.LDAPClass]::ObjectCount($ADComputers))"
             $ComputerSPNObj = [ADRecon.LDAPClass]::ComputerSPNParser($ADComputers, $Threads)
             Remove-Variable ADComputers
         }
@@ -7115,7 +7219,7 @@ Function Invoke-ADRecon
         [bool] $UseAltCreds = $false
     )
 
-    [string] $ADReconVersion = "v180630"
+    [string] $ADReconVersion = "v180701"
     Write-Output "[*] ADRecon $ADReconVersion by Prashant Mahajan (@prashant3535) from Sense of Security."
 
     If ($GenExcel)
