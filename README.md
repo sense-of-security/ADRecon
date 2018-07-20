@@ -10,14 +10,16 @@ The tool will use Microsoft Remote Server Administration Tools (RSAT) if availab
 The following information is gathered by the tool:
 
 - Forest;
-- Domains in the Forest and other attributes such as Sites;
+- Domain;
+- Sites;
+- Subnets;
 - Default Password Policy;
 - Fine Grained Password Policy (if implemented);
 - Domain Controllers, SMB versions, whether SMB Signing is supported and FSMO roles;
 - Users and their attributes;
 - Service Principal Names;
 - Groups and memberships;
-- Organizational Units and their ACLs;
+- Organizational Units (OUs) and their ACLs;
 - Group Policy Object details;
 - DNS Zones and Records;
 - Printers;
@@ -108,7 +110,7 @@ When you run ADRecon, a `ADRecon-Report-<timestamp>` folder will be created whic
 
 -Collect <String>
     What attributes to collect (Comma separated; e.g Forest,Domain)
-    Valid values include: Forest, Domain, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, Groups, GroupMembers, OUs, OUPermissions, GPOs, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker.
+    Valid values include: Forest, Domain, Sites, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, Groups, GroupMembers, OUs, OUPermissions, GPOs, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker.
 
 -OutputType <String>
     Output Type; Comma seperated; e.g STDOUT,CSV,XML,JSON,HTML,Excel (Default STDOUT with -Collect parameter, else CSV and Excel).
