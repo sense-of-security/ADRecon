@@ -15,6 +15,7 @@
     - Forest;
     - Domain;
     - Sites;
+    - Subnets;
     - Default Password Policy;
     - Fine Grained Password Policy (if implemented);
     - Domain Controllers, SMB versions, whether SMB Signing is supported and FSMO roles;
@@ -73,7 +74,7 @@
 
 .PARAMETER Collect
     What attributes to collect; Comma separated; e.g Forest,Domain (Default all)
-    Valid values include: Forest, Domain, Sites, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, Groups, GroupMembers, OUs, OUPermissions, GPOs, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker.
+    Valid values include: Forest, Domain, Sites, Subnets, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, Groups, GroupMembers, OUs, OUPermissions, GPOs, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker.
 
 .PARAMETER OutputType
     Output Type; Comma seperated; e.g STDOUT,CSV,XML,JSON,HTML,Excel (Default STDOUT with -Collect parameter, else CSV and Excel).
@@ -224,8 +225,8 @@ param
     [Parameter(Mandatory = $false, HelpMessage = "Path for ADRecon output folder to save the CSV files and the ADRecon-Report.xlsx. (The folder specified will be created if it doesn't exist)")]
     [string] $OutputDir,
 
-    [Parameter(Mandatory = $false, HelpMessage = "What attributes to collect; Comma separated; e.g Forest,Domain (Default all) Valid values include: Forest, Domain, Sites, PasswordPolicy, DomainControllers, Users, UserSPNs, Groups, GroupMembers, OUs, OUPermissions, GPOs, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker")]
-    [ValidateSet('Forest', 'Domain', 'Sites', 'PasswordPolicy', 'FineGrainedPasswordPolicy', 'DomainControllers', 'Users', 'UserSPNs', 'Groups', 'GroupMembers', 'OUs', 'OUPermissions', 'GPOs', 'GPOReport', 'DNSZones', 'Printers', 'Computers', 'ComputerSPNs', 'LAPS', 'BitLocker', 'Default')]
+    [Parameter(Mandatory = $false, HelpMessage = "What attributes to collect; Comma separated; e.g Forest,Domain (Default all) Valid values include: Forest, Domain, Sites, Subnets, PasswordPolicy, DomainControllers, Users, UserSPNs, Groups, GroupMembers, OUs, OUPermissions, GPOs, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker")]
+    [ValidateSet('Forest', 'Domain', 'Sites', 'Subnets', 'PasswordPolicy', 'FineGrainedPasswordPolicy', 'DomainControllers', 'Users', 'UserSPNs', 'Groups', 'GroupMembers', 'OUs', 'OUPermissions', 'GPOs', 'GPOReport', 'DNSZones', 'Printers', 'Computers', 'ComputerSPNs', 'LAPS', 'BitLocker', 'Default')]
     [array] $Collect = 'Default',
 
     [Parameter(Mandatory = $false, HelpMessage = "Output type; Comma seperated; e.g STDOUT,CSV,XML,JSON,HTML,Excel (Default STDOUT with -Collect parameter, else CSV and Excel)")]
@@ -2384,6 +2385,20 @@ Function Export-ADRExcel
             Remove-Variable DomainObj
         }
 
+        $ADFileName = -join($ReportPath,'\','Subnets.csv')
+        If (Test-Path $ADFileName)
+        {
+            Get-ADRExcelWorkbook("Subnets")
+            Get-ADRExcelImport $ADFileName 2
+        }
+
+        $ADFileName = -join($ReportPath,'\','Sites.csv')
+        If (Test-Path $ADFileName)
+        {
+            Get-ADRExcelWorkbook("Sites")
+            Get-ADRExcelImport $ADFileName 2
+        }
+
         $ADFileName = -join($ReportPath,'\','FineGrainedPasswordPolicy.csv')
         If (Test-Path $ADFileName)
         {
@@ -4021,6 +4036,280 @@ Function Get-ADRForest
     }
 }
 
+Function Get-ADRSite
+{
+<#
+.SYNOPSIS
+    Returns the Sites of the current (or specified) domain.
+
+.DESCRIPTION
+    Returns the Sites of the current (or specified) domain.
+
+.PARAMETER Protocol
+    [string]
+    Which protocol to use; ADWS (default) or LDAP.
+
+.PARAMETER objDomain
+    [DirectoryServices.DirectoryEntry]
+    Domain Directory Entry object.
+
+.PARAMETER objDomainRootDSE
+    [DirectoryServices.DirectoryEntry]
+    RootDSE Directory Entry object.
+
+.PARAMETER DomainController
+    [string]
+    IP Address of the Domain Controller.
+
+.PARAMETER Credential
+    [Management.Automation.PSCredential]
+    Credentials.
+
+.OUTPUTS
+    PSObject.
+#>
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Protocol,
+
+        [Parameter(Mandatory = $false)]
+        [DirectoryServices.DirectoryEntry] $objDomain,
+
+        [Parameter(Mandatory = $false)]
+        [DirectoryServices.DirectoryEntry] $objDomainRootDSE,
+
+        [Parameter(Mandatory = $false)]
+        [string] $DomainController,
+
+        [Parameter(Mandatory = $false)]
+        [Management.Automation.PSCredential] $Credential = [Management.Automation.PSCredential]::Empty
+    )
+
+    If ($Protocol -eq 'ADWS')
+    {
+        Try
+        {
+            $SearchPath = "CN=Sites"
+            $ADSites = Get-ADObject -SearchBase "$SearchPath,$((Get-ADRootDSE).configurationNamingContext)" -LDAPFilter "(objectClass=site)" -Properties Name,Description,whenCreated,whenChanged
+        }
+        Catch
+        {
+            Write-Warning "[Get-ADRSite] Error while enumerating Site Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+            Return $null
+        }
+
+        If ($ADSites)
+        {
+            Write-Verbose "[*] Total Sites: $([ADRecon.ADWSClass]::ObjectCount($ADSites))"
+            # Sites Info
+            $ADSiteObj = @()
+            $ADSites | ForEach-Object {
+                # Create the object for each instance.
+                $Obj = New-Object PSObject
+                $Obj | Add-Member -MemberType NoteProperty -Name "Name" -Value $_.Name
+                $Obj | Add-Member -MemberType NoteProperty -Name "Description" -Value $_.Description
+                $Obj | Add-Member -MemberType NoteProperty -Name "whenCreated" -Value $_.whenCreated
+                $Obj | Add-Member -MemberType NoteProperty -Name "whenChanged" -Value $_.whenChanged
+                $ADSiteObj += $Obj
+            }
+            Remove-Variable ADSites
+        }
+    }
+
+    If ($Protocol -eq 'LDAP')
+    {
+        $SearchPath = "CN=Sites"
+        If ($Credential -ne [Management.Automation.PSCredential]::Empty)
+        {
+            $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DomainController)/$SearchPath,$($objDomainRootDSE.ConfigurationNamingContext)", $Credential.UserName,$Credential.GetNetworkCredential().Password
+        }
+        Else
+        {
+            $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$SearchPath,$($objDomainRootDSE.ConfigurationNamingContext)"
+        }
+        $objSearcher = New-Object System.DirectoryServices.DirectorySearcher $objSearchPath
+        $ObjSearcher.Filter = "(objectClass=site)"
+        $ObjSearcher.SearchScope = "Subtree"
+
+        Try
+        {
+            $ADSites = $ObjSearcher.FindAll()
+        }
+        Catch
+        {
+            Write-Warning "[Get-ADRSite] Error while enumerating Site Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+            Return $null
+        }
+        $ObjSearcher.dispose()
+
+        If ($ADSites)
+        {
+            Write-Verbose "[*] Total Sites: $([ADRecon.LDAPClass]::ObjectCount($ADSites))"
+            # Site Info
+            $ADSiteObj = @()
+            $ADSites | ForEach-Object {
+                # Create the object for each instance.
+                $Obj = New-Object PSObject
+                $Obj | Add-Member -MemberType NoteProperty -Name "Name" -Value $([string] $_.Properties.name)
+                $Obj | Add-Member -MemberType NoteProperty -Name "Description" -Value $([string] $_.Properties.description)
+                $Obj | Add-Member -MemberType NoteProperty -Name "whenCreated" -Value ([DateTime] $($_.Properties.whencreated))
+                $Obj | Add-Member -MemberType NoteProperty -Name "whenChanged" -Value ([DateTime] $($_.Properties.whenchanged))
+                $ADSiteObj += $Obj
+            }
+            Remove-Variable ADSites
+        }
+    }
+
+    If ($ADSiteObj)
+    {
+        Return $ADSiteObj
+    }
+    Else
+    {
+        Return $null
+    }
+}
+
+Function Get-ADRSubnet
+{
+<#
+.SYNOPSIS
+    Returns the Subnets of the current (or specified) domain.
+
+.DESCRIPTION
+    Returns the Subnets of the current (or specified) domain.
+
+.PARAMETER Protocol
+    [string]
+    Which protocol to use; ADWS (default) or LDAP.
+
+.PARAMETER objDomain
+    [DirectoryServices.DirectoryEntry]
+    Domain Directory Entry object.
+
+.PARAMETER objDomainRootDSE
+    [DirectoryServices.DirectoryEntry]
+    RootDSE Directory Entry object.
+
+.PARAMETER DomainController
+    [string]
+    IP Address of the Domain Controller.
+
+.PARAMETER Credential
+    [Management.Automation.PSCredential]
+    Credentials.
+
+.OUTPUTS
+    PSObject.
+#>
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Protocol,
+
+        [Parameter(Mandatory = $false)]
+        [DirectoryServices.DirectoryEntry] $objDomain,
+
+        [Parameter(Mandatory = $false)]
+        [DirectoryServices.DirectoryEntry] $objDomainRootDSE,
+
+        [Parameter(Mandatory = $false)]
+        [string] $DomainController,
+
+        [Parameter(Mandatory = $false)]
+        [Management.Automation.PSCredential] $Credential = [Management.Automation.PSCredential]::Empty
+    )
+
+    If ($Protocol -eq 'ADWS')
+    {
+        Try
+        {
+            $SearchPath = "CN=Subnets,CN=Sites"
+            $ADSubnets = Get-ADObject -SearchBase "$SearchPath,$((Get-ADRootDSE).configurationNamingContext)" -LDAPFilter "(objectClass=subnet)" -Properties Name,Description,siteObject,whenCreated,whenChanged
+        }
+        Catch
+        {
+            Write-Warning "[Get-ADRSubnet] Error while enumerating Subnet Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+            Return $null
+        }
+
+        If ($ADSubnets)
+        {
+            Write-Verbose "[*] Total Subnets: $([ADRecon.ADWSClass]::ObjectCount($ADSubnets))"
+            # Subnets Info
+            $ADSubnetObj = @()
+            $ADSubnets | ForEach-Object {
+                # Create the object for each instance.
+                $Obj = New-Object PSObject
+                $Obj | Add-Member -MemberType NoteProperty -Name "Site" -Value $(($_.siteObject -Split ",")[0] -replace 'CN=','')
+                $Obj | Add-Member -MemberType NoteProperty -Name "Name" -Value $_.Name
+                $Obj | Add-Member -MemberType NoteProperty -Name "Description" -Value $_.Description
+                $Obj | Add-Member -MemberType NoteProperty -Name "whenCreated" -Value $_.whenCreated
+                $Obj | Add-Member -MemberType NoteProperty -Name "whenChanged" -Value $_.whenChanged
+                $ADSubnetObj += $Obj
+            }
+            Remove-Variable ADSubnets
+        }
+    }
+
+    If ($Protocol -eq 'LDAP')
+    {
+        $SearchPath = "CN=Subnets,CN=Sites"
+        If ($Credential -ne [Management.Automation.PSCredential]::Empty)
+        {
+            $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DomainController)/$SearchPath,$($objDomainRootDSE.ConfigurationNamingContext)", $Credential.UserName,$Credential.GetNetworkCredential().Password
+        }
+        Else
+        {
+            $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$SearchPath,$($objDomainRootDSE.ConfigurationNamingContext)"
+        }
+        $objSearcher = New-Object System.DirectoryServices.DirectorySearcher $objSearchPath
+        $ObjSearcher.Filter = "(objectClass=subnet)"
+        $ObjSearcher.SearchScope = "Subtree"
+
+        Try
+        {
+            $ADSubnets = $ObjSearcher.FindAll()
+        }
+        Catch
+        {
+            Write-Warning "[Get-ADRSubnet] Error while enumerating Subnet Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+            Return $null
+        }
+        $ObjSearcher.dispose()
+
+        If ($ADSubnets)
+        {
+            Write-Verbose "[*] Total Subnets: $([ADRecon.LDAPClass]::ObjectCount($ADSubnets))"
+            # Subnets Info
+            $ADSubnetObj = @()
+            $ADSubnets | ForEach-Object {
+                # Create the object for each instance.
+                $Obj = New-Object PSObject
+                $Obj | Add-Member -MemberType NoteProperty -Name "Site" -Value $((([string] $_.Properties.siteobject) -Split ",")[0] -replace 'CN=','')
+                $Obj | Add-Member -MemberType NoteProperty -Name "Name" -Value $([string] $_.Properties.name)
+                $Obj | Add-Member -MemberType NoteProperty -Name "Description" -Value $([string] $_.Properties.description)
+                $Obj | Add-Member -MemberType NoteProperty -Name "whenCreated" -Value ([DateTime] $($_.Properties.whencreated))
+                $Obj | Add-Member -MemberType NoteProperty -Name "whenChanged" -Value ([DateTime] $($_.Properties.whenchanged))
+                $ADSubnetObj += $Obj
+            }
+            Remove-Variable ADSubnets
+        }
+    }
+
+    If ($ADSubnetObj)
+    {
+        Return $ADSubnetObj
+    }
+    Else
+    {
+        Return $null
+    }
+}
+
 Function Get-ADRDefaultPasswordPolicy
 {
 <#
@@ -4467,142 +4756,6 @@ Function Get-ADRDomainController
     If ($DCObj)
     {
         Return $DCObj
-    }
-    Else
-    {
-        Return $null
-    }
-}
-
-Function Get-ADRSite
-{
-<#
-.SYNOPSIS
-    Returns the Sites of the current (or specified) domain.
-
-.DESCRIPTION
-    Returns the Sites of the current (or specified) domain.
-
-.PARAMETER Protocol
-    [string]
-    Which protocol to use; ADWS (default) or LDAP.
-
-.PARAMETER objDomain
-    [DirectoryServices.DirectoryEntry]
-    Domain Directory Entry object.
-
-.PARAMETER objDomainRootDSE
-    [DirectoryServices.DirectoryEntry]
-    RootDSE Directory Entry object.
-
-.PARAMETER DomainController
-    [string]
-    IP Address of the Domain Controller.
-
-.PARAMETER Credential
-    [Management.Automation.PSCredential]
-    Credentials.
-
-.OUTPUTS
-    PSObject.
-#>
-    param(
-        [Parameter(Mandatory = $true)]
-        [string] $Protocol,
-
-        [Parameter(Mandatory = $false)]
-        [DirectoryServices.DirectoryEntry] $objDomain,
-
-        [Parameter(Mandatory = $false)]
-        [DirectoryServices.DirectoryEntry] $objDomainRootDSE,
-
-        [Parameter(Mandatory = $false)]
-        [string] $DomainController,
-
-        [Parameter(Mandatory = $false)]
-        [Management.Automation.PSCredential] $Credential = [Management.Automation.PSCredential]::Empty
-    )
-
-    If ($Protocol -eq 'ADWS')
-    {
-        Try
-        {
-            $SearchPath = "CN=Sites"
-            $ADSites = Get-ADObject -SearchBase "$SearchPath,$((Get-ADRootDSE).configurationNamingContext)" -LDAPFilter "(objectClass=site)" -Properties Name,Description,whenCreated,whenChanged
-        }
-        Catch
-        {
-            Write-Warning "[Get-ADRSite] Error while enumerating Site Objects"
-            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
-            Return $null
-        }
-
-        If ($ADSites)
-        {
-            Write-Verbose "[*] Total Sites: $([ADRecon.ADWSClass]::ObjectCount($ADSites))"
-            # Sites Info
-            $ADSiteObj = @()
-            $ADSites | ForEach-Object {
-                # Create the object for each instance.
-                $Obj = New-Object PSObject
-                $Obj | Add-Member -MemberType NoteProperty -Name "Name" -Value $_.Name
-                $Obj | Add-Member -MemberType NoteProperty -Name "Description" -Value $_.Description
-                $Obj | Add-Member -MemberType NoteProperty -Name "whenCreated" -Value $_.whenCreated
-                $Obj | Add-Member -MemberType NoteProperty -Name "whenChanged" -Value $_.whenChanged
-                $ADSiteObj += $Obj
-            }
-            Remove-Variable ADSites
-        }
-    }
-
-    If ($Protocol -eq 'LDAP')
-    {
-        $SearchPath = "CN=Sites"
-        If ($Credential -ne [Management.Automation.PSCredential]::Empty)
-        {
-            $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DomainController)/$SearchPath,$($objDomainRootDSE.ConfigurationNamingContext)", $Credential.UserName,$Credential.GetNetworkCredential().Password
-        }
-        Else
-        {
-            $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$SearchPath,$($objDomainRootDSE.ConfigurationNamingContext)"
-        }
-        $objSearcher = New-Object System.DirectoryServices.DirectorySearcher $objSearchPath
-        $ObjSearcher.Filter = "(objectClass=site)"
-        $ObjSearcher.SearchScope = "Subtree"
-
-        Try
-        {
-            $ADSites = $ObjSearcher.FindAll()
-        }
-        Catch
-        {
-            Write-Warning "[Get-ADRSite] Error while enumerating Site Objects"
-            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
-            Return $null
-        }
-        $ObjSearcher.dispose()
-
-        If ($ADSites)
-        {
-            Write-Verbose "[*] Total Sites: $([ADRecon.LDAPClass]::ObjectCount($ADSites))"
-            # Site Info
-            $ADSiteObj = @()
-            $ADSites | ForEach-Object {
-                # Create the object for each instance.
-                $Obj = New-Object PSObject
-                $Obj | Add-Member -MemberType NoteProperty -Name "Name" -Value $([string] $_.Properties.name)
-                $Obj | Add-Member -MemberType NoteProperty -Name "Description" -Value $([string] $_.Properties.description)
-                $Obj | Add-Member -MemberType NoteProperty -Name "whenCreated" -Value ([DateTime] $($_.Properties.whencreated))
-                $Obj | Add-Member -MemberType NoteProperty -Name "whenChanged" -Value ([DateTime] $($_.Properties.whenchanged))
-                $ADSiteObj += $Obj
-            }
-            Remove-Variable ADSites
-        }
-    }
-
-    If ($ADSiteObj)
-    {
-        Return $ADSiteObj
     }
     Else
     {
@@ -7356,7 +7509,7 @@ Function Invoke-ADRecon
         [bool] $UseAltCreds = $false
     )
 
-    [string] $ADReconVersion = "v180701"
+    [string] $ADReconVersion = "v180702"
     Write-Output "[*] ADRecon $ADReconVersion by Prashant Mahajan (@prashant3535) from Sense of Security."
 
     If ($GenExcel)
@@ -7554,6 +7707,7 @@ Function Invoke-ADRecon
         'Forest' { $ADRForest = $true }
         'Domain' {$ADRDomain = $true }
         'Sites' { $ADRSite = $true }
+        'Subnets' { $ADRSubnet = $true }
         'PasswordPolicy' { $ADRPasswordPolicy = $true }
         'FineGrainedPasswordPolicy' { $ADRFineGrainedPasswordPolicy = $true }
         'DomainControllers' { $ADRDomainControllers = $true }
@@ -7580,6 +7734,7 @@ Function Invoke-ADRecon
             $ADRForest = $true
             $ADRDomain = $true
             $ADRSite = $true
+            $ADRSubnet = $true
             $ADRPasswordPolicy = $true
             $ADRFineGrainedPasswordPolicy = $true
             $ADRDomainControllers = $true
@@ -7861,6 +8016,17 @@ Function Invoke-ADRecon
             Remove-Variable ADRObject
         }
         Remove-Variable ADRSite
+    }
+    If ($ADRSubnet)
+    {
+        Write-Output "[-] Subnets"
+        $ADRObject = Get-ADRSubnet -Protocol $Protocol -objDomain $objDomain -objDomainRootDSE $objDomainRootDSE -DomainController $DomainController -Credential $Credential
+        If ($ADRObject)
+        {
+            Export-ADR -ADRObj $ADRObject -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "Subnets"
+            Remove-Variable ADRObject
+        }
+        Remove-Variable ADRSubnet
     }
     If ($ADRPasswordPolicy)
     {
