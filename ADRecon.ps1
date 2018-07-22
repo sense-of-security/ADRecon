@@ -14,6 +14,7 @@
     The following information is gathered by the tool:
     - Forest;
     - Domain;
+    - Trusts;
     - Sites;
     - Subnets;
     - Default Password Policy;
@@ -74,7 +75,7 @@
 
 .PARAMETER Collect
     What attributes to collect; Comma separated; e.g Forest,Domain (Default all)
-    Valid values include: Forest, Domain, Sites, Subnets, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, Groups, GroupMembers, OUs, OUPermissions, GPOs, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker.
+    Valid values include: Forest, Domain, Trusts, Sites, Subnets, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, Groups, GroupMembers, OUs, OUPermissions, GPOs, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker.
 
 .PARAMETER OutputType
     Output Type; Comma seperated; e.g STDOUT,CSV,XML,JSON,HTML,Excel (Default STDOUT with -Collect parameter, else CSV and Excel).
@@ -225,8 +226,8 @@ param
     [Parameter(Mandatory = $false, HelpMessage = "Path for ADRecon output folder to save the CSV files and the ADRecon-Report.xlsx. (The folder specified will be created if it doesn't exist)")]
     [string] $OutputDir,
 
-    [Parameter(Mandatory = $false, HelpMessage = "What attributes to collect; Comma separated; e.g Forest,Domain (Default all) Valid values include: Forest, Domain, Sites, Subnets, PasswordPolicy, DomainControllers, Users, UserSPNs, Groups, GroupMembers, OUs, OUPermissions, GPOs, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker")]
-    [ValidateSet('Forest', 'Domain', 'Sites', 'Subnets', 'PasswordPolicy', 'FineGrainedPasswordPolicy', 'DomainControllers', 'Users', 'UserSPNs', 'Groups', 'GroupMembers', 'OUs', 'OUPermissions', 'GPOs', 'GPOReport', 'DNSZones', 'Printers', 'Computers', 'ComputerSPNs', 'LAPS', 'BitLocker', 'Default')]
+    [Parameter(Mandatory = $false, HelpMessage = "What attributes to collect; Comma separated; e.g Forest,Domain (Default all) Valid values include: Forest, Domain, Trusts, Sites, Subnets, PasswordPolicy, DomainControllers, Users, UserSPNs, Groups, GroupMembers, OUs, OUPermissions, GPOs, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker")]
+    [ValidateSet('Forest', 'Domain', 'Trusts', 'Sites', 'Subnets', 'PasswordPolicy', 'FineGrainedPasswordPolicy', 'DomainControllers', 'Users', 'UserSPNs', 'Groups', 'GroupMembers', 'OUs', 'OUPermissions', 'GPOs', 'GPOReport', 'DNSZones', 'Printers', 'Computers', 'ComputerSPNs', 'LAPS', 'BitLocker', 'Default')]
     [array] $Collect = 'Default',
 
     [Parameter(Mandatory = $false, HelpMessage = "Output type; Comma seperated; e.g STDOUT,CSV,XML,JSON,HTML,Excel (Default STDOUT with -Collect parameter, else CSV and Excel)")]
@@ -2385,6 +2386,13 @@ Function Export-ADRExcel
             Remove-Variable DomainObj
         }
 
+       $ADFileName = -join($ReportPath,'\','Trusts.csv')
+        If (Test-Path $ADFileName)
+        {
+            Get-ADRExcelWorkbook("Trusts")
+            Get-ADRExcelImport $ADFileName 2
+        }
+
         $ADFileName = -join($ReportPath,'\','Subnets.csv')
         If (Test-Path $ADFileName)
         {
@@ -4029,6 +4037,171 @@ Function Get-ADRForest
     If ($ForestObj)
     {
         Return $ForestObj
+    }
+    Else
+    {
+        Return $null
+    }
+}
+
+Function Get-ADRTrust
+{
+<#
+.SYNOPSIS
+    Returns the Trusts of the current (or specified) domain.
+
+.DESCRIPTION
+    Returns the Trusts of the current (or specified) domain.
+
+.PARAMETER Protocol
+    [string]
+    Which protocol to use; ADWS (default) or LDAP.
+
+.PARAMETER objDomain
+    [DirectoryServices.DirectoryEntry]
+    Domain Directory Entry object.
+
+.OUTPUTS
+    PSObject.
+#>
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Protocol,
+
+        [Parameter(Mandatory = $false)]
+        [DirectoryServices.DirectoryEntry] $objDomain
+    )
+
+    # Values taken from https://msdn.microsoft.com/en-us/library/cc223768.aspx
+    $TDAD = @{
+        0 = "Disabled";
+        1 = "Inbound";
+        2 = "Outbound";
+        3 = "BiDirectional";
+    }
+
+    # Values taken from https://msdn.microsoft.com/en-us/library/cc223771.aspx
+    $TTAD = @{
+        1 = "Downlevel";
+        2 = "Uplevel";
+        3 = "MIT";
+        4 = "DCE";
+    }
+
+    If ($Protocol -eq 'ADWS')
+    {
+        Try
+        {
+            $ADTrusts = Get-ADObject -LDAPFilter "(objectClass=trustedDomain)" -Properties DistinguishedName,trustPartner,trustdirection,trusttype,TrustAttributes,whenCreated,whenChanged
+        }
+        Catch
+        {
+            Write-Warning "[Get-ADRTrust] Error while enumerating trustedDomain Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+            Return $null
+        }
+
+        If ($ADTrusts)
+        {
+            Write-Verbose "[*] Total Trusts: $([ADRecon.ADWSClass]::ObjectCount($ADTrusts))"
+            # Trust Info
+            $ADTrustObj = @()
+            $ADTrusts | ForEach-Object {
+                # Create the object for each instance.
+                $Obj = New-Object PSObject
+                $Obj | Add-Member -MemberType NoteProperty -Name "Source Domain" -Value (Get-DNtoFQDN $_.DistinguishedName)
+                $Obj | Add-Member -MemberType NoteProperty -Name "Target Domain" -Value $_.trustPartner
+                $TrustDirection = [string] $TDAD[$_.trustdirection]
+                $Obj | Add-Member -MemberType NoteProperty -Name "Trust Direction" -Value $TrustDirection
+                $TrustType = [string] $TTAD[$_.trusttype]
+                $Obj | Add-Member -MemberType NoteProperty -Name "Trust Type" -Value $TrustType
+
+                $TrustAttributes = $null
+                If ([int32] $_.TrustAttributes -band 0x00000001) { $TrustAttributes += "Non Transitive," }
+                If ([int32] $_.TrustAttributes -band 0x00000002) { $TrustAttributes += "UpLevel," }
+                If ([int32] $_.TrustAttributes -band 0x00000004) { $TrustAttributes += "Quarantined," } #SID Filtering
+                If ([int32] $_.TrustAttributes -band 0x00000008) { $TrustAttributes += "Forest Transitive," }
+                If ([int32] $_.TrustAttributes -band 0x00000010) { $TrustAttributes += "Cross Organization," } #Selective Auth
+                If ([int32] $_.TrustAttributes -band 0x00000020) { $TrustAttributes += "Within Forest," }
+                If ([int32] $_.TrustAttributes -band 0x00000040) { $TrustAttributes += "Treat as External," }
+                If ([int32] $_.TrustAttributes -band 0x00000080) { $TrustAttributes += "Uses RC4 Encryption," }
+                If ([int32] $_.TrustAttributes -band 0x00000200) { $TrustAttributes += "No TGT Delegation," }
+                If ([int32] $_.TrustAttributes -band 0x00000400) { $TrustAttributes += "PIM Trust," }
+                If ($TrustAttributes)
+                {
+                    $TrustAttributes = $TrustAttributes.TrimEnd(",")
+                }
+                $Obj | Add-Member -MemberType NoteProperty -Name "Attributes" -Value $TrustAttributes
+                $Obj | Add-Member -MemberType NoteProperty -Name "whenCreated" -Value ([DateTime] $($_.whenCreated))
+                $Obj | Add-Member -MemberType NoteProperty -Name "whenChanged" -Value ([DateTime] $($_.whenChanged))
+                $ADTrustObj += $Obj
+            }
+            Remove-Variable ADTrusts
+        }
+    }
+
+    If ($Protocol -eq 'LDAP')
+    {
+        $objSearcher = New-Object System.DirectoryServices.DirectorySearcher $objDomain
+        $ObjSearcher.PageSize = $PageSize
+        $ObjSearcher.Filter = "(objectClass=trustedDomain)"
+        $ObjSearcher.PropertiesToLoad.AddRange(("distinguishedname","trustpartner","trustdirection","trusttype","trustattributes","whencreated","whenchanged"))
+        $ObjSearcher.SearchScope = "Subtree"
+
+        Try
+        {
+            $ADTrusts = $ObjSearcher.FindAll()
+        }
+        Catch
+        {
+            Write-Warning "[Get-ADRTrust] Error while enumerating trustedDomain Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+            Return $null
+        }
+        $ObjSearcher.dispose()
+
+        If ($ADTrusts)
+        {
+            Write-Verbose "[*] Total Trusts: $([ADRecon.LDAPClass]::ObjectCount($ADTrusts))"
+            # Trust Info
+            $ADTrustObj = @()
+            $ADTrusts | ForEach-Object {
+                # Create the object for each instance.
+                $Obj = New-Object PSObject
+                $Obj | Add-Member -MemberType NoteProperty -Name "Source Domain" -Value $(Get-DNtoFQDN ([string] $_.Properties.distinguishedname))
+                $Obj | Add-Member -MemberType NoteProperty -Name "Target Domain" -Value $([string] $_.Properties.trustpartner)
+                $TrustDirection = [string] $TDAD[$_.Properties.trustdirection]
+                $Obj | Add-Member -MemberType NoteProperty -Name "Trust Direction" -Value $TrustDirection
+                $TrustType = [string] $TTAD[$_.Properties.trusttype]
+                $Obj | Add-Member -MemberType NoteProperty -Name "Trust Type" -Value $TrustType
+
+                $TrustAttributes = $null
+                If ([int32] $_.Properties.trustattributes[0] -band 0x00000001) { $TrustAttributes += "Non Transitive," }
+                If ([int32] $_.Properties.trustattributes[0] -band 0x00000002) { $TrustAttributes += "UpLevel," }
+                If ([int32] $_.Properties.trustattributes[0] -band 0x00000004) { $TrustAttributes += "Quarantined," } #SID Filtering
+                If ([int32] $_.Properties.trustattributes[0] -band 0x00000008) { $TrustAttributes += "Forest Transitive," }
+                If ([int32] $_.Properties.trustattributes[0] -band 0x00000010) { $TrustAttributes += "Cross Organization," } #Selective Auth
+                If ([int32] $_.Properties.trustattributes[0] -band 0x00000020) { $TrustAttributes += "Within Forest," }
+                If ([int32] $_.Properties.trustattributes[0] -band 0x00000040) { $TrustAttributes += "Treat as External," }
+                If ([int32] $_.Properties.trustattributes[0] -band 0x00000080) { $TrustAttributes += "Uses RC4 Encryption," }
+                If ([int32] $_.Properties.trustattributes[0] -band 0x00000200) { $TrustAttributes += "No TGT Delegation," }
+                If ([int32] $_.Properties.trustattributes[0] -band 0x00000400) { $TrustAttributes += "PIM Trust," }
+                If ($TrustAttributes)
+                {
+                    $TrustAttributes = $TrustAttributes.TrimEnd(",")
+                }
+                $Obj | Add-Member -MemberType NoteProperty -Name "Attributes" -Value $TrustAttributes
+                $Obj | Add-Member -MemberType NoteProperty -Name "whenCreated" -Value ([DateTime] $($_.Properties.whencreated))
+                $Obj | Add-Member -MemberType NoteProperty -Name "whenChanged" -Value ([DateTime] $($_.Properties.whenchanged))
+                $ADTrustObj += $Obj
+            }
+            Remove-Variable ADTrusts
+        }
+    }
+
+    If ($ADTrustObj)
+    {
+        Return $ADTrustObj
     }
     Else
     {
@@ -7509,7 +7682,7 @@ Function Invoke-ADRecon
         [bool] $UseAltCreds = $false
     )
 
-    [string] $ADReconVersion = "v180702"
+    [string] $ADReconVersion = "v180703"
     Write-Output "[*] ADRecon $ADReconVersion by Prashant Mahajan (@prashant3535) from Sense of Security."
 
     If ($GenExcel)
@@ -7706,6 +7879,7 @@ Function Invoke-ADRecon
     {
         'Forest' { $ADRForest = $true }
         'Domain' {$ADRDomain = $true }
+        'Trusts' { $ADRTrust = $true }
         'Sites' { $ADRSite = $true }
         'Subnets' { $ADRSubnet = $true }
         'PasswordPolicy' { $ADRPasswordPolicy = $true }
@@ -7733,6 +7907,7 @@ Function Invoke-ADRecon
         {
             $ADRForest = $true
             $ADRDomain = $true
+            $ADRTrust = $true
             $ADRSite = $true
             $ADRSubnet = $true
             $ADRPasswordPolicy = $true
@@ -8005,6 +8180,17 @@ Function Invoke-ADRecon
             Remove-Variable ADRObject
         }
         Remove-Variable ADRForest
+    }
+    If ($ADRTrust)
+    {
+        Write-Output "[-] Trusts"
+        $ADRObject = Get-ADRTrust -Protocol $Protocol -objDomain $objDomain
+        If ($ADRObject)
+        {
+            Export-ADR -ADRObj $ADRObject -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "Trusts"
+            Remove-Variable ADRObject
+        }
+        Remove-Variable ADRTrust
     }
     If ($ADRSite)
     {
