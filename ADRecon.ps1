@@ -642,18 +642,39 @@ namespace ADRecon
                     PSObject AdGroup = (PSObject) record;
                     string ManagedByValue = Convert.ToString(AdGroup.Members["managedBy"].Value);
                     string ManagedBy = "";
+                    String SIDHistory = "";
+
                     if (AdGroup.Members["managedBy"].Value != null)
                     {
                         ManagedBy = (ManagedByValue.Split(',')[0]).Split('=')[1];
                     }
+                    Microsoft.ActiveDirectory.Management.ADPropertyValueCollection history = (Microsoft.ActiveDirectory.Management.ADPropertyValueCollection) AdGroup.Members["SIDHistory"].Value;
+                    if (history.Value is System.Security.Principal.SecurityIdentifier[])
+                    {
+                        string sids = "";
+                        foreach (var value in (SecurityIdentifier[]) history.Value)
+                        {
+                            sids = sids + "," + Convert.ToString(value);
+                        }
+                        SIDHistory = sids.TrimStart(',');
+                    }
+                    else
+                    {
+                        SIDHistory = history != null ? Convert.ToString(history.Value) : "";
+                    }
+
                     PSObject GroupObj = new PSObject();
-                    GroupObj.Members.Add(new PSNoteProperty("Group", AdGroup.Members["SamAccountName"].Value));
+                    GroupObj.Members.Add(new PSNoteProperty("Name", AdGroup.Members["SamAccountName"].Value));
+                    GroupObj.Members.Add(new PSNoteProperty("AdminCount", AdGroup.Members["AdminCount"].Value));
+                    GroupObj.Members.Add(new PSNoteProperty("GroupCategory", AdGroup.Members["GroupCategory"].Value));
+                    GroupObj.Members.Add(new PSNoteProperty("GroupScope", AdGroup.Members["GroupScope"].Value));
                     GroupObj.Members.Add(new PSNoteProperty("ManagedBy", ManagedBy));
+                    GroupObj.Members.Add(new PSNoteProperty("SID", AdGroup.Members["sid"].Value));
+                    GroupObj.Members.Add(new PSNoteProperty("SIDHistory", SIDHistory));
+                    GroupObj.Members.Add(new PSNoteProperty("Description", CleanString(Convert.ToString(AdGroup.Members["Description"].Value))));
                     GroupObj.Members.Add(new PSNoteProperty("whenCreated", AdGroup.Members["whenCreated"].Value));
                     GroupObj.Members.Add(new PSNoteProperty("whenChanged", AdGroup.Members["whenChanged"].Value));
-                    GroupObj.Members.Add(new PSNoteProperty("Description", CleanString(Convert.ToString(AdGroup.Members["Description"].Value))));
-                    GroupObj.Members.Add(new PSNoteProperty("SID", AdGroup.Members["sid"].Value));
-                    GroupObj.Members.Add(new PSNoteProperty("DistinguishedName", AdGroup.Members["DistinguishedName"].Value));
+                    GroupObj.Members.Add(new PSNoteProperty("DistinguishedName", CleanString(Convert.ToString(AdGroup.Members["DistinguishedName"].Value))));
                     GroupObj.Members.Add(new PSNoteProperty("CanonicalName", AdGroup.Members["CanonicalName"].Value));
                     return new PSObject[] { GroupObj };
                 }
@@ -679,6 +700,7 @@ namespace ADRecon
                     string GroupName = "";
                     string MemberUserName = "-";
                     string MemberName = "";
+
                     if (Groups.Contains(SamAccountType))
                     {
                         AccountType = "group";
@@ -1318,20 +1340,58 @@ namespace ADRecon
                 try
                 {
                     SearchResult AdGroup = (SearchResult) record;
-                    string ManagedByValue = AdGroup.Properties["managedby"].Count != 0 ? Convert.ToString(AdGroup.Properties["managedby"][0]) : "";
-                    string ManagedBy = "";
+                    String ManagedByValue = AdGroup.Properties["managedby"].Count != 0 ? Convert.ToString(AdGroup.Properties["managedby"][0]) : "";
+                    String ManagedBy = "";
+                    String GroupCategory = null;
+                    String GroupScope = null;
+                    String SIDHistory = "";
+
                     if (AdGroup.Properties["managedBy"].Count != 0)
                     {
                         ManagedBy = (ManagedByValue.Split(',')[0]).Split('=')[1];
                     }
+
+                    if (AdGroup.Properties["grouptype"].Count != 0)
+                    {
+                        var groupTypeFlags = (GroupTypeFlags) AdGroup.Properties["grouptype"][0];
+                        GroupCategory = (groupTypeFlags & GroupTypeFlags.SECURITY_ENABLED) == GroupTypeFlags.SECURITY_ENABLED ? "Security" : "Distribution";
+
+                        if ((groupTypeFlags & GroupTypeFlags.UNIVERSAL_GROUP) == GroupTypeFlags.UNIVERSAL_GROUP)
+                        {
+                            GroupScope = "Universal";
+                        }
+                        else if ((groupTypeFlags & GroupTypeFlags.GLOBAL_GROUP) == GroupTypeFlags.GLOBAL_GROUP)
+                        {
+                            GroupScope = "Global";
+                        }
+                        else if ((groupTypeFlags & GroupTypeFlags.DOMAIN_LOCAL_GROUP) == GroupTypeFlags.DOMAIN_LOCAL_GROUP)
+                        {
+                            GroupScope = "DomainLocal";
+                        }
+                    }
+                    if (AdGroup.Properties["sidhistory"].Count >= 1)
+                    {
+                        string sids = "";
+                        for (int i = 0; i < AdGroup.Properties["sidhistory"].Count; i++)
+                        {
+                            var history = AdGroup.Properties["sidhistory"][i];
+                            sids = sids + "," + Convert.ToString(new SecurityIdentifier((byte[])history, 0));
+                        }
+                        SIDHistory = sids.TrimStart(',');
+                    }
+
                     PSObject GroupObj = new PSObject();
-                    GroupObj.Members.Add(new PSNoteProperty("Group", AdGroup.Properties["samaccountname"][0]));
+                    GroupObj.Members.Add(new PSNoteProperty("Name", AdGroup.Properties["samaccountname"][0]));
+                    GroupObj.Members.Add(new PSNoteProperty("AdminCount", (AdGroup.Properties["admincount"].Count != 0 ? AdGroup.Properties["admincount"][0] : "")));
+                    GroupObj.Members.Add(new PSNoteProperty("GroupCategory", GroupCategory));
+                    GroupObj.Members.Add(new PSNoteProperty("GroupScope", GroupScope));
                     GroupObj.Members.Add(new PSNoteProperty("ManagedBy", ManagedBy));
+                    GroupObj.Members.Add(new PSNoteProperty("SID", Convert.ToString(new SecurityIdentifier((byte[])AdGroup.Properties["objectSID"][0], 0))));
+                    GroupObj.Members.Add(new PSNoteProperty("SIDHistory", SIDHistory));
+                    GroupObj.Members.Add(new PSNoteProperty("Description", (AdGroup.Properties["Description"].Count != 0 ? CleanString(Convert.ToString(AdGroup.Properties["Description"][0])) : "")));
                     GroupObj.Members.Add(new PSNoteProperty("whenCreated", AdGroup.Properties["whencreated"][0]));
                     GroupObj.Members.Add(new PSNoteProperty("whenChanged", AdGroup.Properties["whenchanged"][0]));
-                    GroupObj.Members.Add(new PSNoteProperty("Description", (AdGroup.Properties["Description"].Count != 0 ? CleanString(Convert.ToString(AdGroup.Properties["Description"][0])) : "")));
-                    GroupObj.Members.Add(new PSNoteProperty("SID", Convert.ToString(new SecurityIdentifier((byte[])AdGroup.Properties["objectSID"][0], 0))));
-                    GroupObj.Members.Add(new PSNoteProperty("DistinguishedName", AdGroup.Properties["distinguishedname"][0]));
+                    GroupObj.Members.Add(new PSNoteProperty("DistinguishedName", CleanString(Convert.ToString(AdGroup.Properties["distinguishedname"][0]))));
                     GroupObj.Members.Add(new PSNoteProperty("CanonicalName", AdGroup.Properties["canonicalname"][0]));
                     return new PSObject[] { GroupObj };
                 }
@@ -1357,6 +1417,7 @@ namespace ADRecon
                     string GroupName = "";
                     string MemberUserName = "-";
                     string MemberName = "";
+
                     if (Groups.Contains(SamAccountType))
                     {
                         AccountType = "group";
@@ -5240,10 +5301,6 @@ Function Get-ADRGroup
     [string]
     Which protocol to use; ADWS (default) or LDAP.
 
-.PARAMETER UseAltCreds
-    [bool]
-    Whether to use provided credentials or not.
-
 .PARAMETER objDomain
     [DirectoryServices.DirectoryEntry]
     Domain Directory Entry object.
@@ -5263,9 +5320,6 @@ Function Get-ADRGroup
         [Parameter(Mandatory = $true)]
         [string] $Protocol,
 
-        [Parameter(Mandatory = $true)]
-        [bool] $UseAltCreds,
-
         [Parameter(Mandatory = $false)]
         [DirectoryServices.DirectoryEntry] $objDomain,
 
@@ -5280,11 +5334,12 @@ Function Get-ADRGroup
     {
         Try
         {
-            $ADGroups = @( Get-ADGroup -Filter * -ResultPageSize $PageSize -Properties CanonicalName,DistinguishedName,Description,SamAccountName,SID,managedBy,whenChanged,whenCreated )
+            $ADGroups = @( Get-ADGroup -Filter * -ResultPageSize $PageSize -Properties AdminCount,CanonicalName,DistinguishedName,Description,GroupCategory,GroupScope,SamAccountName,SID,SIDHistory,managedBy,whenChanged,whenCreated )
         }
         Catch
         {
-            Write-Error "[EXCEPTION] $($_.Exception.Message)"
+            Write-Warning "[Get-ADRGroup] Error while enumerating Group Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
             Return $null
         }
 
@@ -5301,7 +5356,7 @@ Function Get-ADRGroup
         $objSearcher = New-Object System.DirectoryServices.DirectorySearcher $objDomain
         $ObjSearcher.PageSize = $PageSize
         $ObjSearcher.Filter = "(objectClass=group)"
-        $ObjSearcher.PropertiesToLoad.AddRange(("canonicalname", "distinguishedname", "description", "samaccountname", "managedby", "objectsid", "whencreated", "whenchanged"))
+        $ObjSearcher.PropertiesToLoad.AddRange(("admincount","canonicalname", "distinguishedname", "description", "grouptype","samaccountname", "sidhistory", "managedby", "objectsid", "whencreated", "whenchanged"))
         $ObjSearcher.SearchScope = "Subtree"
 
         Try
@@ -5310,7 +5365,8 @@ Function Get-ADRGroup
         }
         Catch
         {
-            Write-Error "[EXCEPTION] $($_.Exception.Message)"
+            Write-Warning "[Get-ADRGroup] Error while enumerating Group Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
             Return $null
         }
         $ObjSearcher.dispose()
@@ -5346,10 +5402,6 @@ Function Get-ADRGroupMember
     [string]
     Which protocol to use; ADWS (default) or LDAP.
 
-.PARAMETER UseAltCreds
-    [bool]
-    Whether to use provided credentials or not.
-
 .PARAMETER objDomain
     [DirectoryServices.DirectoryEntry]
     Domain Directory Entry object.
@@ -5369,9 +5421,6 @@ Function Get-ADRGroupMember
         [Parameter(Mandatory = $true)]
         [string] $Protocol,
 
-        [Parameter(Mandatory = $true)]
-        [bool] $UseAltCreds,
-
         [Parameter(Mandatory = $false)]
         [DirectoryServices.DirectoryEntry] $objDomain,
 
@@ -5390,7 +5439,8 @@ Function Get-ADRGroupMember
         }
         Catch
         {
-            Write-Error "[EXCEPTION] $($_.Exception.Message)"
+            Write-Warning "[Get-ADRGroupMember] Error while enumerating GroupMember Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
             Return $null
         }
 
@@ -5416,7 +5466,8 @@ Function Get-ADRGroupMember
         }
         Catch
         {
-            Write-Error "[EXCEPTION] $($_.Exception.Message)"
+            Write-Warning "[Get-ADRGroupMember] Error while enumerating GroupMember Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
             Return $null
         }
         $ObjSearcher.dispose()
@@ -7682,7 +7733,7 @@ Function Invoke-ADRecon
         [bool] $UseAltCreds = $false
     )
 
-    [string] $ADReconVersion = "v180703"
+    [string] $ADReconVersion = "v180704"
     Write-Output "[*] ADRecon $ADReconVersion by Prashant Mahajan (@prashant3535) from Sense of Security."
 
     If ($GenExcel)
@@ -8272,10 +8323,10 @@ Function Invoke-ADRecon
     If ($ADRGroups)
     {
         Write-Output "[-] Groups - May take some time"
-        $ADRObject = Get-ADRGroup $Protocol $UseAltCreds $objDomain $PageSize $Threads
+        $ADRObject = Get-ADRGroup -Protocol $Protocol -objDomain $objDomain -PageSize $PageSize -Threads $Threads
         If ($ADRObject)
         {
-            Export-ADR $ADRObject $ADROutputDir $OutputType "Groups"
+            Export-ADR -ADRObj $ADRObject -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "Groups"
             Remove-Variable ADRObject
         }
         Remove-Variable ADRGroups
@@ -8284,10 +8335,10 @@ Function Invoke-ADRecon
     {
         Write-Output "[-] Group Memberships - May take some time"
 
-        $ADRObject = Get-ADRGroupMember $Protocol $UseAltCreds $objDomain $PageSize $Threads
+        $ADRObject = Get-ADRGroupMember -Protocol $Protocol -objDomain $objDomain -PageSize $PageSize -Threads $Threads
         If ($ADRObject)
         {
-            Export-ADR $ADRObject $ADROutputDir $OutputType "GroupMembers"
+            Export-ADR -ADRObj $ADRObject -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "GroupMembers"
             Remove-Variable ADRObject
         }
         Remove-Variable ADRGroupMembers
