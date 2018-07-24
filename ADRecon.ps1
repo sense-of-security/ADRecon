@@ -212,21 +212,22 @@ https://github.com/sense-of-security/ADRecon
 param
 (
     [Parameter(Mandatory = $false, HelpMessage = "Which protocol to use; ADWS (default) or LDAP.")]
+    [ValidateSet('ADWS', 'LDAP')]
     [string] $Protocol = 'ADWS',
 
     [Parameter(Mandatory = $false, HelpMessage = "Domain Controller IP Address or Domain FQDN.")]
-    [string] $DomainController,
+    [string] $DomainController = '',
 
     [Parameter(Mandatory = $false, HelpMessage = "Domain Credentials.")]
     [Management.Automation.PSCredential] $Credential = [Management.Automation.PSCredential]::Empty,
 
-    [Parameter(Mandatory = $false, HelpMessage = "Path for ADRecon output folder containing the CSV files to generate the ADRecon-Report.xlsx. Use it to generate the ADRecon-Report.xlsx when Microsoft Excel is not installed on the host used to run ADRecon.")]
+    [Parameter(Mandatory = $false, HelpMessage = "Path for ADRecon output folder containing the CSV files to generate the ADRecon-Report-<ddMMMyy>.xlsx. Use it to generate the ADRecon-Report-<ddMMMyy>.xlsx when Microsoft Excel is not installed on the host used to run ADRecon.")]
     [string] $GenExcel,
 
-    [Parameter(Mandatory = $false, HelpMessage = "Path for ADRecon output folder to save the CSV files and the ADRecon-Report.xlsx. (The folder specified will be created if it doesn't exist)")]
+    [Parameter(Mandatory = $false, HelpMessage = "Path for ADRecon output folder to save the CSV/XML/JSON/HTML files and the ADRecon-Report-<ddMMMyy>.xlsx. (The folder specified will be created if it doesn't exist)")]
     [string] $OutputDir,
 
-    [Parameter(Mandatory = $false, HelpMessage = "What attributes to collect; Comma separated; e.g Forest,Domain (Default all) Valid values include: Forest, Domain, Trusts, Sites, Subnets, PasswordPolicy, DomainControllers, Users, UserSPNs, Groups, GroupMembers, OUs, OUPermissions, GPOs, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker")]
+    [Parameter(Mandatory = $false, HelpMessage = "Which modules to run; Comma separated; e.g Forest,Domain (Default all) Valid values include: Forest, Domain, Trusts, Sites, Subnets, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, Groups, GroupMembers, OUs, OUPermissions, GPOs, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker")]
     [ValidateSet('Forest', 'Domain', 'Trusts', 'Sites', 'Subnets', 'PasswordPolicy', 'FineGrainedPasswordPolicy', 'DomainControllers', 'Users', 'UserSPNs', 'Groups', 'GroupMembers', 'OUs', 'OUPermissions', 'GPOs', 'GPOReport', 'DNSZones', 'Printers', 'Computers', 'ComputerSPNs', 'LAPS', 'BitLocker', 'Default')]
     [array] $Collect = 'Default',
 
@@ -237,6 +238,10 @@ param
     [Parameter(Mandatory = $false, HelpMessage = "Timespan for Dormant accounts. Default 90 days")]
     [ValidateRange(1,1000)]
     [int] $DormantTimeSpan = 90,
+
+    [Parameter(Mandatory = $false, HelpMessage = "Maximum machine account password age. Default 30 days")]
+    [ValidateRange(1,1000)]
+    [int] $PassMaxAge = 30,
 
     [Parameter(Mandatory = $false, HelpMessage = "The PageSize to set for the LDAP searcher object. Default 200")]
     [ValidateRange(1,10000)]
@@ -300,6 +305,18 @@ namespace ADRecon
             PARTIAL_SECRETS_ACCOUNT = 67108864 // 0x04000000
         }
 
+        [Flags]
+        //Values taken from https://blogs.msdn.microsoft.com/openspecification/2011/05/30/windows-configurations-for-kerberos-supported-encryption-type/
+        public enum KerbEncFlags
+        {
+            ZERO = 0,
+            DES_CBC_CRC = 1,        // 0x1
+            DES_CBC_MD5 = 2,        // 0x2
+            RC4_HMAC = 4,        // 0x4
+            AES128_CTS_HMAC_SHA1_96 = 8,       // 0x18
+            AES256_CTS_HMAC_SHA1_96 = 16       // 0x10
+        }
+
 		private static readonly Dictionary<String, String> Replacements = new Dictionary<String, String>()
         {
             //{System.Environment.NewLine, ""},
@@ -351,10 +368,11 @@ namespace ADRecon
             return ADRObj;
         }
 
-        public static Object[] ComputerParser(Object[] AdComputers, DateTime Date1, int DormantTimeSpan, int numOfThreads)
+        public static Object[] ComputerParser(Object[] AdComputers, DateTime Date1, int DormantTimeSpan, int PassMaxAge, int numOfThreads)
         {
             ADWSClass.Date1 = Date1;
             ADWSClass.DormantTimeSpan = DormantTimeSpan;
+            ADWSClass.PassMaxAge = PassMaxAge;
 
             Object[] ADRObj = runProcessor(AdComputers, numOfThreads, "Computers");
             return ADRObj;
@@ -820,34 +838,108 @@ namespace ADRecon
                 try
                 {
                     PSObject AdComputer = (PSObject) record;
-                    int DaysSinceLastPasswordChange = -1;
-                    int DaysSinceLastLogon = -1;
-                    DateTime LastLogonDate = Convert.ToDateTime(AdComputer.Members["LastLogonDate"].Value);
+                    int? DaysSinceLastLogon = null;
+                    int? DaysSinceLastPasswordChange = null;
+                    bool Dormant = false;
+                    bool PasswordNotChangedafterMaxAge = false;
+                    String SIDHistory = "";
+                    String DelegationType = null;
+                    String DelegationProtocol = null;
+                    String DelegationServices = null;
+                    DateTime? LastLogonDate = null;
+                    DateTime? PasswordLastSet = null;
+
                     if (AdComputer.Members["LastLogonDate"].Value != null)
                     {
-                        DaysSinceLastLogon = Math.Abs((Date1 - LastLogonDate).Days);
+                        //LastLogonDate = DateTime.FromFileTime((long)(AdComputer.Members["lastLogonTimeStamp"].Value));
+                        // LastLogonDate is lastLogonTimeStamp converted to local time
+                        LastLogonDate = Convert.ToDateTime(AdComputer.Members["LastLogonDate"].Value);
+                        DaysSinceLastLogon = Math.Abs((Date1 - (DateTime)LastLogonDate).Days);
+                        if (DaysSinceLastLogon > DormantTimeSpan)
+                        {
+                            Dormant = true;
+                        }
                     }
-                    DateTime PasswordLastSet = Convert.ToDateTime(AdComputer.Members["PasswordLastSet"].Value);
                     if (AdComputer.Members["PasswordLastSet"].Value != null)
                     {
-                        DaysSinceLastPasswordChange = Math.Abs((Date1 - PasswordLastSet).Days);
+                        //PasswordLastSet = DateTime.FromFileTime((long)(AdComputer.Members["pwdLastSet"].Value));
+                        // PasswordLastSet is pwdLastSet converted to local time
+                        PasswordLastSet = Convert.ToDateTime(AdComputer.Members["PasswordLastSet"].Value);
+                        DaysSinceLastPasswordChange = Math.Abs((Date1 - (DateTime)PasswordLastSet).Days);
+                        if (DaysSinceLastPasswordChange > PassMaxAge)
+                        {
+                            PasswordNotChangedafterMaxAge = true;
+                        }
                     }
+                    if ( ((bool) AdComputer.Members["TrustedForDelegation"].Value) && ((int) AdComputer.Members["primaryGroupID"].Value == 515) )
+                    {
+                        DelegationType = "Unconstrained";
+                        DelegationServices = "Any";
+                    }
+                    if (AdComputer.Members["msDS-AllowedToDelegateTo"] != null)
+                    {
+                        Microsoft.ActiveDirectory.Management.ADPropertyValueCollection delegateto = (Microsoft.ActiveDirectory.Management.ADPropertyValueCollection) AdComputer.Members["msDS-AllowedToDelegateTo"].Value;
+                        if (delegateto.Value != null)
+                        {
+                            DelegationType = "Constrained";
+                            if (delegateto.Value is System.String[])
+                            {
+                                foreach (var value in (String[]) delegateto.Value)
+                                {
+                                    DelegationServices = DelegationServices + "," + Convert.ToString(value);
+                                }
+                                DelegationServices = DelegationServices.TrimStart(',');
+                            }
+                            else
+                            {
+                                DelegationServices = Convert.ToString(delegateto.Value);
+                            }
+                        }
+                    }
+                    if ((bool) AdComputer.Members["TrustedToAuthForDelegation"].Value)
+                    {
+                        DelegationProtocol = "Any";
+                    }
+                    else if (DelegationType != null)
+                    {
+                        DelegationProtocol = "Kerberos";
+                    }
+                    Microsoft.ActiveDirectory.Management.ADPropertyValueCollection history = (Microsoft.ActiveDirectory.Management.ADPropertyValueCollection) AdComputer.Members["SIDHistory"].Value;
+                    if (history.Value is System.Security.Principal.SecurityIdentifier[])
+                    {
+                        string sids = "";
+                        foreach (var value in (SecurityIdentifier[]) history.Value)
+                        {
+                            sids = sids + "," + Convert.ToString(value);
+                        }
+                        SIDHistory = sids.TrimStart(',');
+                    }
+                    else
+                    {
+                        SIDHistory = history != null ? Convert.ToString(history.Value) : "";
+                    }
+                    String OperatingSystem = CleanString((AdComputer.Members["OperatingSystem"].Value != null ? AdComputer.Members["OperatingSystem"].Value : "-") + " " + AdComputer.Members["OperatingSystemHotfix"].Value + " " + AdComputer.Members["OperatingSystemServicePack"].Value + " " + AdComputer.Members["OperatingSystemVersion"].Value);
 
                     PSObject ComputerObj = new PSObject();
                     ComputerObj.Members.Add(new PSNoteProperty("Name", AdComputer.Members["Name"].Value));
                     ComputerObj.Members.Add(new PSNoteProperty("DNSHostName", AdComputer.Members["DNSHostName"].Value));
                     ComputerObj.Members.Add(new PSNoteProperty("Enabled", AdComputer.Members["Enabled"].Value));
                     ComputerObj.Members.Add(new PSNoteProperty("IPv4Address", AdComputer.Members["IPv4Address"].Value));
-                    ComputerObj.Members.Add(new PSNoteProperty("Operating System", (AdComputer.Members["OperatingSystem"].Value != null ? AdComputer.Members["OperatingSystem"].Value : "-")));
-                    ComputerObj.Members.Add(new PSNoteProperty("Days Since Last Logon", DaysSinceLastLogon));
-                    ComputerObj.Members.Add(new PSNoteProperty("Days Since Last Password Change", DaysSinceLastPasswordChange));
-                    ComputerObj.Members.Add(new PSNoteProperty("Trusted for Delegation", AdComputer.Members["TrustedForDelegation"].Value));
-                    ComputerObj.Members.Add(new PSNoteProperty("Trusted to Auth for Delegation", AdComputer.Members["TrustedToAuthForDelegation"].Value));
-                    ComputerObj.Members.Add(new PSNoteProperty("Username", AdComputer.Members["SamAccountName"].Value));
+                    ComputerObj.Members.Add(new PSNoteProperty("Operating System", OperatingSystem));
+                    ComputerObj.Members.Add(new PSNoteProperty("Logon Age (days)", DaysSinceLastLogon));
+                    ComputerObj.Members.Add(new PSNoteProperty("Password Age (days)", DaysSinceLastPasswordChange));
+                    ComputerObj.Members.Add(new PSNoteProperty("Dormant (> " + DormantTimeSpan + " days)", Dormant));
+                    ComputerObj.Members.Add(new PSNoteProperty("Password Age (> " + PassMaxAge + " days)", PasswordNotChangedafterMaxAge));
+                    ComputerObj.Members.Add(new PSNoteProperty("Delegation Type", DelegationType));
+                    ComputerObj.Members.Add(new PSNoteProperty("Delegation Protocol", DelegationProtocol));
+                    ComputerObj.Members.Add(new PSNoteProperty("Delegation Services", DelegationServices));
+                    ComputerObj.Members.Add(new PSNoteProperty("UserName", AdComputer.Members["SamAccountName"].Value));
                     ComputerObj.Members.Add(new PSNoteProperty("Primary Group ID", AdComputer.Members["primaryGroupID"].Value));
+                    ComputerObj.Members.Add(new PSNoteProperty("SID", AdComputer.Members["SID"].Value));
+                    ComputerObj.Members.Add(new PSNoteProperty("SIDHistory", SIDHistory));
                     ComputerObj.Members.Add(new PSNoteProperty("Description", AdComputer.Members["Description"].Value));
-                    ComputerObj.Members.Add(new PSNoteProperty("Password LastSet", PasswordLastSet));
                     ComputerObj.Members.Add(new PSNoteProperty("Last Logon Date", LastLogonDate));
+                    ComputerObj.Members.Add(new PSNoteProperty("Password LastSet", PasswordLastSet));
                     ComputerObj.Members.Add(new PSNoteProperty("whenCreated", AdComputer.Members["whenCreated"].Value));
                     ComputerObj.Members.Add(new PSNoteProperty("whenChanged", AdComputer.Members["whenChanged"].Value));
                     ComputerObj.Members.Add(new PSNoteProperty("Distinguished Name", AdComputer.Members["DistinguishedName"].Value));
@@ -1008,6 +1100,29 @@ namespace ADRecon
             PARTIAL_SECRETS_ACCOUNT = 67108864 // 0x04000000
         }
 
+        [Flags]
+        //Values taken from https://blogs.msdn.microsoft.com/openspecification/2011/05/30/windows-configurations-for-kerberos-supported-encryption-type/
+        public enum KerbEncFlags
+        {
+            ZERO = 0,
+            DES_CBC_CRC = 1,        // 0x1
+            DES_CBC_MD5 = 2,        // 0x2
+            RC4_HMAC = 4,        // 0x4
+            AES128_CTS_HMAC_SHA1_96 = 8,       // 0x18
+            AES256_CTS_HMAC_SHA1_96 = 16       // 0x10
+        }
+
+        [Flags]
+        //Values taken from https://support.microsoft.com/en-au/kb/305144
+        public enum GroupTypeFlags
+        {
+            GLOBAL_GROUP       = 2,            // 0x00000002
+            DOMAIN_LOCAL_GROUP = 4,            // 0x00000004
+            LOCAL_GROUP        = 4,            // 0x00000004
+            UNIVERSAL_GROUP    = 8,            // 0x00000008
+            SECURITY_ENABLED   = -2147483648   // 0x80000000
+        }
+
 		private static readonly Dictionary<String, String> Replacements = new Dictionary<String, String>()
         {
             //{System.Environment.NewLine, ""},
@@ -1060,10 +1175,11 @@ namespace ADRecon
             return ADRObj;
         }
 
-        public static Object[] ComputerParser(Object[] AdComputers, DateTime Date1, int DormantTimeSpan, int numOfThreads)
+        public static Object[] ComputerParser(Object[] AdComputers, DateTime Date1, int DormantTimeSpan, int PassMaxAge, int numOfThreads)
         {
             LDAPClass.Date1 = Date1;
             LDAPClass.DormantTimeSpan = DormantTimeSpan;
+            LDAPClass.PassMaxAge = PassMaxAge;
 
             Object[] ADRObj = runProcessor(AdComputers, numOfThreads, "Computers");
             return ADRObj;
@@ -1486,10 +1602,20 @@ namespace ADRecon
                 try
                 {
                     SearchResult AdComputer = (SearchResult) record;
+                    bool Dormant = false;
                     bool? Enabled = null;
+                    bool PasswordNotChangedafterMaxAge = false;
                     bool? TrustedforDelegation = null;
                     bool? TrustedtoAuthforDelegation = null;
+                    String DelegationType = null;
+                    String DelegationProtocol = null;
+                    String DelegationServices = null;
                     String StrIPAddress = null;
+                    int? DaysSinceLastLogon = null;
+                    int? DaysSinceLastPasswordChange = null;
+                    DateTime? LastLogonDate = null;
+                    DateTime? PasswordLastSet = null;
+
                     if (AdComputer.Properties["dnshostname"].Count != 0)
                     {
                         try
@@ -1509,42 +1635,80 @@ namespace ADRecon
                         TrustedforDelegation = (userFlags & UACFlags.TRUSTED_FOR_DELEGATION) == UACFlags.TRUSTED_FOR_DELEGATION;
                         TrustedtoAuthforDelegation = (userFlags & UACFlags.TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION) == UACFlags.TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION;
                     }
-                    int DaysSinceLastPasswordChange = -1;
-                    int DaysSinceLastLogon = -1;
-                    DateTime LastLogonDate = new DateTime();
                     if (AdComputer.Properties["lastlogontimestamp"].Count != 0)
                     {
                         LastLogonDate = DateTime.FromFileTime((long)(AdComputer.Properties["lastlogontimestamp"][0]));
-                        DaysSinceLastLogon = Math.Abs((Date1 - LastLogonDate).Days);
-                        if (DaysSinceLastLogon >= 152246)
+                        DaysSinceLastLogon = Math.Abs((Date1 - (DateTime)LastLogonDate).Days);
+                        if (DaysSinceLastLogon > DormantTimeSpan)
                         {
-                            DaysSinceLastLogon = -1;
+                            Dormant = true;
                         }
                     }
-                    DateTime PasswordLastSet = DateTime.FromFileTime((long)(AdComputer.Properties["pwdLastSet"][0]));
-                    if (AdComputer.Properties["pwdLastSet"].Count != 0)
+                    if (AdComputer.Properties["pwdlastset"].Count != 0)
                     {
-                        DaysSinceLastPasswordChange = Math.Abs((Date1 - PasswordLastSet).Days);
-                        if (DaysSinceLastPasswordChange >= 152246)
+                        PasswordLastSet = DateTime.FromFileTime((long)(AdComputer.Properties["pwdlastset"][0]));
+                        DaysSinceLastPasswordChange = Math.Abs((Date1 - (DateTime)PasswordLastSet).Days);
+                        if (DaysSinceLastPasswordChange > PassMaxAge)
                         {
-                            DaysSinceLastPasswordChange = -1;
+                            PasswordNotChangedafterMaxAge = true;
                         }
                     }
+                    if ( ((bool) TrustedforDelegation) && ((int) AdComputer.Properties["primarygroupid"][0] == 515) )
+                    {
+                        DelegationType = "Unconstrained";
+                        DelegationServices = "Any";
+                    }
+                    if (AdComputer.Properties["msDS-AllowedToDelegateTo"].Count >= 1)
+                    {
+                        DelegationType = "Constrained";
+                        for (int i = 0; i < AdComputer.Properties["msDS-AllowedToDelegateTo"].Count; i++)
+                        {
+                            var delegateto = AdComputer.Properties["msDS-AllowedToDelegateTo"][i];
+                            DelegationServices = DelegationServices + "," + Convert.ToString(delegateto);
+                        }
+                        DelegationServices = DelegationServices.TrimStart(',');
+                    }
+                    if ((bool) TrustedtoAuthforDelegation)
+                    {
+                        DelegationProtocol = "Any";
+                    }
+                    else if (DelegationType != null)
+                    {
+                        DelegationProtocol = "Kerberos";
+                    }
+                    string SIDHistory = "";
+                    if (AdComputer.Properties["sidhistory"].Count >= 1)
+                    {
+                        string sids = "";
+                        for (int i = 0; i < AdComputer.Properties["sidhistory"].Count; i++)
+                        {
+                            var history = AdComputer.Properties["sidhistory"][i];
+                            sids = sids + "," + Convert.ToString(new SecurityIdentifier((byte[])history, 0));
+                        }
+                        SIDHistory = sids.TrimStart(',');
+                    }
+                    String OperatingSystem = CleanString((AdComputer.Properties["operatingsystem"].Count != 0 ? AdComputer.Properties["operatingsystem"][0] : "-") + " " + (AdComputer.Properties["operatingsystemhotfix"].Count != 0 ? AdComputer.Properties["operatingsystemhotfix"][0] : " ") + " " + (AdComputer.Properties["operatingsystemservicepack"].Count != 0 ? AdComputer.Properties["operatingsystemservicepack"][0] : " ") + " " + (AdComputer.Properties["operatingsystemversion"].Count != 0 ? AdComputer.Properties["operatingsystemversion"][0] : " "));
+
                     PSObject ComputerObj = new PSObject();
                     ComputerObj.Members.Add(new PSNoteProperty("Name", (AdComputer.Properties["name"].Count != 0 ? AdComputer.Properties["name"][0] : "")));
                     ComputerObj.Members.Add(new PSNoteProperty("DNSHostName", (AdComputer.Properties["dnshostname"].Count != 0 ? AdComputer.Properties["dnshostname"][0] : "")));
                     ComputerObj.Members.Add(new PSNoteProperty("Enabled", Enabled));
                     ComputerObj.Members.Add(new PSNoteProperty("IPv4Address", StrIPAddress));
-                    ComputerObj.Members.Add(new PSNoteProperty("Operating System", (AdComputer.Properties["operatingsystem"].Count != 0 ? AdComputer.Properties["operatingsystem"][0] : "-")));
-                    ComputerObj.Members.Add(new PSNoteProperty("Days Since Last Logon", DaysSinceLastLogon));
-                    ComputerObj.Members.Add(new PSNoteProperty("Days Since Last Password Change", DaysSinceLastPasswordChange));
-                    ComputerObj.Members.Add(new PSNoteProperty("Trusted for Delegation", TrustedforDelegation));
-                    ComputerObj.Members.Add(new PSNoteProperty("Trusted to Auth for Delegation", TrustedtoAuthforDelegation));
-                    ComputerObj.Members.Add(new PSNoteProperty("Username", (AdComputer.Properties["samaccountname"].Count != 0 ? AdComputer.Properties["samaccountname"][0] : "")));
+                    ComputerObj.Members.Add(new PSNoteProperty("Operating System", OperatingSystem));
+                    ComputerObj.Members.Add(new PSNoteProperty("Logon Age (days)", DaysSinceLastLogon));
+                    ComputerObj.Members.Add(new PSNoteProperty("Password Age (days)", DaysSinceLastPasswordChange));
+                    ComputerObj.Members.Add(new PSNoteProperty("Dormant (> " + DormantTimeSpan + " days)", Dormant));
+                    ComputerObj.Members.Add(new PSNoteProperty("Password Age (> " + PassMaxAge + " days)", PasswordNotChangedafterMaxAge));
+                    ComputerObj.Members.Add(new PSNoteProperty("Delegation Type", DelegationType));
+                    ComputerObj.Members.Add(new PSNoteProperty("Delegation Protocol", DelegationProtocol));
+                    ComputerObj.Members.Add(new PSNoteProperty("Delegation Services", DelegationServices));
+                    ComputerObj.Members.Add(new PSNoteProperty("UserName", (AdComputer.Properties["samaccountname"].Count != 0 ? AdComputer.Properties["samaccountname"][0] : "")));
                     ComputerObj.Members.Add(new PSNoteProperty("Primary Group ID", (AdComputer.Properties["primarygroupid"].Count != 0 ? AdComputer.Properties["primarygroupid"][0] : "")));
+                    ComputerObj.Members.Add(new PSNoteProperty("SID", Convert.ToString(new SecurityIdentifier((byte[])AdComputer.Properties["objectSID"][0], 0))));
+                    ComputerObj.Members.Add(new PSNoteProperty("SIDHistory", SIDHistory));
                     ComputerObj.Members.Add(new PSNoteProperty("Description", (AdComputer.Properties["Description"].Count != 0 ? AdComputer.Properties["Description"][0] : "")));
-                    ComputerObj.Members.Add(new PSNoteProperty("Password LastSet", PasswordLastSet));
                     ComputerObj.Members.Add(new PSNoteProperty("Last Logon Date", LastLogonDate));
+                    ComputerObj.Members.Add(new PSNoteProperty("Password LastSet", PasswordLastSet));
                     ComputerObj.Members.Add(new PSNoteProperty("whenCreated", AdComputer.Properties["whencreated"][0]));
                     ComputerObj.Members.Add(new PSNoteProperty("whenChanged", AdComputer.Properties["whenchanged"][0]));
                     ComputerObj.Members.Add(new PSNoteProperty("Distinguished Name", AdComputer.Properties["distinguishedname"][0]));
@@ -3221,10 +3385,6 @@ Function Get-ADRDomain
     [string]
     Which protocol to use; ADWS (default) or LDAP.
 
-.PARAMETER UseAltCreds
-    [bool]
-    Whether to use provided credentials or not.
-
 .PARAMETER objDomain
     [DirectoryServices.DirectoryEntry]
     Domain Directory Entry object.
@@ -3247,9 +3407,6 @@ Function Get-ADRDomain
     param(
         [Parameter(Mandatory = $true)]
         [string] $Protocol,
-
-        [Parameter(Mandatory = $true)]
-        [bool] $UseAltCreds,
 
         [Parameter(Mandatory = $false)]
         [DirectoryServices.DirectoryEntry] $objDomain,
@@ -3404,7 +3561,7 @@ Function Get-ADRDomain
 
     If ($Protocol -eq 'LDAP')
     {
-        If ($UseAltCreds)
+        If ($Credential -ne [Management.Automation.PSCredential]::Empty)
         {
             $DomainFQDN = Get-DNtoFQDN($objDomain.distinguishedName)
             $DomainContext = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext("Domain",$($DomainFQDN),$($Credential.UserName),$($Credential.GetNetworkCredential().password))
@@ -3603,10 +3760,6 @@ Function Get-ADRForest
     [string]
     Which protocol to use; ADWS (default) or LDAP.
 
-.PARAMETER UseAltCreds
-    [bool]
-    Whether to use provided credentials or not.
-
 .PARAMETER objDomain
     [DirectoryServices.DirectoryEntry]
     Domain Directory Entry object.
@@ -3629,9 +3782,6 @@ Function Get-ADRForest
     param(
         [Parameter(Mandatory = $true)]
         [string] $Protocol,
-
-        [Parameter(Mandatory = $true)]
-        [bool] $UseAltCreds,
 
         [Parameter(Mandatory = $false)]
         [DirectoryServices.DirectoryEntry] $objDomain,
@@ -3860,7 +4010,7 @@ Function Get-ADRForest
 
     If ($Protocol -eq 'LDAP')
     {
-        If ($UseAltCreds)
+        If ($Credential -ne [Management.Automation.PSCredential]::Empty)
         {
             $DomainFQDN = Get-DNtoFQDN($objDomain.distinguishedName)
             $DomainContext = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext("Domain",$($DomainFQDN),$($Credential.UserName),$($Credential.GetNetworkCredential().password))
@@ -4557,10 +4707,6 @@ Function Get-ADRDefaultPasswordPolicy
     [string]
     Which protocol to use; ADWS (default) or LDAP.
 
-.PARAMETER UseAltCreds
-    [bool]
-    Whether to use provided credentials or not.
-
 .PARAMETER objDomain
     [DirectoryServices.DirectoryEntry]
     Domain Directory Entry object.
@@ -4571,9 +4717,6 @@ Function Get-ADRDefaultPasswordPolicy
     param(
         [Parameter(Mandatory = $true)]
         [string] $Protocol,
-
-        [Parameter(Mandatory = $true)]
-        [bool] $UseAltCreds,
 
         [Parameter(Mandatory = $false)]
         [DirectoryServices.DirectoryEntry] $objDomain
@@ -4685,10 +4828,6 @@ Function Get-ADRFineGrainedPasswordPolicy
     [string]
     Which protocol to use; ADWS (default) or LDAP.
 
-.PARAMETER UseAltCreds
-    [bool]
-    Whether to use provided credentials or not.
-
 .PARAMETER objDomain
     [DirectoryServices.DirectoryEntry]
     Domain Directory Entry object.
@@ -4699,9 +4838,6 @@ Function Get-ADRFineGrainedPasswordPolicy
     param(
         [Parameter(Mandatory = $true)]
         [string] $Protocol,
-
-        [Parameter(Mandatory = $true)]
-        [bool] $UseAltCreds,
 
         [Parameter(Mandatory = $false)]
         [DirectoryServices.DirectoryEntry] $objDomain
@@ -4813,10 +4949,6 @@ Function Get-ADRDomainController
     [string]
     Which protocol to use; ADWS (default) or LDAP.
 
-.PARAMETER UseAltCreds
-    [bool]
-    Whether to use provided credentials or not.
-
 .PARAMETER objDomain
     [DirectoryServices.DirectoryEntry]
     Domain Directory Entry object.
@@ -4831,9 +4963,6 @@ Function Get-ADRDomainController
     param(
         [Parameter(Mandatory = $true)]
         [string] $Protocol,
-
-        [Parameter(Mandatory = $true)]
-        [bool] $UseAltCreds,
 
         [Parameter(Mandatory = $false)]
         [DirectoryServices.DirectoryEntry] $objDomain,
@@ -4925,7 +5054,7 @@ Function Get-ADRDomainController
 
     If ($Protocol -eq 'LDAP')
     {
-        If ($UseAltCreds)
+        If ($Credential -ne [Management.Automation.PSCredential]::Empty)
         {
             $DomainFQDN = Get-DNtoFQDN($objDomain.distinguishedName)
             $DomainContext = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext("Domain",$($DomainFQDN),$($Credential.UserName),$($Credential.GetNetworkCredential().password))
@@ -6773,10 +6902,6 @@ Function Get-ADRComputer
     [string]
     Which protocol to use; ADWS (default) or LDAP.
 
-.PARAMETER UseAltCreds
-    [bool]
-    Whether to use provided credentials or not.
-
 .PARAMETER date
     [DateTime]
     Date when ADRecon was executed.
@@ -6788,6 +6913,11 @@ Function Get-ADRComputer
 .PARAMETER DormantTimeSpan
     [int]
     Timespan for Dormant accounts. Default 90 days.
+
+.PARAMTER PassMaxAge
+    [int]
+    Maximum machine account password age. Default 30 days
+    https://docs.microsoft.com/en-us/windows/security/threat-protection/security-policy-settings/domain-member-maximum-machine-account-password-age
 
 .PARAMETER PageSize
     [int]
@@ -6805,9 +6935,6 @@ Function Get-ADRComputer
         [string] $Protocol,
 
         [Parameter(Mandatory = $true)]
-        [bool] $UseAltCreds,
-
-        [Parameter(Mandatory = $true)]
         [DateTime] $date,
 
         [Parameter(Mandatory = $false)]
@@ -6815,6 +6942,9 @@ Function Get-ADRComputer
 
         [Parameter(Mandatory = $true)]
         [int] $DormantTimeSpan = 90,
+
+        [Parameter(Mandatory = $true)]
+        [int] $PassMaxAge = 30,
 
         [Parameter(Mandatory = $true)]
         [int] $PageSize,
@@ -6827,18 +6957,19 @@ Function Get-ADRComputer
     {
         Try
         {
-            $ADComputers = @( Get-ADComputer -Filter * -ResultPageSize $PageSize -Properties Name,DNSHostName,Description,Enabled,IPv4Address,'msDS-SupportedEncryptionTypes','msDS-AllowedToDelegateTo',OperatingSystem,LastLogonDate,PasswordLastSet,primaryGroupID,TrustedForDelegation,TrustedToAuthForDelegation,SamAccountName,SID,SIDHistory,whenChanged,whenCreated,DistinguishedName )
+            $ADComputers = @( Get-ADComputer -Filter * -ResultPageSize $PageSize -Properties Description,DistinguishedName,DNSHostName,Enabled,IPv4Address,LastLogonDate,'msDS-AllowedToDelegateTo','msDS-SupportedEncryptionTypes',Name,OperatingSystem,OperatingSystemHotfix,OperatingSystemServicePack,OperatingSystemVersion,PasswordLastSet,primaryGroupID,SamAccountName,SID,SIDHistory,TrustedForDelegation,TrustedToAuthForDelegation,whenChanged,whenCreated )
         }
         Catch
         {
-            Write-Error "[EXCEPTION] $($_.Exception.Message)"
+            Write-Warning "[Get-ADRComputer] Error while enumerating Computer Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
             Return $null
         }
 
         If ($ADComputers)
         {
             Write-Verbose "[*] Total Computers: $([ADRecon.ADWSClass]::ObjectCount($ADComputers))"
-            $ComputerObj = [ADRecon.ADWSClass]::ComputerParser($ADComputers, $date, $DormantTimeSpan, $Threads)
+            $ComputerObj = [ADRecon.ADWSClass]::ComputerParser($ADComputers, $date, $DormantTimeSpan, $PassMaxAge, $Threads)
             Remove-Variable ADComputers
         }
     }
@@ -6848,7 +6979,7 @@ Function Get-ADRComputer
         $objSearcher = New-Object System.DirectoryServices.DirectorySearcher $objDomain
         $ObjSearcher.PageSize = $PageSize
         $ObjSearcher.Filter = "(samAccountType=805306369)"
-        $ObjSearcher.PropertiesToLoad.AddRange(("description","name","pwdlastset","useraccountcontrol","samaccountname","dnshostname","lastlogontimestamp","primarygroupid","whenchanged","whencreated","operatingsystem","distinguishedname"))
+        $ObjSearcher.PropertiesToLoad.AddRange(("description","distinguishedname","dnshostname","lastlogontimestamp","msDS-AllowedToDelegateTo","msDS-SupportedEncryptionTypes","name","objectsid","operatingsystem","operatingsystemhotfix","operatingsystemservicepack","operatingsystemversion","primarygroupid","pwdlastset","samaccountname","sidhistory","useraccountcontrol","whenchanged","whencreated"))
         $ObjSearcher.SearchScope = "Subtree"
 
         Try
@@ -6857,7 +6988,8 @@ Function Get-ADRComputer
         }
         Catch
         {
-            Write-Error "[EXCEPTION] $($_.Exception.Message)"
+            Write-Warning "[Get-ADRComputer] Error while enumerating Computer Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
             Return $null
         }
         $ObjSearcher.dispose()
@@ -6865,7 +6997,7 @@ Function Get-ADRComputer
         If ($ADComputers)
         {
             Write-Verbose "[*] Total Computers: $([ADRecon.LDAPClass]::ObjectCount($ADComputers))"
-            $ComputerObj = [ADRecon.LDAPClass]::ComputerParser($ADComputers, $date, $DormantTimeSpan, $Threads)
+            $ComputerObj = [ADRecon.LDAPClass]::ComputerParser($ADComputers, $date, $DormantTimeSpan, $PassMaxAge, $Threads)
             Remove-Variable ADComputers
         }
     }
@@ -6893,10 +7025,6 @@ Function Get-ADRComputerSPN
     [string]
     Which protocol to use; ADWS (default) or LDAP.
 
-.PARAMETER UseAltCreds
-    [bool]
-    Whether to use provided credentials or not.
-
 .PARAMETER objDomain
     [DirectoryServices.DirectoryEntry]
     Domain Directory Entry object.
@@ -6915,9 +7043,6 @@ Function Get-ADRComputerSPN
     param(
         [Parameter(Mandatory = $true)]
         [string] $Protocol,
-
-        [Parameter(Mandatory = $true)]
-        [bool] $UseAltCreds,
 
         [Parameter(Mandatory = $false)]
         [DirectoryServices.DirectoryEntry] $objDomain,
@@ -7665,7 +7790,7 @@ Function Invoke-ADRecon
 
 .PARAMETER Collect
     [array]
-    What attributes to collect; Forest, Domain, PasswordPolicy, DCs, Users, UserSPNs, Groups, GroupMembers, OUs, OUPermissions, GPOs, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker
+    Which modules to run; Forest, Domain, Trusts, Sites, Subnets, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, PasswordAttributes, Groups, GroupMembers, OUs, ACLs, GPOs, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker, Kerberoast, DomainAccountsusedforServiceLogon
 
 .PARAMETER DomainController
     [string]
@@ -7677,11 +7802,19 @@ Function Invoke-ADRecon
 
 .PARAMETER OutputDir
     [string]
-	Path for ADRecon output folder to save the CSV files and the ADRecon-Report.xlsx.
+	Path for ADRecon output folder to save the CSV files and the ADRecon-Report-<ddMMMyy>.xlsx.
 
 .PARAMETER DormantTimeSpan
     [int]
     Timespan for Dormant accounts. Default 90 days.
+
+.PARAMTER PassMaxAge
+    [int]
+    Maximum machine account password age. Default 30 days
+
+.PARAMETER ResolveSIDs
+    [bool]
+    Whether to resolve SIDs in the ACLs module. (Default False)
 
 .PARAMETER PageSize
     [int]
@@ -7702,14 +7835,15 @@ Function Invoke-ADRecon
         [Parameter(Mandatory = $false)]
         [string] $GenExcel,
 
-        [Parameter(Mandatory = $true)]
-        [string] $Protocol,
+        [Parameter(Mandatory = $false)]
+        [ValidateSet('ADWS', 'LDAP')]
+        [string] $Protocol = 'ADWS',
 
         [Parameter(Mandatory = $true)]
         [array] $Collect,
 
         [Parameter(Mandatory = $false)]
-        [string] $DomainController,
+        [string] $DomainController = '',
 
         [Parameter(Mandatory = $false)]
         [Management.Automation.PSCredential] $Credential = [Management.Automation.PSCredential]::Empty,
@@ -7720,20 +7854,23 @@ Function Invoke-ADRecon
         [Parameter(Mandatory = $false)]
         [string] $ADROutputDir,
 
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory = $false)]
         [int] $DormantTimeSpan = 90,
 
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory = $false)]
+        [int] $PassMaxAge = 30,
+
+        [Parameter(Mandatory = $false)]
         [int] $PageSize = 200,
 
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory = $false)]
         [int] $Threads = 10,
 
         [Parameter(Mandatory = $false)]
         [bool] $UseAltCreds = $false
     )
 
-    [string] $ADReconVersion = "v180704"
+    [string] $ADReconVersion = "v180705"
     Write-Output "[*] ADRecon $ADReconVersion by Prashant Mahajan (@prashant3535) from Sense of Security."
 
     If ($GenExcel)
@@ -8213,10 +8350,10 @@ Function Invoke-ADRecon
     If ($ADRDomain)
     {
         Write-Output "[-] Domain"
-        $ADRObject = Get-ADRDomain $Protocol $UseAltCreds $objDomain $objDomainRootDSE $DomainController $Credential
+        $ADRObject = Get-ADRDomain -Protocol $Protocol -objDomain $objDomain -objDomainRootDSE $objDomainRootDSE -DomainController $DomainController -Credential $Credential
         If ($ADRObject)
         {
-            Export-ADR $ADRObject $ADROutputDir $OutputType "Domain"
+            Export-ADR -ADRObj $ADRObject -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "Domain"
             Remove-Variable ADRObject
         }
         Remove-Variable ADRDomain
@@ -8224,10 +8361,10 @@ Function Invoke-ADRecon
     If ($ADRForest)
     {
         Write-Output "[-] Forest"
-        $ADRObject = Get-ADRForest $Protocol $UseAltCreds $objDomain $objDomainRootDSE $DomainController $Credential
+        $ADRObject = Get-ADRForest -Protocol $Protocol -objDomain $objDomain -objDomainRootDSE $objDomainRootDSE -DomainController $DomainController -Credential $Credential
         If ($ADRObject)
         {
-            Export-ADR $ADRObject $ADROutputDir $OutputType "Forest"
+            Export-ADR -ADRObj $ADRObject -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "Forest"
             Remove-Variable ADRObject
         }
         Remove-Variable ADRForest
@@ -8268,10 +8405,10 @@ Function Invoke-ADRecon
     If ($ADRPasswordPolicy)
     {
         Write-Output "[-] Default Password Policy"
-        $ADRObject = Get-ADRDefaultPasswordPolicy $Protocol $UseAltCreds $objDomain
+        $ADRObject = Get-ADRDefaultPasswordPolicy -Protocol $Protocol -objDomain $objDomain
         If ($ADRObject)
         {
-            Export-ADR $ADRObject $ADROutputDir $OutputType "DefaultPasswordPolicy"
+            Export-ADR -ADRObj $ADRObject -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "DefaultPasswordPolicy"
             Remove-Variable ADRObject
         }
         Remove-Variable ADRPasswordPolicy
@@ -8279,10 +8416,10 @@ Function Invoke-ADRecon
     If ($ADRFineGrainedPasswordPolicy)
     {
         Write-Output "[-] Fine Grained Password Policy - May need a Privileged Account"
-        $ADRObject = Get-ADRFineGrainedPasswordPolicy $Protocol $UseAltCreds $objDomain
+        $ADRObject = Get-ADRFineGrainedPasswordPolicy -Protocol $Protocol -objDomain $objDomain
         If ($ADRObject)
         {
-            Export-ADR $ADRObject $ADROutputDir $OutputType "FineGrainedPasswordPolicy"
+            Export-ADR -ADRObj $ADRObject -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "FineGrainedPasswordPolicy"
             Remove-Variable ADRObject
         }
         Remove-Variable ADRFineGrainedPasswordPolicy
@@ -8290,10 +8427,10 @@ Function Invoke-ADRecon
     If ($ADRDomainControllers)
     {
         Write-Output "[-] Domain Controllers"
-        $ADRObject = Get-ADRDomainController $Protocol $UseAltCreds $objDomain $Credential
+        $ADRObject = Get-ADRDomainController -Protocol $Protocol -objDomain $objDomain -Credential $Credential
         If ($ADRObject)
         {
-            Export-ADR $ADRObject $ADROutputDir $OutputType "DomainControllers"
+            Export-ADR -ADRObj $ADRObject -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "DomainControllers"
             Remove-Variable ADRObject
         }
         Remove-Variable ADRDomainControllers
@@ -8396,10 +8533,10 @@ Function Invoke-ADRecon
     If ($ADRComputers)
     {
         Write-Output "[-] Computers - May take some time"
-        $ADRObject = Get-ADRComputer $Protocol $UseAltCreds $date $objDomain $DormantTimeSpan $PageSize $Threads
+        $ADRObject = Get-ADRComputer -Protocol $Protocol -date $date -objDomain $objDomain -DormantTimeSpan $DormantTimeSpan -PassMaxAge $PassMaxAge -PageSize $PageSize -Threads $Threads
         If ($ADRObject)
         {
-            Export-ADR $ADRObject $ADROutputDir $OutputType "Computers"
+            Export-ADR -ADRObj $ADRObject -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "Computers"
             Remove-Variable ADRObject
         }
         Remove-Variable ADRComputers
@@ -8407,10 +8544,10 @@ Function Invoke-ADRecon
     If ($ADRComputerSPNs)
     {
         Write-Output "[-] Computer SPNs"
-        $ADRObject = Get-ADRComputerSPN $Protocol $UseAltCreds $objDomain $PageSize $Threads
+        $ADRObject = Get-ADRComputerSPN -Protocol $Protocol -objDomain $objDomain -PageSize $PageSize -Threads $Threads
         If ($ADRObject)
         {
-            Export-ADR $ADRObject $ADROutputDir $OutputType "ComputerSPNs"
+            Export-ADR -ADRObj $ADRObject -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "ComputerSPNs"
             Remove-Variable ADRObject
         }
         Remove-Variable ADRComputerSPNs
@@ -8503,7 +8640,7 @@ If ($Log)
     Start-Transcript -Path "$(Get-Location)\ADRecon-Console-Log.txt"
 }
 
-Invoke-ADRecon $GenExcel $Protocol $Collect $DomainController $Credential $OutputType $OutputDir $DormantTimeSpan $PageSize $Threads
+Invoke-ADRecon -GenExcel $GenExcel -Protocol $Protocol -Collect $Collect -DomainController $DomainController -Credential $Credential -OutputType $OutputType -ADROutputDir $OutputDir -DormantTimeSpan $DormantTimeSpan -PassMaxAge $PassMaxAge -PageSize $PageSize -Threads $Threads
 
 If ($Log)
 {
