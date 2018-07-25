@@ -2330,25 +2330,64 @@ Function Get-ADRExcelComObj
         If ($SaveVerbosePreference)
         {
             $script:VerbosePreference = $SaveVerbosePreference
+            Remove-Variable SaveVerbosePreference
         }
     }
     Catch
     {
-        Write-Warning "[*] Excel is not installed. Skipping ADRecon-Report.xlsx. Use the -GenExcel parameter to generate the ADRecon-Report.xslx on a host with Microsoft Excel installed."
-        Write-Output "Run Get-Help .\ADRecon.ps1 -Examples for additional information."
         If ($SaveVerbosePreference)
         {
             $script:VerbosePreference = $SaveVerbosePreference
+            Remove-Variable SaveVerbosePreference
         }
+        Write-Warning "[Get-ADRExcelComObj] Excel does not appear to be installed. Skipping generation of ADRecon-Report-<ddMMMyy>.xlsx. Use the -GenExcel parameter to generate the ADRecon-Report.xslx on a host with Microsoft Excel installed."
+        Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
         Return $null
     }
-    $excel.visible = $true
+    $excel.Visible = $true
+    $excel.Interactive = $false
     $global:workbook = $excel.Workbooks.Add()
     If ($workbook.Worksheets.Count -eq 3)
     {
         $workbook.WorkSheets.Item(3).Delete()
         $workbook.WorkSheets.Item(2).Delete()
     }
+}
+
+Function Get-ADRExcelComObjRelease
+{
+<#
+.SYNOPSIS
+    Releases the ComObject created to interact with Microsoft Excel.
+
+.DESCRIPTION
+    Releases the ComObject created to interact with Microsoft Excel.
+
+.PARAMETER ComObjtoRelease
+    ComObjtoRelease
+
+.PARAMETER Final
+    Final
+#>
+    param(
+        [Parameter(Mandatory = $true)]
+        $ComObjtoRelease,
+
+        [Parameter(Mandatory = $false)]
+        [bool] $Final = $false
+    )
+    # https://msdn.microsoft.com/en-us/library/system.runtime.interopservices.marshal.releasecomobject(v=vs.110).aspx
+    # https://msdn.microsoft.com/en-us/library/system.runtime.interopservices.marshal.finalreleasecomobject(v=vs.110).aspx
+    If ($Final)
+    {
+        [System.Runtime.InteropServices.Marshal]::FinalReleaseComObject($ComObjtoRelease) | Out-Null
+    }
+    Else
+    {
+        [System.Runtime.InteropServices.Marshal]::ReleaseComObject($ComObjtoRelease) | Out-Null
+    }
+    [System.GC]::Collect()
+    [System.GC]::WaitForPendingFinalizers()
 }
 
 Function Get-ADRExcelWorkbook
@@ -2372,6 +2411,9 @@ Function Get-ADRExcelWorkbook
     $workbook.Worksheets.Add() | Out-Null
     $worksheet = $workbook.Worksheets.Item(1)
     $worksheet.Name = $name
+
+    Get-ADRExcelComObjRelease -ComObjtoRelease $worksheet
+    Remove-Variable worksheet
 }
 
 Function Get-ADRExcelImport
@@ -2403,8 +2445,8 @@ Function Get-ADRExcelImport
         [Parameter(Mandatory = $true)]
         [string] $ADFileName,
 
-        [Parameter(Mandatory = $true)]
-        [int] $method,
+        [Parameter(Mandatory = $false)]
+        [int] $method = 1,
 
         [Parameter(Mandatory = $false)]
         [int] $row = 1,
@@ -2413,7 +2455,36 @@ Function Get-ADRExcelImport
         [int] $column = 1
     )
 
+    $excel.ScreenUpdating = $false
     If ($method -eq 1)
+    {
+        If (Test-Path $ADFileName)
+        {
+            $worksheet = $workbook.Worksheets.Item(1)
+            $TxtConnector = ("TEXT;" + $ADFileName)
+            $CellRef = $worksheet.Range("A1")
+            #Build, use and remove the text file connector
+            $Connector = $worksheet.QueryTables.add($TxtConnector, $CellRef)
+
+            #65001: Unicode (UTF-8)
+            $worksheet.QueryTables.item($Connector.name).TextFilePlatform = 65001
+            $worksheet.QueryTables.item($Connector.name).TextFileCommaDelimiter = $True
+            $worksheet.QueryTables.item($Connector.name).TextFileParseType = 1
+            $worksheet.QueryTables.item($Connector.name).Refresh() | Out-Null
+            $worksheet.QueryTables.item($Connector.name).delete()
+
+            Get-ADRExcelComObjRelease -ComObjtoRelease $CellRef
+            Remove-Variable CellRef
+            Get-ADRExcelComObjRelease -ComObjtoRelease $Connector
+            Remove-Variable Connector
+
+            $listObject = $worksheet.ListObjects.Add([Microsoft.Office.Interop.Excel.XlListObjectSourceType]::xlSrcRange, $worksheet.UsedRange, $null, [Microsoft.Office.Interop.Excel.XlYesNoGuess]::xlYes, $null)
+            $listObject.TableStyle = "TableStyleLight2" # Style Cheat Sheet: https://msdn.microsoft.com/en-au/library/documentformat.openxml.spreadsheet.tablestyle.aspx
+            $worksheet.UsedRange.EntireColumn.AutoFit() | Out-Null
+        }
+        Remove-Variable ADFileName
+    }
+    Elseif ($method -eq 2)
     {
         $worksheet = $workbook.Worksheets.Item(1)
         If (Test-Path $ADFileName)
@@ -2439,28 +2510,130 @@ Function Get-ADRExcelImport
         }
         Remove-Variable ADFileName
     }
-    Elseif ($method -eq 2)
-    {
-        If (Test-Path $ADFileName)
-        {
-            $worksheet = $workbook.Worksheets.Item(1)
-            $TxtConnector = ("TEXT;" + $ADFileName)
-            $CellRef = $worksheet.Range("A1")
-            #Build, use and remove the text file connector
-            $Connector = $worksheet.QueryTables.add($TxtConnector, $CellRef)
+    $excel.ScreenUpdating = $true
 
-            #65001: Unicode (UTF-8)
-            $worksheet.QueryTables.item($Connector.name).TextFilePlatform = 65001
-            $worksheet.QueryTables.item($Connector.name).TextFileCommaDelimiter = $True
-            $worksheet.QueryTables.item($Connector.name).TextFileParseType = 1
-            $worksheet.QueryTables.item($Connector.name).Refresh() | Out-Null
-            $worksheet.QueryTables.item($Connector.name).delete()
-            $listObject = $worksheet.ListObjects.Add([Microsoft.Office.Interop.Excel.XlListObjectSourceType]::xlSrcRange, $worksheet.UsedRange, $null, [Microsoft.Office.Interop.Excel.XlYesNoGuess]::xlYes, $null)
-            $listObject.TableStyle = "TableStyleLight2" # Style Cheat Sheet: https://msdn.microsoft.com/en-au/library/documentformat.openxml.spreadsheet.tablestyle.aspx
-            $worksheet.UsedRange.EntireColumn.AutoFit() | Out-Null
+    Get-ADRExcelComObjRelease -ComObjtoRelease $worksheet
+    Remove-Variable worksheet
+}
+
+# Thanks Anant Shrivastava for the suggestion of using Pivot Tables for generation of the Stats sheets.
+Function Get-ADRExcelPivotTable
+{
+<#
+.SYNOPSIS
+    Helper to add Pivot Table to the current WorkSheet.
+
+.DESCRIPTION
+    Helper to add Pivot Table to the current WorkSheet.
+
+.PARAMETER SrcSheetName
+    [string]
+    Source Sheet Name.
+
+.PARAMETER PivotTableName
+    [string]
+    Pivot Table Name.
+
+.PARAMETER PivotRows
+    [array]
+    Row names from Source Sheet.
+
+.PARAMETER PivotColumns
+    [array]
+    Column names from Source Sheet.
+
+.PARAMETER PivotFilters
+    [array]
+    Row/Column names from Source Sheet to use as filters.
+
+.PARAMETER PivotValues
+    [array]
+    Row/Column names from Source Sheet to use for Values.
+#>
+    param (
+        [Parameter(Mandatory = $true)]
+        [string] $SrcSheetName,
+
+        [Parameter(Mandatory = $true)]
+        [string] $PivotTableName,
+
+        [Parameter(Mandatory = $true)]
+        [array] $PivotRows,
+
+        [Parameter(Mandatory = $false)]
+        [array] $PivotColumns,
+
+        [Parameter(Mandatory = $false)]
+        [array] $PivotFilters,
+
+        [Parameter(Mandatory = $false)]
+        [array] $PivotValues
+    )
+
+    $excel.ScreenUpdating = $false
+    $SrcWorksheet = $workbook.Sheets.Item($SrcSheetName)
+    $workbook.ShowPivotTableFieldList = $false
+
+    # https://msdn.microsoft.com/en-us/vba/excel-vba/articles/xlpivottablesourcetype-enumeration-excel
+    # https://msdn.microsoft.com/en-us/vba/excel-vba/articles/xlpivottableversionlist-enumeration-excel
+    # https://msdn.microsoft.com/en-us/vba/excel-vba/articles/xlpivotfieldorientation-enumeration-excel
+    # https://msdn.microsoft.com/en-us/vba/excel-vba/articles/constants-enumeration-excel
+    # https://msdn.microsoft.com/en-us/vba/excel-vba/articles/xlsortorder-enumeration-excel
+    # https://msdn.microsoft.com/en-us/vba/excel-vba/articles/xlpivotfiltertype-enumeration-excel
+
+    # xlDatabase = 1 # this just means local sheet data
+    # xlPivotTableVersion12 = 3 # Excel 2007
+    $PivotCaches = $workbook.PivotCaches().Create([Microsoft.Office.Interop.Excel.XlPivotTableSourceType]::xlDatabase, $SrcWorksheet.UsedRange, [Microsoft.Office.Interop.Excel.XlPivotTableVersionList]::xlPivotTableVersion12)
+    $PivotTable = $PivotCaches.CreatePivotTable("R1C1",$PivotTableName)
+    # $workbook.ShowPivotTableFieldList = $true
+
+    If ($PivotRows)
+    {
+        ForEach ($Row in $PivotRows)
+        {
+            $PivotField = $PivotTable.PivotFields($Row)
+            $PivotField.Orientation = [Microsoft.Office.Interop.Excel.XlPivotFieldOrientation]::xlRowField
         }
-        Remove-Variable ADFileName
     }
+
+    If ($PivotColumns)
+    {
+        ForEach ($Col in $PivotColumns)
+        {
+            $PivotField = $PivotTable.PivotFields($Col)
+            $PivotField.Orientation = [Microsoft.Office.Interop.Excel.XlPivotFieldOrientation]::xlColumnField
+        }
+    }
+
+    If ($PivotFilters)
+    {
+        ForEach ($Fil in $PivotFilters)
+        {
+            $PivotField = $PivotTable.PivotFields($Fil)
+            $PivotField.Orientation = [Microsoft.Office.Interop.Excel.XlPivotFieldOrientation]::xlPageField
+        }
+    }
+
+    If ($PivotValues)
+    {
+        ForEach ($Val in $PivotValues)
+        {
+            $PivotField = $PivotTable.PivotFields($Val)
+            $PivotField.Orientation = [Microsoft.Office.Interop.Excel.XlPivotFieldOrientation]::xlDataField
+        }
+    }
+
+    # $PivotFields.Caption = ""
+    $excel.ScreenUpdating = $true
+
+    Get-ADRExcelComObjRelease -ComObjtoRelease $PivotField
+    Remove-Variable PivotField
+    Get-ADRExcelComObjRelease -ComObjtoRelease $PivotTable
+    Remove-Variable PivotTable
+    Get-ADRExcelComObjRelease -ComObjtoRelease $PivotCaches
+    Remove-Variable PivotCaches
+    Get-ADRExcelComObjRelease -ComObjtoRelease $SrcWorksheet
+    Remove-Variable SrcWorksheet
 }
 
 Function Get-ADRExcelChart
@@ -2487,12 +2660,18 @@ Function Get-ADRExcelChart
 .PARAMETER RangetoCover
     WorkSheet Range to be covered by the Chart.
 
-.PARAMETER chartdata
+.PARAMETER ChartData
     Data for the Chart.
+
+.PARAMETER StartRow
+    Start row to calculate data for the Chart.
+
+.PARAMETER StartColumn
+    Start column to calculate data for the Chart.
 #>
     param (
         [Parameter(Mandatory = $true)]
-        [int] $ChartType,
+        [string] $ChartType,
 
         [Parameter(Mandatory = $true)]
         [int] $ChartLayout,
@@ -2504,49 +2683,81 @@ Function Get-ADRExcelChart
         $RangetoCover,
 
         [Parameter(Mandatory = $false)]
-        $chartdata
+        $ChartData = $null,
+
+        [Parameter(Mandatory = $false)]
+        $StartRow = $null,
+
+        [Parameter(Mandatory = $false)]
+        $StartColumn = $null
     )
 
+    $excel.ScreenUpdating = $false
+    $excel.DisplayAlerts = $false
     $worksheet = $workbook.Worksheets.Item(1)
-    # Value for XLChartType: https://msdn.microsoft.com/en-us/vba/excel-vba/articles/xlcharttype-enumeration-excel
-    $xlChart=[Microsoft.Office.Interop.Excel.XLChartType]
-    $chart=$worksheet.Shapes.AddChart().Chart
-    $chart.chartType= $ChartType
+    $chart = $worksheet.Shapes.AddChart().Chart
+    # https://msdn.microsoft.com/en-us/vba/excel-vba/articles/xlcharttype-enumeration-excel
+    $chart.chartType = [int]([Microsoft.Office.Interop.Excel.XLChartType]::$ChartType)
     $chart.ApplyLayout($ChartLayout)
-    $xlDirection=[Microsoft.Office.Interop.Excel.XLDirection]
-    If ($null -eq $chartdata)
+    If ($null -eq $ChartData)
     {
-        $start=$worksheet.range("A1")
-        #get the last cell
-        $Y=$worksheet.Range($start,$start.End($xlDirection::xlDown))
-        $start=$worksheet.range("B1")
-        #get the last cell
-        $X=$worksheet.Range($start,$start.End($xlDirection::xlDown))
-        $chartdata=$worksheet.Range("A$($Y.item(1).Row):A$($Y.item($Y.count).Row),B$($X.item(1).Row):B$($X.item($X.count).Row)")
+        If ($null -eq $StartRow)
+        {
+            $start = $worksheet.Range("A1")
+        }
+        Else
+        {
+            $start = $worksheet.Range($StartRow)
+        }
+        # get the last cell
+        $X = $worksheet.Range($start,$start.End([Microsoft.Office.Interop.Excel.XLDirection]::xlDown))
+        If ($null -eq $StartColumn)
+        {
+            $start = $worksheet.Range("B1")
+        }
+        Else
+        {
+            $start = $worksheet.Range($StartColumn)
+        }
+        # get the last cell
+        $Y = $worksheet.Range($start,$start.End([Microsoft.Office.Interop.Excel.XLDirection]::xlDown))
+        $ChartData = $worksheet.Range($X,$Y)
+
+        Get-ADRExcelComObjRelease -ComObjtoRelease $X
+        Remove-Variable X
+        Get-ADRExcelComObjRelease -ComObjtoRelease $Y
+        Remove-Variable Y
+        Get-ADRExcelComObjRelease -ComObjtoRelease $start
+        Remove-Variable start
     }
-    $chart.SetSourceData($chartdata)
+    $chart.SetSourceData($ChartData)
     $chart.seriesCollection(1).Select() | Out-Null
     $chart.SeriesCollection(1).ApplyDataLabels() | out-Null
-    #modify the chart title
+    # modify the chart title
     $chart.HasTitle = $True
     $chart.ChartTitle.Text = $ChartTitle
-    If ($ChartTitle -eq "Status of User Accounts")
-    {
-        $chart.PlotBy = 1
-        $chart.axes(2).axistitle.text = "Count"
-    }
-    #Reposition the Chart
+    # Reposition the Chart
     $temp = $worksheet.Range($RangetoCover)
-    $chartparent = $chart.parent
-    # $chartparent.placement = 3
-    $chartparent.top = $temp.Top
-    $chartparent.left = $temp.Left
-    $chartparent.width = $temp.Width
+    # $chart.parent.placement = 3
+    $chart.parent.top = $temp.Top
+    $chart.parent.left = $temp.Left
+    $chart.parent.width = $temp.Width
     If ($ChartTitle -ne "Privileged Groups in AD")
     {
-        $chartparent.height = $temp.Height
+        $chart.parent.height = $temp.Height
     }
-    #$chart.Legend.Delete()
+    # $chart.Legend.Delete()
+    $excel.ScreenUpdating = $true
+    $excel.DisplayAlerts = $true
+
+    Get-ADRExcelComObjRelease -ComObjtoRelease $chart
+    Remove-Variable chart
+    Get-ADRExcelComObjRelease -ComObjtoRelease $ChartData
+    Remove-Variable ChartData
+    Get-ADRExcelComObjRelease -ComObjtoRelease $temp
+    Remove-Variable temp
+    Get-ADRExcelComObjRelease -ComObjtoRelease $worksheet
+    Remove-Variable worksheet
 }
 
 Function Export-ADRExcel
@@ -2560,10 +2771,10 @@ Function Export-ADRExcel
 
 .PARAMETER ExcelPath
     [string]
-    Path for ADRecon output folder containing the CSV files to generate the ADRecon-Report.xlsx
+    Path for ADRecon output folder containing the CSV files to generate the ADRecon-Report-<ddMMMyy>.xlsx
 
 .OUTPUTS
-    Creates the ADRecon-Report.xlsx report in the folder.
+    Creates the ADRecon-Report-<ddMMMyy>.xlsx report in the folder.
 #>
     param(
         [Parameter(Mandatory = $true)]
@@ -2574,7 +2785,8 @@ Function Export-ADRExcel
     $ReportPath = -join($ExcelPath,'\','CSV-Files')
     If (!(Test-Path $ReportPath))
     {
-        Write-Output "[ERROR] Could not locate the CSV-Files directory ... Exiting"
+        Write-Warning "[Export-ADRExcel] Could not locate the CSV-Files directory ... Exiting"
+        Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
         Return $null
     }
     Get-ADRExcelComObj
@@ -2585,7 +2797,7 @@ Function Export-ADRExcel
         $ADFileName = -join($ReportPath,'\','AboutADRecon.csv')
         If (Test-Path $ADFileName)
         {
-            Get-ADRExcelImport $ADFileName 2
+            Get-ADRExcelImport -ADFileName $ADFileName
             Remove-Variable ADFileName
 
             $workbook.Worksheets.Item(1).Name = "About ADRecon"
@@ -2596,321 +2808,333 @@ Function Export-ADRExcel
         $ADFileName = -join($ReportPath,'\','Forest.csv')
         If (Test-Path $ADFileName)
         {
-            Get-ADRExcelWorkbook("Forest")
-            Get-ADRExcelImport $ADFileName 2
+            Get-ADRExcelWorkbook -Name "Forest"
+            Get-ADRExcelImport -ADFileName $ADFileName
+            Remove-Variable ADFileName
         }
 
         $ADFileName = -join($ReportPath,'\','Domain.csv')
         If (Test-Path $ADFileName)
         {
-            Get-ADRExcelWorkbook("Domain")
-            Get-ADRExcelImport $ADFileName 2
+            Get-ADRExcelWorkbook -Name "Domain"
+            Get-ADRExcelImport -ADFileName $ADFileName
             $DomainObj = Import-CSV -Path $ADFileName
             Remove-Variable ADFileName
             $DomainName = -join($DomainObj[0].Value,"-")
             Remove-Variable DomainObj
         }
 
-       $ADFileName = -join($ReportPath,'\','Trusts.csv')
+        $ADFileName = -join($ReportPath,'\','Trusts.csv')
         If (Test-Path $ADFileName)
         {
-            Get-ADRExcelWorkbook("Trusts")
-            Get-ADRExcelImport $ADFileName 2
+            Get-ADRExcelWorkbook -Name "Trusts"
+            Get-ADRExcelImport -ADFileName $ADFileName
+            Remove-Variable ADFileName
         }
 
         $ADFileName = -join($ReportPath,'\','Subnets.csv')
         If (Test-Path $ADFileName)
         {
-            Get-ADRExcelWorkbook("Subnets")
-            Get-ADRExcelImport $ADFileName 2
+            Get-ADRExcelWorkbook -Name "Subnets"
+            Get-ADRExcelImport -ADFileName $ADFileName
+            Remove-Variable ADFileName
         }
 
         $ADFileName = -join($ReportPath,'\','Sites.csv')
         If (Test-Path $ADFileName)
         {
-            Get-ADRExcelWorkbook("Sites")
-            Get-ADRExcelImport $ADFileName 2
+            Get-ADRExcelWorkbook -Name "Sites"
+            Get-ADRExcelImport -ADFileName $ADFileName
+            Remove-Variable ADFileName
         }
 
         $ADFileName = -join($ReportPath,'\','FineGrainedPasswordPolicy.csv')
         If (Test-Path $ADFileName)
         {
-            Get-ADRExcelWorkbook("Fine Grained Password Policy")
-            Get-ADRExcelImport $ADFileName 2
+            Get-ADRExcelWorkbook -Name "Fine Grained Password Policy"
+            Get-ADRExcelImport -ADFileName $ADFileName
+            Remove-Variable ADFileName
         }
 
         $ADFileName = -join($ReportPath,'\','DefaultPasswordPolicy.csv')
         If (Test-Path $ADFileName)
         {
-            Get-ADRExcelWorkbook("Default Password Policy")
-            Get-ADRExcelImport $ADFileName 2
+            Get-ADRExcelWorkbook -Name "Default Password Policy"
+            Get-ADRExcelImport -ADFileName $ADFileName
+            Remove-Variable ADFileName
         }
 
         $ADFileName = -join($ReportPath,'\','DomainControllers.csv')
         If (Test-Path $ADFileName)
         {
-            Get-ADRExcelWorkbook("Domain Controllers")
-            Get-ADRExcelImport $ADFileName 2
+            Get-ADRExcelWorkbook -Name "Domain Controllers"
+            Get-ADRExcelImport -ADFileName $ADFileName
+            Remove-Variable ADFileName
         }
 
         $ADFileName = -join($ReportPath,'\','GPOs.csv')
         If (Test-Path $ADFileName)
         {
-            Get-ADRExcelWorkbook("Domain GPOs")
-            Get-ADRExcelImport $ADFileName 2
+            Get-ADRExcelWorkbook -Name "Domain GPOs"
+            Get-ADRExcelImport -ADFileName $ADFileName
+            Remove-Variable ADFileName
         }
 
         $ADFileName = -join($ReportPath,'\','DNSNodes','.csv')
         If (Test-Path $ADFileName)
         {
-            Get-ADRExcelWorkbook("DNS Records")
-            Get-ADRExcelImport $ADFileName 2
+            Get-ADRExcelWorkbook -Name "DNS Records"
+            Get-ADRExcelImport -ADFileName $ADFileName
+            Remove-Variable ADFileName
         }
 
         $ADFileName = -join($ReportPath,'\','DNSZones.csv')
         If (Test-Path $ADFileName)
         {
-            Get-ADRExcelWorkbook("DNS Zones")
-            Get-ADRExcelImport $ADFileName 2
+            Get-ADRExcelWorkbook -Name "DNS Zones"
+            Get-ADRExcelImport -ADFileName $ADFileName
+            Remove-Variable ADFileName
         }
 
         $ADFileName = -join($ReportPath,'\','Printers.csv')
         If (Test-Path $ADFileName)
         {
-            Get-ADRExcelWorkbook("Printers")
-            Get-ADRExcelImport $ADFileName 2
+            Get-ADRExcelWorkbook -Name "Printers"
+            Get-ADRExcelImport -ADFileName $ADFileName
+            Remove-Variable ADFileName
         }
 
         $ADFileName = -join($ReportPath,'\','BitLockerRecoveryKeys.csv')
         If (Test-Path $ADFileName)
         {
-            Get-ADRExcelWorkbook("BitLocker")
-            Get-ADRExcelImport $ADFileName 2
+            Get-ADRExcelWorkbook -Name "BitLocker"
+            Get-ADRExcelImport -ADFileName $ADFileName
+            Remove-Variable ADFileName
         }
 
         $ADFileName = -join($ReportPath,'\','LAPS.csv')
         If (Test-Path $ADFileName)
         {
-            Get-ADRExcelWorkbook("LAPS")
-            Get-ADRExcelImport $ADFileName 2
+            Get-ADRExcelWorkbook -Name "LAPS"
+            Get-ADRExcelImport -ADFileName $ADFileName
+            Remove-Variable ADFileName
         }
 
         $ADFileName = -join($ReportPath,'\','ComputerSPNs.csv')
         If (Test-Path $ADFileName)
         {
-            Get-ADRExcelWorkbook("Computer SPNs")
-            Get-ADRExcelImport $ADFileName 2
+            Get-ADRExcelWorkbook -Name "Computer SPNs"
+            Get-ADRExcelImport -ADFileName $ADFileName
+            Remove-Variable ADFileName
         }
 
         $ADFileName = -join($ReportPath,'\','Computers.csv')
         If (Test-Path $ADFileName)
         {
-            Get-ADRExcelWorkbook("Computers")
-            Get-ADRExcelImport $ADFileName 2
-
-            $worksheet= $workbook.Worksheets.Item(1)
-            If ($worksheet.Cells.Item(1,4).text -eq "IPv4Address")
-            {
-                [void] $worksheet.Cells.Item(1,4).Addcomment("May not be current.")
-            }
+            Get-ADRExcelWorkbook -Name "Computers"
+            Get-ADRExcelImport -ADFileName $ADFileName
+            Remove-Variable ADFileName
         }
 
         $ADFileName = -join($ReportPath,'\','OUPermissions.csv')
         If (Test-Path $ADFileName)
         {
-            $Obj = Import-CSV -Path $ADFileName
-            $TempObj = $Obj | Select-Object OrganizationalUnit,ObjectTypeName,ActiveDirectoryRights,IdentityReference,AccessControlType,isInherited
-            Remove-Variable Obj
-
-            $ADFileName = -join($ReportPath,'\','OUPermissions1.csv')
-            $TempObj | Export-Csv -Path $ADFileName -NoTypeInformation
-            Remove-Variable TempObj
-
-            Get-ADRExcelWorkbook("OUPerms")
-            Get-ADRExcelImport $ADFileName 2
-
-            $worksheet= $workbook.Worksheets.Item(1)
-            $worksheet.Activate();
-            $worksheet.Application.ActiveWindow.FreezePanes = $isFreeze
-            $worksheet.Cells.Item(1,6).Interior.ColorIndex = 5
-            $worksheet.Cells.Item(1,6).font.ColorIndex = 2
-            # Set Filter to Explicitly Assigned Permissions Only
-            $worksheet.UsedRange.Select() | Out-Null
-            $excel.Selection.AutoFilter(6,$true) | Out-Null
-            $worksheet.Range("A1").Select() | Out-Null
+            Get-ADRExcelWorkbook -Name "OUPerms"
+            Get-ADRExcelImport -ADFileName $ADFileName
+            Remove-Variable ADFileName
         }
 
         $ADFileName = -join($ReportPath,'\','OUs.csv')
         If (Test-Path $ADFileName)
         {
-            Get-ADRExcelWorkbook("OUs")
-            Get-ADRExcelImport $ADFileName 2
+            Get-ADRExcelWorkbook -Name "OUs"
+            Get-ADRExcelImport -ADFileName $ADFileName
+            Remove-Variable ADFileName
         }
 
         $ADFileName = -join($ReportPath,'\','UserSPNs.csv')
         If (Test-Path $ADFileName)
         {
-            Get-ADRExcelWorkbook("User SPNs")
-            Get-ADRExcelImport $ADFileName 2
+            Get-ADRExcelWorkbook -Name "User SPNs"
+            Get-ADRExcelImport -ADFileName $ADFileName
+            Remove-Variable ADFileName
         }
 
         $ADFileName = -join($ReportPath,'\','Groups.csv')
         If (Test-Path $ADFileName)
         {
-            Get-ADRExcelWorkbook("Groups")
-            Get-ADRExcelImport $ADFileName 2
+            Get-ADRExcelWorkbook -Name "Groups"
+            Get-ADRExcelImport -ADFileName $ADFileName
+            Remove-Variable ADFileName
         }
 
         $ADFileName = -join($ReportPath,'\','GroupMembers.csv')
         If (Test-Path $ADFileName)
         {
-            Get-ADRExcelWorkbook("Group Members")
-            Get-ADRExcelImport $ADFileName 2
-            $filter = "Account Operators","Administrators","Backup Operators","Cert Publishers","Crypto Operators","Dns Admins","Domain Admins","Enterprise Admins","Incoming Forest Trust Builders","Network Operators","Print Operators","Schema Admins","Server Operators","Enterprise Key Admins","Key Admins"
-            $xlFilterValues = 7
-            $worksheet= $workbook.Worksheets.Item(1)
-            $worksheet.Cells.Item(1,1).Interior.ColorIndex = 5
-            $worksheet.Cells.Item(1,1).font.ColorIndex = 2
-            $worksheet.UsedRange.AutoFilter(1,$filter,$xlFilterValues) | Out-Null
+            Get-ADRExcelWorkbook -Name "Group Members"
+            Get-ADRExcelImport -ADFileName $ADFileName
+            Remove-Variable ADFileName
         }
 
         $ADFileName = -join($ReportPath,'\','Users.csv')
         If (Test-Path $ADFileName)
         {
-            Get-ADRExcelWorkbook("Users")
-            Get-ADRExcelImport $ADFileName 2
+            Get-ADRExcelWorkbook -Name "Users"
+            Get-ADRExcelImport -ADFileName $ADFileName
+            Remove-Variable ADFileName
 
-            $worksheet= $workbook.Worksheets.Item(1)
+            $worksheet = $workbook.Worksheets.Item(1)
             $worksheet.Activate();
-            $worksheet.Application.ActiveWindow.FreezePanes = $isFreeze
             $worksheet.Cells.Item(1,3).Interior.ColorIndex = 5
             $worksheet.Cells.Item(1,3).font.ColorIndex = 2
             # Set Filter to Enabled Accounts only
             $worksheet.UsedRange.Select() | Out-Null
             $excel.Selection.AutoFilter(3,$true) | Out-Null
             $worksheet.Range("A1").Select() | Out-Null
+
+            Get-ADRExcelComObjRelease -ComObjtoRelease $worksheet
+            Remove-Variable worksheet
         }
 
+        # Operating System Stats
         $ADFileName = -join($ReportPath,'\','Computers.csv')
         If (Test-Path $ADFileName)
         {
-            $CompObj = Import-CSV -Path $ADFileName
-            $ADCompStat = $CompObj | Select-Object "Operating System" | Group-Object -Property "Operating System" | Sort-Object -Property @{Expression="Count";Descending=$true}
-            Remove-Variable CompObj
+            Get-ADRExcelWorkbook -Name "Operating System Stats"
+            Remove-Variable ADFileName
 
-            Get-ADRExcelWorkbook("Operating System Stats")
-            $worksheet= $workbook.Worksheets.Item(1)
+            $worksheet = $workbook.Worksheets.Item(1)
+            $PivotTableName = "Operating Systems"
+            Get-ADRExcelPivotTable -SrcSheetName "Computers" -PivotTableName $PivotTableName -PivotRows @("Operating System") -PivotValues @("Operating System")
 
-            $row = 1
-            $column = 1
-            "Operating System","Count" | ForEach-Object {
-                $worksheet.Cells.Item($row,$column)=$_
-                $column++
-            }
-            $column = 1
-            $row = 2
-            $ADCompStat | ForEach-Object {
-                $worksheet.Cells.Item($row,$column) = $_.Name
-                $column++
-                $worksheet.Cells.Item($row,$column) = $_.Count
-                $column=1
-                $row++
-            }
-            Remove-Variable ADCompStat
-            $listObject = $worksheet.ListObjects.Add([Microsoft.Office.Interop.Excel.XlListObjectSourceType]::xlSrcRange, $worksheet.UsedRange, $null, [Microsoft.Office.Interop.Excel.XlYesNoGuess]::xlYes, $null)
-            $listObject.TableStyle = "TableStyleLight2" # Style Cheat Sheet: https://msdn.microsoft.com/en-au/library/documentformat.openxml.spreadsheet.tablestyle.aspx
-            $usedRange = $worksheet.UsedRange
-            $usedRange.EntireColumn.AutoFit() | Out-Null
+            $worksheet.Cells.Item(1,1) = "Operating System"
+            $worksheet.Cells.Item(1,2) = "Count"
 
-            #Add Pie Chart
-            #Get-ADRExcelChart $ChartType $ChartLayout $ChartTitle $RangetoCover $chardata
-            Get-ADRExcelChart 51 10 "Operating Systems in AD" "D2:S16" $null
+            # https://msdn.microsoft.com/en-us/vba/excel-vba/articles/xlsortorder-enumeration-excel
+            $worksheet.PivotTables($PivotTableName).PivotFields("Operating System").AutoSort([Microsoft.Office.Interop.Excel.XlSortOrder]::xlDescending,"Count")
+
+            Get-ADRExcelChart -ChartType "xlColumnClustered" -ChartLayout 10 -ChartTitle "Operating Systems in AD" -RangetoCover "D2:S16"
             $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item(1,4) , "" , "Computers!A1", "", "Raw Data") | Out-Null
-            $excel.Windows.Item(1).Displaygridlines=$false
+            $excel.Windows.Item(1).Displaygridlines = $false
+            Remove-Variable PivotTableName
+
+            Get-ADRExcelComObjRelease -ComObjtoRelease $worksheet
+            Remove-Variable worksheet
         }
 
+        # Computer Role Stats
         $ADFileName = -join($ReportPath,'\','ComputerSPNs.csv')
         If (Test-Path $ADFileName)
         {
-            $CompObj = Import-CSV -Path $ADFileName
-            $ADCompStat = $CompObj | Group-Object -Property Service | Sort-Object -Property @{Expression="Count";Descendin=$true}
-            Remove-Variable CompObj
+            Get-ADRExcelWorkbook -Name "Computer Role Stats"
+            Remove-Variable ADFileName
 
-            Get-ADRExcelWorkbook("Computer Role Stats")
-            $worksheet= $workbook.Worksheets.Item(1)
+            $worksheet = $workbook.Worksheets.Item(1)
+            $PivotTableName = "Computer SPNs"
+            Get-ADRExcelPivotTable -SrcSheetName "Computer SPNs" -PivotTableName $PivotTableName -PivotRows @("Service") -PivotValues @("Service")
 
-            $row = 1
-            $column = 1
-            "Computer Role","Count" | ForEach-Object {
-                $worksheet.Cells.Item($row,$column)=$_
-                $column++
-            }
-            $column = 1
-            $row = 2
-            $ADCompStat | ForEach-Object {
-                $worksheet.Cells.Item($row,$column) = $_.Name
-                $column++
-                $worksheet.Cells.Item($row,$column) = $_.Count
-                $column=1
-                $row++
-            }
-            Remove-Variable ADCompStat
-            $listObject = $worksheet.ListObjects.Add([Microsoft.Office.Interop.Excel.XlListObjectSourceType]::xlSrcRange, $worksheet.UsedRange, $null, [Microsoft.Office.Interop.Excel.XlYesNoGuess]::xlYes, $null)
-            $listObject.TableStyle = "TableStyleLight2" # Style Cheat Sheet: https://msdn.microsoft.com/en-au/library/documentformat.openxml.spreadsheet.tablestyle.aspx
-            $usedRange = $worksheet.UsedRange
-            $usedRange.EntireColumn.AutoFit() | Out-Null
+            $worksheet.Cells.Item(1,1) = "Computer Role"
+            $worksheet.Cells.Item(1,2) = "Count"
 
-            #Add Pie Chart
-            #Get-ADRExcelChart $ChartType $ChartLayout $ChartTitle $RangetoCover $chardata
-            Get-ADRExcelChart 51 10 "Computer Roles in AD" "D2:U16" $null
+            # https://msdn.microsoft.com/en-us/vba/excel-vba/articles/xlsortorder-enumeration-excel
+            $worksheet.PivotTables($PivotTableName).PivotFields("Service").AutoSort([Microsoft.Office.Interop.Excel.XlSortOrder]::xlDescending,"Count")
+
+            Get-ADRExcelChart -ChartType "xlColumnClustered" -ChartLayout 10 -ChartTitle "Computer Roles in AD" -RangetoCover "D2:U16"
             $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item(1,4) , "" , "'Computer SPNs'!A1", "", "Raw Data") | Out-Null
-            $excel.Windows.Item(1).Displaygridlines=$false
+            $excel.Windows.Item(1).Displaygridlines = $false
+            Remove-Variable PivotTableName
+
+            Get-ADRExcelComObjRelease -ComObjtoRelease $worksheet
+            Remove-Variable worksheet
         }
 
+        # Group Stats
         $ADFileName = -join($ReportPath,'\','GroupMembers.csv')
         If (Test-Path $ADFileName)
         {
-            $GroupObj = Import-CSV -Path $ADFileName
-            $ADGroupStat = $GroupObj | Where-Object {$_.'AccountType' -eq 'user'} | Select-Object 'Group Name' | Group-Object -Property 'Group Name' | Sort-Object -Property @{Expression="Count";Descending=$true}
-            Remove-Variable GroupObj
+            Get-ADRExcelWorkbook -Name "Privileged Group Stats"
+            Remove-Variable ADFileName
 
-            Get-ADRExcelWorkbook("Privileged User Group Stats")
-            $worksheet= $workbook.Worksheets.Item(1)
-            $row = 1
-            $column = 1
-            $worksheet.Cells.Item($row,$column).Interior.ColorIndex = 5
-            $worksheet.Cells.Item($row,$column).font.ColorIndex = 2
-            "Group Name","User Count (Not-Recursive)" | ForEach-Object {
-                $worksheet.Cells.Item($row,$column)=$_
-                $column++
+            $worksheet = $workbook.Worksheets.Item(1)
+            $PivotTableName = "Group Members"
+            Get-ADRExcelPivotTable -SrcSheetName "Group Members" -PivotTableName $PivotTableName -PivotRows @("Group Name")-PivotFilters @("AccountType") -PivotValues @("AccountType")
+
+            # Set the filter
+            $worksheet.PivotTables($PivotTableName).PivotFields("AccountType").CurrentPage = "user"
+
+            $worksheet.Cells.Item(1,2).Interior.ColorIndex = 5
+            $worksheet.Cells.Item(1,2).font.ColorIndex = 2
+
+            $worksheet.Cells.Item(3,1) = "Group Name"
+            $worksheet.Cells.Item(3,2) = "Count (Not-Recursive)"
+
+            $excel.ScreenUpdating = $false
+            # Create a copy of the Pivot Table
+            $PivotTableTemp = ($workbook.PivotCaches().Item($workbook.PivotCaches().Count)).CreatePivotTable("R1C5","PivotTableTemp")
+            $PivotFieldTemp = $PivotTableTemp.PivotFields("Group Name")
+            # Set a filter
+            $PivotFieldTemp.Orientation = [Microsoft.Office.Interop.Excel.XlPivotFieldOrientation]::xlPageField
+            Try
+            {
+                $PivotFieldTemp.CurrentPage = "Domain Admins"
             }
-            $column = 1
-            $row = 2
-            $ADGroupStat | ForEach-Object {
-                $worksheet.Cells.Item($row,$column) = $_.Name
-                $column++
-                $worksheet.Cells.Item($row,$column) = $_.Count
-                $column=1
-                $row++
+            Catch
+            {
+                # No Direct Domain Admins. Good Job!
+                $NoDA = $true
             }
-            Remove-Variable ADGroupStat
+            If ($NoDA)
+            {
+                Try
+                {
+                    $PivotFieldTemp.CurrentPage = "Administrators"
+                }
+                Catch
+                {
+                    # No Direct Administrators
+                }
+            }
+            # Create a Slicer
+            $PivotSlicer = $workbook.SlicerCaches.Add($PivotTableTemp,$PivotFieldTemp)
+            # Add Original Pivot Table to the Slicer
+            $PivotSlicer.PivotTables.AddPivotTable($worksheet.PivotTables($PivotTableName))
+            # Delete the Slicer
+            $PivotSlicer.Delete()
+            # Delete the Pivot Table Copy
+            $PivotTableTemp.TableRange2.Delete() | Out-Null
 
-            $filter = "Account Operators","Administrators","Backup Operators","Cert Publishers","Crypto Operators","Dns Admins","Domain Admins","Enterprise Admins","Incoming Forest Trust Builders","Network Operators","Print Operators","Schema Admins","Server Operators","Enterprise Key Admins","Key Admins"
-            $xlFilterValues = 7
-            $worksheet= $workbook.Worksheets.Item(1)
-            $worksheet.UsedRange.AutoFilter(1,$filter,$xlFilterValues) | Out-Null
+            Get-ADRExcelComObjRelease -ComObjtoRelease $PivotFieldTemp
+            Get-ADRExcelComObjRelease -ComObjtoRelease $PivotSlicer
+            Get-ADRExcelComObjRelease -ComObjtoRelease $PivotTableTemp
 
-            $listObject = $worksheet.ListObjects.Add([Microsoft.Office.Interop.Excel.XlListObjectSourceType]::xlSrcRange, $worksheet.UsedRange, $null, [Microsoft.Office.Interop.Excel.XlYesNoGuess]::xlYes, $null)
-            $listObject.TableStyle = "TableStyleLight2" # Style Cheat Sheet: https://msdn.microsoft.com/en-au/library/documentformat.openxml.spreadsheet.tablestyle.aspx
-            $usedRange = $worksheet.UsedRange
-            $usedRange.EntireColumn.AutoFit() | Out-Null
+            Remove-Variable PivotFieldTemp
+            Remove-Variable PivotSlicer
+            Remove-Variable PivotTableTemp
 
-            #Get-ADRExcelChart $ChartType $ChartLayout $ChartTitle $RangetoCover $chardata
-            Get-ADRExcelChart 51 10 "Privileged Groups in AD" "D2:P16" $null
+            "Account Operators","Administrators","Backup Operators","Cert Publishers","Crypto Operators","DnsAdmins","Domain Admins","Enterprise Admins","Enterprise Key Admins","Incoming Forest Trust Builders","Key Admins","Microsoft Advanced Threat Analytics Administrators","Network Operators","Print Operators","Remote Desktop Users","Schema Admins","Server Operators" | ForEach-Object {
+                Try
+                {
+                    $worksheet.PivotTables($PivotTableName).PivotFields("Group Name").PivotItems($_).Visible = $true
+                }
+                Catch
+                {
+                    # when PivotItem is not found
+                }
+            }
+
+            # https://msdn.microsoft.com/en-us/vba/excel-vba/articles/xlsortorder-enumeration-excel
+            $worksheet.PivotTables($PivotTableName).PivotFields("Group Name").AutoSort([Microsoft.Office.Interop.Excel.XlSortOrder]::xlDescending,"Count (Not-Recursive)")
+            $excel.ScreenUpdating = $true
+
+            Get-ADRExcelChart -ChartType "xlColumnClustered" -ChartLayout 10 -ChartTitle "Privileged Groups in AD" -RangetoCover "D2:P16" -StartRow "A3" -StartColumn "B3"
             $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item(1,4) , "" , "'Group Members'!A1", "", "Raw Data") | Out-Null
-            $excel.Windows.Item(1).Displaygridlines=$false
+            $excel.Windows.Item(1).Displaygridlines = $false
+
+            Get-ADRExcelComObjRelease -ComObjtoRelease $worksheet
+            Remove-Variable worksheet
         }
 
+        # User Stats
         $ADFileName = -join($ReportPath,'\','Users.csv')
         If (Test-Path $ADFileName)
         {
@@ -2962,8 +3186,7 @@ Function Export-ADRExcel
             }
             $worksheet.Cells.Item($row, $column+2) = "{0:P2}" -f ($total/$total)
 
-            #Get-ADRExcelChart $ChartType $ChartLayout $ChartTitle $RangetoCover $chardata
-            Get-ADRExcelChart 5 3 "User Accounts in AD" "A15:D27" $worksheet.Range("A3:A4,B3:B4")
+            Get-ADRExcelChart -ChartType "xlPie" -ChartLayout 3 -ChartTitle "User Accounts in AD" -RangetoCover "A15:D27" -ChartData $worksheet.Range("A3:A4,B3:B4")
             $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item(14,1) , "" , "Users!A1", "", "Raw Data") | Out-Null
 
             $row = 1
@@ -3003,8 +3226,7 @@ Function Export-ADRExcel
                 $worksheet.Cells.Item($row, $column+6) = "{0:P2}" -f (([int] $worksheet.Cells.Item($row,$column+5).text)/$total)
             }
 
-            #Get-ADRExcelChart $ChartType $ChartLayout $ChartTitle $RangetoCover $chardata
-            Get-ADRExcelChart 51 5 "Status of User Accounts" "F15:J37" $worksheet.Range("F2:F12,G2:H12")
+            Get-ADRExcelChart -ChartType "xlColumnClustered" -ChartLayout 5 -ChartTitle "Status of User Accounts" -RangetoCover "F15:J37" -ChartData $worksheet.Range("F2:F12,G2:H12")
             $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item(14,6) , "" , "Users!A1", "", "Raw Data") | Out-Null
 
             Remove-Variable ADTemp
@@ -3014,10 +3236,10 @@ Function Export-ADRExcel
         }
 
         # Create Table of Contents
+        Get-ADRExcelWorkbook -Name "Table of Contents"
+        $worksheet = $workbook.Worksheets.Item(1)
 
-        Get-ADRExcelWorkbook("Table of Contents")
-        $worksheet= $workbook.Worksheets.Item(1)
-
+        $excel.ScreenUpdating = $false
         # Image format and properties
         # $path = "C:\SOS_Logo.jpg"
         # $base64sos = [convert]::ToBase64String((Get-Content $path -Encoding byte))
@@ -3055,6 +3277,12 @@ Function Export-ADRExcel
         Remove-Variable Width
         Remove-Variable Height
 
+        If (Test-Path -Path $CompanyLogo)
+        {
+            Remove-Item $CompanyLogo
+        }
+        Remove-Variable CompanyLogo
+
         $row = 5
         $column = 1
         $worksheet.Cells.Item($row,$column)= "Table of Contents"
@@ -3071,12 +3299,11 @@ Function Export-ADRExcel
         $worksheet.Cells.Item($row, 1) = "© Sense of Security 2018"
         $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item($row,2) , "https://www.senseofsecurity.com.au", "" , "", "www.senseofsecurity.com.au") | Out-Null
 
-        $usedRange = $worksheet.UsedRange
-        $usedRange.EntireColumn.AutoFit() | Out-Null
+        $worksheet.UsedRange.EntireColumn.AutoFit() | Out-Null
 
-        $excel.Windows.Item(1).Displaygridlines=$false
-
-        $ADStatFileName = -join($ExcelPath,'\',$DomainName,'ADRecon-Report','.xlsx')
+        $excel.Windows.Item(1).Displaygridlines = $false
+        $excel.ScreenUpdating = $true
+        $ADStatFileName = -join($ExcelPath,'\',$DomainName,'ADRecon-Report.xlsx')
         Try
         {
             # Disable prompt if file exists
@@ -3086,12 +3313,15 @@ Function Export-ADRExcel
         }
         Catch
         {
-            Write-Output "[EXCEPTION] $($_.Exception.Message)"
+            Write-Error "[EXCEPTION] $($_.Exception.Message)"
         }
-        [gc]::Collect()
-        [gc]::WaitForPendingFinalizers()
         $excel.Quit()
-        [System.Runtime.InteropServices.Marshal]::ReleaseComObject([System.__ComObject] $excel) | Out-Null
+        Get-ADRExcelComObjRelease -ComObjtoRelease $worksheet -Final $true
+        Remove-Variable worksheet
+        Get-ADRExcelComObjRelease -ComObjtoRelease $workbook -Final $true
+        Remove-Variable -Name workbook -Scope Global
+        Get-ADRExcelComObjRelease -ComObjtoRelease $excel -Final $true
+        Remove-Variable -Name excel -Scope Global
     }
 }
 
@@ -7870,7 +8100,7 @@ Function Invoke-ADRecon
         [bool] $UseAltCreds = $false
     )
 
-    [string] $ADReconVersion = "v180705"
+    [string] $ADReconVersion = "v180706"
     Write-Output "[*] ADRecon $ADReconVersion by Prashant Mahajan (@prashant3535) from Sense of Security."
 
     If ($GenExcel)
