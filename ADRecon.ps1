@@ -259,7 +259,6 @@ $ADWSSource = @"
 // Thanks Dennis Albuquerque for the C# multithreading code
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Security.Principal;
@@ -340,11 +339,11 @@ namespace ADRecon
             return ADRObject.Length;
         }
 
-        public static Object[] UserParser(Object[] AdUsers, DateTime Date1, int PassMaxAge, int DormantTimeSpan, int numOfThreads)
+        public static Object[] UserParser(Object[] AdUsers, DateTime Date1, int DormantTimeSpan, int PassMaxAge, int numOfThreads)
         {
             ADWSClass.Date1 = Date1;
-            ADWSClass.PassMaxAge = PassMaxAge;
             ADWSClass.DormantTimeSpan = DormantTimeSpan;
+            ADWSClass.PassMaxAge = PassMaxAge;
 
             Object[] ADRObj = runProcessor(AdUsers, numOfThreads, "Users");
             return ADRObj;
@@ -478,13 +477,23 @@ namespace ADRecon
                     PSObject AdUser = (PSObject) record;
                     bool? Enabled = null;
                     bool MustChangePasswordatLogon = false;
-                    int DaysSinceLastPasswordChange = -1;
                     bool PasswordNotChangedafterMaxAge = false;
                     bool NeverLoggedIn = false;
-                    int DaysSinceLastLogon = -1;
+                    int? DaysSinceLastLogon = null;
+                    int? DaysSinceLastPasswordChange = null;
+                    int? AccountExpirationNumofDays = null;
                     bool Dormant = false;
                     String SIDHistory = "";
-                    DateTime PasswordLastSet = Convert.ToDateTime(AdUser.Members["PasswordLastSet"].Value);
+                    bool? KerberosRC4 = null;
+                    bool? KerberosAES128 = null;
+                    bool? KerberosAES256 = null;
+                    String DelegationType = null;
+                    String DelegationProtocol = null;
+                    String DelegationServices = null;
+                    DateTime? LastLogonDate = null;
+                    DateTime? PasswordLastSet = null;
+                    DateTime? AccountExpires = null;
+
                     try
                     {
                         // The Enabled field can be blank which raises an exception. This may occur when the user is not allowed to query the UserAccountControl attribute.
@@ -492,24 +501,14 @@ namespace ADRecon
                     }
                     catch //(Exception e)
                     {
-                        //    Console.WriteLine("{0} Exception caught.", e);
+                        //Console.WriteLine("{0} Exception caught.", e);
                     }
-                    if (Convert.ToString(AdUser.Members["pwdlastset"].Value) == "0")
+                    if (AdUser.Members["lastLogonTimeStamp"].Value != null)
                     {
-                        MustChangePasswordatLogon = true;
-                    }
-                    else
-                    {
-                        DaysSinceLastPasswordChange = Math.Abs((Date1 - PasswordLastSet).Days);
-                        if (DaysSinceLastPasswordChange > PassMaxAge)
-                        {
-                            PasswordNotChangedafterMaxAge = true;
-                        }
-                    }
-                    DateTime LastLogonDate = Convert.ToDateTime(AdUser.Members["LastLogonDate"].Value);
-                    if (AdUser.Members["LastLogonDate"].Value != null)
-                    {
-                        DaysSinceLastLogon = Math.Abs((Date1 - LastLogonDate).Days);
+                        //LastLogonDate = DateTime.FromFileTime((long)(AdUser.Members["lastLogonTimeStamp"].Value));
+                        // LastLogonDate is lastLogonTimeStamp converted to local time
+                        LastLogonDate = Convert.ToDateTime(AdUser.Members["LastLogonDate"].Value);
+                        DaysSinceLastLogon = Math.Abs((Date1 - (DateTime)LastLogonDate).Days);
                         if (DaysSinceLastLogon > DormantTimeSpan)
                         {
                             Dormant = true;
@@ -519,6 +518,44 @@ namespace ADRecon
                     {
                         NeverLoggedIn = true;
                     }
+                    if (Convert.ToString(AdUser.Members["pwdLastSet"].Value) == "0")
+                    {
+                        if ((bool) AdUser.Members["PasswordNeverExpires"].Value == false)
+                        {
+                            MustChangePasswordatLogon = true;
+                        }
+                    }
+                    if (AdUser.Members["PasswordLastSet"].Value != null)
+                    {
+                        //PasswordLastSet = DateTime.FromFileTime((long)(AdUser.Members["pwdLastSet"].Value));
+                        // PasswordLastSet is pwdLastSet converted to local time
+                        PasswordLastSet = Convert.ToDateTime(AdUser.Members["PasswordLastSet"].Value);
+                        DaysSinceLastPasswordChange = Math.Abs((Date1 - (DateTime)PasswordLastSet).Days);
+                        if (DaysSinceLastPasswordChange > PassMaxAge)
+                        {
+                            PasswordNotChangedafterMaxAge = true;
+                        }
+                    }
+                    //https://msdn.microsoft.com/en-us/library/ms675098(v=vs.85).aspx
+                    //if ((Int64) AdUser.Members["accountExpires"].Value != (Int64) 9223372036854775807)
+                    //{
+                        //if ((Int64) AdUser.Members["accountExpires"].Value != (Int64) 0)
+                        if (AdUser.Members["AccountExpirationDate"].Value != null)
+                        {
+                            try
+                            {
+                                //AccountExpires = DateTime.FromFileTime((long)(AdUser.Members["accountExpires"].Value));
+                                // AccountExpirationDate is accountExpires converted to local time
+                                AccountExpires = Convert.ToDateTime(AdUser.Members["AccountExpirationDate"].Value);
+                                AccountExpirationNumofDays = ((int)((DateTime)AccountExpires - Date1).Days);
+
+                            }
+                            catch //(Exception e)
+                            {
+                                //Console.WriteLine("{0} Exception caught.", e);
+                            }
+                        }
+                    //}
                     Microsoft.ActiveDirectory.Management.ADPropertyValueCollection history = (Microsoft.ActiveDirectory.Management.ADPropertyValueCollection) AdUser.Members["SIDHistory"].Value;
                     if (history.Value is System.Security.Principal.SecurityIdentifier[])
                     {
@@ -533,36 +570,93 @@ namespace ADRecon
                     {
                         SIDHistory = history != null ? Convert.ToString(history.Value) : "";
                     }
+                    if (AdUser.Members["msDS-SupportedEncryptionTypes"].Value != null)
+                    {
+                        var userKerbEncFlags = (KerbEncFlags) AdUser.Members["msDS-SupportedEncryptionTypes"].Value;
+                        if (userKerbEncFlags != KerbEncFlags.ZERO)
+                        {
+                            KerberosRC4 = (userKerbEncFlags & KerbEncFlags.RC4_HMAC) == KerbEncFlags.RC4_HMAC;
+                            KerberosAES128 = (userKerbEncFlags & KerbEncFlags.AES128_CTS_HMAC_SHA1_96) == KerbEncFlags.AES128_CTS_HMAC_SHA1_96;
+                            KerberosAES256 = (userKerbEncFlags & KerbEncFlags.AES256_CTS_HMAC_SHA1_96) == KerbEncFlags.AES256_CTS_HMAC_SHA1_96;
+                        }
+                    }
+                    if ((bool) AdUser.Members["TrustedForDelegation"].Value)
+                    {
+                        DelegationType = "Unconstrained";
+                        DelegationServices = "Any";
+                    }
+                    if (AdUser.Members["msDS-AllowedToDelegateTo"] != null)
+                    {
+                        Microsoft.ActiveDirectory.Management.ADPropertyValueCollection delegateto = (Microsoft.ActiveDirectory.Management.ADPropertyValueCollection) AdUser.Members["msDS-AllowedToDelegateTo"].Value;
+                        if (delegateto.Value != null)
+                        {
+                            DelegationType = "Constrained";
+                            if (delegateto.Value is System.String[])
+                            {
+                                foreach (var value in (String[]) delegateto.Value)
+                                {
+                                    DelegationServices = DelegationServices + "," + Convert.ToString(value);
+                                }
+                                DelegationServices = DelegationServices.TrimStart(',');
+                            }
+                            else
+                            {
+                                DelegationServices = Convert.ToString(delegateto.Value);
+                            }
+                        }
+                    }
+                    if ((bool) AdUser.Members["TrustedToAuthForDelegation"].Value == true)
+                    {
+                        DelegationProtocol = "Any";
+                    }
+                    else if (DelegationType != null)
+                    {
+                        DelegationProtocol = "Kerberos";
+                    }
 
                     PSObject UserObj = new PSObject();
-                    UserObj.Members.Add(new PSNoteProperty("Name", AdUser.Members["Name"].Value));
                     UserObj.Members.Add(new PSNoteProperty("UserName", AdUser.Members["SamAccountName"].Value));
+                    UserObj.Members.Add(new PSNoteProperty("Name", CleanString(Convert.ToString(AdUser.Members["Name"].Value))));
                     UserObj.Members.Add(new PSNoteProperty("Enabled", Enabled));
+                    UserObj.Members.Add(new PSNoteProperty("Must Change Password at Logon", MustChangePasswordatLogon));
                     UserObj.Members.Add(new PSNoteProperty("Cannot Change Password", AdUser.Members["CannotChangePassword"].Value));
                     UserObj.Members.Add(new PSNoteProperty("Password Never Expires", AdUser.Members["PasswordNeverExpires"].Value));
-                    UserObj.Members.Add(new PSNoteProperty("Must Change Password at Logon", MustChangePasswordatLogon));
-                    UserObj.Members.Add(new PSNoteProperty("Days Since Last Password Change", DaysSinceLastPasswordChange));
-                    UserObj.Members.Add(new PSNoteProperty("Password Not Changed after Max Age", PasswordNotChangedafterMaxAge));
-                    UserObj.Members.Add(new PSNoteProperty("Account Locked Out", AdUser.Members["LockedOut"].Value));
-                    UserObj.Members.Add(new PSNoteProperty("Never Logged in", NeverLoggedIn));
-                    UserObj.Members.Add(new PSNoteProperty("Days Since Last Logon", DaysSinceLastLogon));
-                    UserObj.Members.Add(new PSNoteProperty("Dormant (> " + DormantTimeSpan + " days)", Dormant));
                     UserObj.Members.Add(new PSNoteProperty("Reversible Password Encryption", AdUser.Members["AllowReversiblePasswordEncryption"].Value));
-                    UserObj.Members.Add(new PSNoteProperty("Password Not Required", AdUser.Members["PasswordNotRequired"].Value));
-                    UserObj.Members.Add(new PSNoteProperty("Trusted for Delegation", AdUser.Members["TrustedForDelegation"].Value));
-                    UserObj.Members.Add(new PSNoteProperty("Trusted to Auth for Delegation", AdUser.Members["TrustedToAuthForDelegation"].Value));
+                    UserObj.Members.Add(new PSNoteProperty("Smartcard Logon Required", AdUser.Members["SmartcardLogonRequired"].Value));
+                    UserObj.Members.Add(new PSNoteProperty("Delegation Permitted", !((bool) AdUser.Members["AccountNotDelegated"].Value)));
+                    UserObj.Members.Add(new PSNoteProperty("Kerberos DES Only", AdUser.Members["UseDESKeyOnly"].Value));
+                    UserObj.Members.Add(new PSNoteProperty("Kerberos RC4", KerberosRC4));
+                    UserObj.Members.Add(new PSNoteProperty("Kerberos AES-128bit", KerberosAES128));
+                    UserObj.Members.Add(new PSNoteProperty("Kerberos AES-256bit", KerberosAES256));
                     UserObj.Members.Add(new PSNoteProperty("Does Not Require Pre Auth", AdUser.Members["DoesNotRequirePreAuth"].Value));
+                    UserObj.Members.Add(new PSNoteProperty("Never Logged in", NeverLoggedIn));
+                    UserObj.Members.Add(new PSNoteProperty("Logon Age (days)", DaysSinceLastLogon));
+                    UserObj.Members.Add(new PSNoteProperty("Password Age (days)", DaysSinceLastPasswordChange));
+                    UserObj.Members.Add(new PSNoteProperty("Dormant (> " + DormantTimeSpan + " days)", Dormant));
+                    UserObj.Members.Add(new PSNoteProperty("Password Age (> " + PassMaxAge + " days)", PasswordNotChangedafterMaxAge));
+                    UserObj.Members.Add(new PSNoteProperty("Account Locked Out", AdUser.Members["LockedOut"].Value));
+                    UserObj.Members.Add(new PSNoteProperty("Password Expired", AdUser.Members["PasswordExpired"].Value));
+                    UserObj.Members.Add(new PSNoteProperty("Password Not Required", AdUser.Members["PasswordNotRequired"].Value));
+                    UserObj.Members.Add(new PSNoteProperty("Delegation Type", DelegationType));
+                    UserObj.Members.Add(new PSNoteProperty("Delegation Protocol", DelegationProtocol));
+                    UserObj.Members.Add(new PSNoteProperty("Delegation Services", DelegationServices));
                     UserObj.Members.Add(new PSNoteProperty("Logon Workstations", AdUser.Members["LogonWorkstations"].Value));
                     UserObj.Members.Add(new PSNoteProperty("AdminCount", AdUser.Members["AdminCount"].Value));
                     UserObj.Members.Add(new PSNoteProperty("Primary GroupID", AdUser.Members["primaryGroupID"].Value));
                     UserObj.Members.Add(new PSNoteProperty("SID", AdUser.Members["SID"].Value));
                     UserObj.Members.Add(new PSNoteProperty("SIDHistory", SIDHistory));
-                    UserObj.Members.Add(new PSNoteProperty("Description", AdUser.Members["Description"].Value));
-                    UserObj.Members.Add(new PSNoteProperty("Password LastSet", PasswordLastSet));
+                    UserObj.Members.Add(new PSNoteProperty("Description", CleanString(Convert.ToString(AdUser.Members["Description"].Value))));
                     UserObj.Members.Add(new PSNoteProperty("Last Logon Date", LastLogonDate));
-                    UserObj.Members.Add(new PSNoteProperty("When Created", AdUser.Members["whenCreated"].Value));
-                    UserObj.Members.Add(new PSNoteProperty("When Changed", AdUser.Members["whenChanged"].Value));
-                    UserObj.Members.Add(new PSNoteProperty("DistinguishedName", AdUser.Members["DistinguishedName"].Value));
+                    UserObj.Members.Add(new PSNoteProperty("Password LastSet", PasswordLastSet));
+                    UserObj.Members.Add(new PSNoteProperty("Account Expiration Date", AccountExpires));
+                    UserObj.Members.Add(new PSNoteProperty("Account Expiration (days)", AccountExpirationNumofDays));
+                    UserObj.Members.Add(new PSNoteProperty("Email", AdUser.Members["mail"].Value));
+                    UserObj.Members.Add(new PSNoteProperty("HomeDirectory", AdUser.Members["homeDirectory"].Value));
+                    UserObj.Members.Add(new PSNoteProperty("ProfilePath", AdUser.Members["profilePath"].Value));
+                    UserObj.Members.Add(new PSNoteProperty("ScriptPath", AdUser.Members["ScriptPath"].Value));
+                    UserObj.Members.Add(new PSNoteProperty("whenCreated", AdUser.Members["whenCreated"].Value));
+                    UserObj.Members.Add(new PSNoteProperty("whenChanged", AdUser.Members["whenChanged"].Value));
+                    UserObj.Members.Add(new PSNoteProperty("DistinguishedName", CleanString(Convert.ToString(AdUser.Members["DistinguishedName"].Value))));
                     UserObj.Members.Add(new PSNoteProperty("CanonicalName", AdUser.Members["CanonicalName"].Value));
                     return new PSObject[] { UserObj };
                 }
@@ -1051,12 +1145,12 @@ $LDAPSource = @"
 // Thanks Dennis Albuquerque for the C# multithreading code
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Net;
 using System.Threading;
 using System.DirectoryServices;
 using System.Security.Principal;
+using System.Security.AccessControl;
 using System.Management.Automation;
 
 namespace ADRecon
@@ -1066,7 +1160,6 @@ namespace ADRecon
         private static DateTime Date1;
         private static int PassMaxAge;
         private static int DormantTimeSpan;
-        private static Dictionary<string, bool> CannotChangePasswordDict;
         private static readonly HashSet<string> Groups = new HashSet<string> ( new String[] {"268435456", "268435457", "536870912", "536870913"} );
         private static readonly HashSet<string> Users = new HashSet<string> ( new String[] { "805306368" } );
         private static readonly HashSet<string> Computers = new HashSet<string> ( new String[] { "805306369" }) ;
@@ -1146,12 +1239,11 @@ namespace ADRecon
             return ADRObject.Length;
         }
 
-        public static Object[] UserParser(Object[] AdUsers, DateTime Date1, int PassMaxAge, Dictionary<string, bool> CannotChangePasswordDict, int DormantTimeSpan, int numOfThreads)
+        public static Object[] UserParser(Object[] AdUsers, DateTime Date1, int DormantTimeSpan, int PassMaxAge, int numOfThreads)
         {
             LDAPClass.Date1 = Date1;
-            LDAPClass.PassMaxAge = PassMaxAge;
             LDAPClass.DormantTimeSpan = DormantTimeSpan;
-            LDAPClass.CannotChangePasswordDict = CannotChangePasswordDict;
+            LDAPClass.PassMaxAge = PassMaxAge;
 
             Object[] ADRObj = runProcessor(AdUsers, numOfThreads, "Users");
             return ADRObj;
@@ -1284,13 +1376,39 @@ namespace ADRecon
                 {
                     SearchResult AdUser = (SearchResult) record;
                     bool? Enabled = null;
+                    bool? CannotChangePassword = null;
                     bool? PasswordNeverExpires = null;
                     bool? AccountLockedOut = null;
+                    bool? PasswordExpired = null;
                     bool? ReversiblePasswordEncryption = null;
+                    bool? DelegationPermitted = null;
+                    bool? SmartcardRequired = null;
+                    bool? UseDESKeyOnly = null;
                     bool? PasswordNotRequired = null;
                     bool? TrustedforDelegation = null;
                     bool? TrustedtoAuthforDelegation = null;
                     bool? DoesNotRequirePreAuth = null;
+                    bool? KerberosRC4 = null;
+                    bool? KerberosAES128 = null;
+                    bool? KerberosAES256 = null;
+                    String DelegationType = null;
+                    String DelegationProtocol = null;
+                    String DelegationServices = null;
+                    bool MustChangePasswordatLogon = false;
+                    int? DaysSinceLastLogon = null;
+                    int? DaysSinceLastPasswordChange = null;
+                    int? AccountExpirationNumofDays = null;
+                    bool PasswordNotChangedafterMaxAge = false;
+                    bool NeverLoggedIn = false;
+                    bool Dormant = false;
+                    DateTime? LastLogonDate = null;
+                    DateTime? PasswordLastSet = null;
+                    DateTime? AccountExpires = null;
+                    byte[] ntSecurityDescriptor = null;
+                    bool DenyEveryone = false;
+                    bool DenySelf = false;
+                    String SIDHistory = "";
+
                     // When the user is not allowed to query the UserAccountControl attribute.
                     if (AdUser.Properties["useraccountcontrol"].Count != 0)
                     {
@@ -1298,41 +1416,78 @@ namespace ADRecon
                         Enabled = !((userFlags & UACFlags.ACCOUNTDISABLE) == UACFlags.ACCOUNTDISABLE);
                         PasswordNeverExpires = (userFlags & UACFlags.DONT_EXPIRE_PASSWD) == UACFlags.DONT_EXPIRE_PASSWD;
                         AccountLockedOut = (userFlags & UACFlags.LOCKOUT) == UACFlags.LOCKOUT;
+                        DelegationPermitted = !((userFlags & UACFlags.NOT_DELEGATED) == UACFlags.NOT_DELEGATED);
+                        SmartcardRequired = (userFlags & UACFlags.SMARTCARD_REQUIRED) == UACFlags.SMARTCARD_REQUIRED;
                         ReversiblePasswordEncryption = (userFlags & UACFlags.ENCRYPTED_TEXT_PASSWORD_ALLOWED) == UACFlags.ENCRYPTED_TEXT_PASSWORD_ALLOWED;
+                        UseDESKeyOnly = (userFlags & UACFlags.USE_DES_KEY_ONLY) == UACFlags.USE_DES_KEY_ONLY;
                         PasswordNotRequired = (userFlags & UACFlags.PASSWD_NOTREQD) == UACFlags.PASSWD_NOTREQD;
+                        PasswordExpired = (userFlags & UACFlags.PASSWORD_EXPIRED) == UACFlags.PASSWORD_EXPIRED;
                         TrustedforDelegation = (userFlags & UACFlags.TRUSTED_FOR_DELEGATION) == UACFlags.TRUSTED_FOR_DELEGATION;
                         TrustedtoAuthforDelegation = (userFlags & UACFlags.TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION) == UACFlags.TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION;
                         DoesNotRequirePreAuth = (userFlags & UACFlags.DONT_REQUIRE_PREAUTH) == UACFlags.DONT_REQUIRE_PREAUTH;
                     }
-                    bool MustChangePasswordatLogon = false;
-                    int DaysSinceLastPasswordChange = -1;
-                    bool PasswordNotChangedafterMaxAge = false;
-                    bool NeverLoggedIn = false;
-                    int DaysSinceLastLogon = -1;
-                    bool Dormant = false;
-                    DateTime PasswordLastSet = new DateTime();
-                    DateTime LastLogonDate = new DateTime();
-                    bool CannotChangePassword = CannotChangePasswordDict[Convert.ToString(AdUser.Properties["samaccountname"][0])];
-                    if (AdUser.Properties["pwdLastSet"].Count != 0)
+                    if (AdUser.Properties["msds-supportedencryptiontypes"].Count != 0)
                     {
-                        if (Convert.ToString(AdUser.Properties["pwdlastset"][0]) == "0")
+                        var userKerbEncFlags = (KerbEncFlags) AdUser.Properties["msds-supportedencryptiontypes"][0];
+                        if (userKerbEncFlags != KerbEncFlags.ZERO)
                         {
-                            MustChangePasswordatLogon = true;
+                            KerberosRC4 = (userKerbEncFlags & KerbEncFlags.RC4_HMAC) == KerbEncFlags.RC4_HMAC;
+                            KerberosAES128 = (userKerbEncFlags & KerbEncFlags.AES128_CTS_HMAC_SHA1_96) == KerbEncFlags.AES128_CTS_HMAC_SHA1_96;
+                            KerberosAES256 = (userKerbEncFlags & KerbEncFlags.AES256_CTS_HMAC_SHA1_96) == KerbEncFlags.AES256_CTS_HMAC_SHA1_96;
+                        }
+                    }
+                    // When the user is not allowed to query the ntsecuritydescriptor attribute.
+                    if (AdUser.Properties["ntsecuritydescriptor"].Count != 0)
+                    {
+                        ntSecurityDescriptor = (byte[]) AdUser.Properties["ntsecuritydescriptor"][0];
+                    }
+                    else
+                    {
+                        DirectoryEntry AdUserEntry = ((SearchResult)record).GetDirectoryEntry();
+                        ntSecurityDescriptor = (byte[]) AdUserEntry.ObjectSecurity.GetSecurityDescriptorBinaryForm();
+                    }
+                    if (ntSecurityDescriptor != null)
+                    {
+                        // Get ACLs to determine if the user can change their password or not
+                        // code based on https://github.com/BloodHoundAD/SharpHound/blob/master/Sharphound2/Enumeration/ACLHelpers.cs
+                        RawSecurityDescriptor descriptor = new RawSecurityDescriptor(ntSecurityDescriptor, 0);
+                        RawAcl rawAcl = descriptor.DiscretionaryAcl;
+                        //Loop over the actual entries in the DACL
+                        foreach (var genericAce in rawAcl)
+                        {
+                            var qAce = (QualifiedAce) genericAce;
+                            //Get the ACE for our right
+                            var ace = qAce as ObjectAce;
+                            var guid = ace != null ? ace.ObjectAceType.ToString() : "";
+                            if (guid.Equals("ab721a53-1e2f-11d0-9819-00aa0040529b"))
+                            {
+                                if (ace.AceQualifier.ToString() == "AccessDenied")
+                                {
+                                    String objectSid = ace.SecurityIdentifier.ToString();
+                                    if (objectSid.Equals("S-1-1-0"))
+                                    {
+                                        DenyEveryone = true;
+                                    }
+                                    if (objectSid.Equals("S-1-5-10"))
+                                    {
+                                        DenySelf = true;
+                                    }
+                                }
+                            }
+                        }
+                        if (DenyEveryone && DenySelf)
+                        {
+                            CannotChangePassword = true;
                         }
                         else
                         {
-                            PasswordLastSet = DateTime.FromFileTime((long)(AdUser.Properties["pwdLastSet"][0]));
-                            DaysSinceLastPasswordChange = Math.Abs((Date1 - PasswordLastSet).Days);
-                            if (DaysSinceLastPasswordChange > PassMaxAge)
-                            {
-                                PasswordNotChangedafterMaxAge = true;
-                            }
+                            CannotChangePassword = false;
                         }
                     }
                     if (AdUser.Properties["lastlogontimestamp"].Count != 0)
                     {
                         LastLogonDate = DateTime.FromFileTime((long)(AdUser.Properties["lastlogontimestamp"][0]));
-                        DaysSinceLastLogon = Math.Abs((Date1 - LastLogonDate).Days);
+                        DaysSinceLastLogon = Math.Abs((Date1 - (DateTime)LastLogonDate).Days);
                         if (DaysSinceLastLogon > DormantTimeSpan)
                         {
                             Dormant = true;
@@ -1342,7 +1497,65 @@ namespace ADRecon
                     {
                         NeverLoggedIn = true;
                     }
-                    string SIDHistory = "";
+                    if (AdUser.Properties["pwdLastSet"].Count != 0)
+                    {
+                        if (Convert.ToString(AdUser.Properties["pwdlastset"][0]) == "0")
+                        {
+                            if ((bool) PasswordNeverExpires == false)
+                            {
+                                MustChangePasswordatLogon = true;
+                            }
+                        }
+                        else
+                        {
+                            PasswordLastSet = DateTime.FromFileTime((long)(AdUser.Properties["pwdlastset"][0]));
+                            DaysSinceLastPasswordChange = Math.Abs((Date1 - (DateTime)PasswordLastSet).Days);
+                            if (DaysSinceLastPasswordChange > PassMaxAge)
+                            {
+                                PasswordNotChangedafterMaxAge = true;
+                            }
+                        }
+                    }
+                    if ((Int64) AdUser.Properties["accountExpires"][0] != (Int64) 9223372036854775807)
+                    {
+                        if ((Int64) AdUser.Properties["accountExpires"][0] != (Int64) 0)
+                        {
+                            try
+                            {
+                                //https://msdn.microsoft.com/en-us/library/ms675098(v=vs.85).aspx
+                                AccountExpires = DateTime.FromFileTime((long)(AdUser.Properties["accountExpires"][0]));
+                                AccountExpirationNumofDays = ((int)((DateTime)AccountExpires - Date1).Days);
+
+                            }
+                            catch //(Exception e)
+                            {
+                                //    Console.WriteLine("{0} Exception caught.", e);
+                            }
+                        }
+                    }
+                    if ((bool) TrustedforDelegation)
+                    {
+                        DelegationType = "Unconstrained";
+                        DelegationServices = "Any";
+                    }
+                    if (AdUser.Properties["msDS-AllowedToDelegateTo"].Count >= 1)
+                    {
+                        DelegationType = "Constrained";
+                        for (int i = 0; i < AdUser.Properties["msDS-AllowedToDelegateTo"].Count; i++)
+                        {
+                            var delegateto = AdUser.Properties["msDS-AllowedToDelegateTo"][i];
+                            DelegationServices = DelegationServices + "," + Convert.ToString(delegateto);
+                        }
+                        DelegationServices = DelegationServices.TrimStart(',');
+                    }
+                    if ((bool) TrustedtoAuthforDelegation)
+                    {
+                        DelegationProtocol = "Any";
+                    }
+                    else if (DelegationType != null)
+                    {
+                        DelegationProtocol = "Kerberos";
+                    }
                     if (AdUser.Properties["sidhistory"].Count >= 1)
                     {
                         string sids = "";
@@ -1355,34 +1568,48 @@ namespace ADRecon
                     }
 
                     PSObject UserObj = new PSObject();
-                    UserObj.Members.Add(new PSNoteProperty("Name", (AdUser.Properties["name"].Count != 0 ? AdUser.Properties["name"][0] : "")));
                     UserObj.Members.Add(new PSNoteProperty("UserName", (AdUser.Properties["samaccountname"].Count != 0 ? AdUser.Properties["samaccountname"][0] : "")));
+                    UserObj.Members.Add(new PSNoteProperty("Name", (AdUser.Properties["name"].Count != 0 ? CleanString(Convert.ToString(AdUser.Properties["name"][0])) : "")));
                     UserObj.Members.Add(new PSNoteProperty("Enabled", Enabled));
+                    UserObj.Members.Add(new PSNoteProperty("Must Change Password at Logon", MustChangePasswordatLogon));
                     UserObj.Members.Add(new PSNoteProperty("Cannot Change Password", CannotChangePassword));
                     UserObj.Members.Add(new PSNoteProperty("Password Never Expires", PasswordNeverExpires));
-                    UserObj.Members.Add(new PSNoteProperty("Must Change Password at Logon", MustChangePasswordatLogon));
-                    UserObj.Members.Add(new PSNoteProperty("Days Since Last Password Change", DaysSinceLastPasswordChange));
-                    UserObj.Members.Add(new PSNoteProperty("Password Not Changed after Max Age", PasswordNotChangedafterMaxAge));
-                    UserObj.Members.Add(new PSNoteProperty("Account Locked Out", AccountLockedOut));
-                    UserObj.Members.Add(new PSNoteProperty("Never Logged in", NeverLoggedIn));
-                    UserObj.Members.Add(new PSNoteProperty("Days Since Last Logon", DaysSinceLastLogon));
-                    UserObj.Members.Add(new PSNoteProperty("Dormant (> " + DormantTimeSpan + " days)", Dormant));
                     UserObj.Members.Add(new PSNoteProperty("Reversible Password Encryption", ReversiblePasswordEncryption));
-                    UserObj.Members.Add(new PSNoteProperty("Password Not Required", PasswordNotRequired));
-                    UserObj.Members.Add(new PSNoteProperty("Trusted for Delegation", TrustedforDelegation));
-                    UserObj.Members.Add(new PSNoteProperty("Trusted to Auth for Delegation", TrustedtoAuthforDelegation));
+                    UserObj.Members.Add(new PSNoteProperty("Smartcard Logon Required", SmartcardRequired));
+                    UserObj.Members.Add(new PSNoteProperty("Delegation Permitted", DelegationPermitted));
+                    UserObj.Members.Add(new PSNoteProperty("Kerberos DES Only", UseDESKeyOnly));
+                    UserObj.Members.Add(new PSNoteProperty("Kerberos RC4", KerberosRC4));
+                    UserObj.Members.Add(new PSNoteProperty("Kerberos AES-128bit", KerberosAES128));
+                    UserObj.Members.Add(new PSNoteProperty("Kerberos AES-256bit", KerberosAES256));
                     UserObj.Members.Add(new PSNoteProperty("Does Not Require Pre Auth", DoesNotRequirePreAuth));
+                    UserObj.Members.Add(new PSNoteProperty("Never Logged in", NeverLoggedIn));
+                    UserObj.Members.Add(new PSNoteProperty("Logon Age (days)", DaysSinceLastLogon));
+                    UserObj.Members.Add(new PSNoteProperty("Password Age (days)", DaysSinceLastPasswordChange));
+                    UserObj.Members.Add(new PSNoteProperty("Dormant (> " + DormantTimeSpan + " days)", Dormant));
+                    UserObj.Members.Add(new PSNoteProperty("Password Age (> " + PassMaxAge + " days)", PasswordNotChangedafterMaxAge));
+                    UserObj.Members.Add(new PSNoteProperty("Account Locked Out", AccountLockedOut));
+                    UserObj.Members.Add(new PSNoteProperty("Password Expired", PasswordExpired));
+                    UserObj.Members.Add(new PSNoteProperty("Password Not Required", PasswordNotRequired));
+                    UserObj.Members.Add(new PSNoteProperty("Delegation Type", DelegationType));
+                    UserObj.Members.Add(new PSNoteProperty("Delegation Protocol", DelegationProtocol));
+                    UserObj.Members.Add(new PSNoteProperty("Delegation Services", DelegationServices));
                     UserObj.Members.Add(new PSNoteProperty("Logon Workstations", (AdUser.Properties["userworkstations"].Count != 0 ? AdUser.Properties["userworkstations"][0] : "")));
                     UserObj.Members.Add(new PSNoteProperty("AdminCount", (AdUser.Properties["admincount"].Count != 0 ? AdUser.Properties["admincount"][0] : "")));
                     UserObj.Members.Add(new PSNoteProperty("Primary GroupID", (AdUser.Properties["primarygroupid"].Count != 0 ? AdUser.Properties["primarygroupid"][0] : "")));
                     UserObj.Members.Add(new PSNoteProperty("SID", Convert.ToString(new SecurityIdentifier((byte[])AdUser.Properties["objectSID"][0], 0))));
                     UserObj.Members.Add(new PSNoteProperty("SIDHistory", SIDHistory));
-                    UserObj.Members.Add(new PSNoteProperty("Description", (AdUser.Properties["Description"].Count != 0 ? AdUser.Properties["Description"][0] : "")));
-                    UserObj.Members.Add(new PSNoteProperty("Password LastSet", PasswordLastSet));
+                    UserObj.Members.Add(new PSNoteProperty("Description", (AdUser.Properties["Description"].Count != 0 ? CleanString(Convert.ToString(AdUser.Properties["Description"][0])) : "")));
                     UserObj.Members.Add(new PSNoteProperty("Last Logon Date", LastLogonDate));
-                    UserObj.Members.Add(new PSNoteProperty("When Created", (AdUser.Properties["whencreated"].Count != 0 ? AdUser.Properties["whencreated"][0] : "")));
-                    UserObj.Members.Add(new PSNoteProperty("When Changed", (AdUser.Properties["whenchanged"].Count != 0 ? AdUser.Properties["whenchanged"][0] : "")));
-                    UserObj.Members.Add(new PSNoteProperty("DistinguishedName", (AdUser.Properties["distinguishedname"].Count != 0 ? AdUser.Properties["distinguishedname"][0] : "")));
+                    UserObj.Members.Add(new PSNoteProperty("Password LastSet", PasswordLastSet));
+                    UserObj.Members.Add(new PSNoteProperty("Account Expiration Date", AccountExpires));
+                    UserObj.Members.Add(new PSNoteProperty("Account Expiration (days)", AccountExpirationNumofDays));
+                    UserObj.Members.Add(new PSNoteProperty("Email", (AdUser.Properties["mail"].Count != 0 ? AdUser.Properties["mail"][0] : "")));
+                    UserObj.Members.Add(new PSNoteProperty("HomeDirectory", (AdUser.Properties["homedirectory"].Count != 0 ? AdUser.Properties["homedirectory"][0] : "")));
+                    UserObj.Members.Add(new PSNoteProperty("ProfilePath", (AdUser.Properties["profilepath"].Count != 0 ? AdUser.Properties["profilepath"][0] : "")));
+                    UserObj.Members.Add(new PSNoteProperty("ScriptPath", (AdUser.Properties["scriptpath"].Count != 0 ? AdUser.Properties["scriptpath"][0] : "")));
+                    UserObj.Members.Add(new PSNoteProperty("whenCreated", (AdUser.Properties["whencreated"].Count != 0 ? AdUser.Properties["whencreated"][0] : "")));
+                    UserObj.Members.Add(new PSNoteProperty("whenChanged", (AdUser.Properties["whenchanged"].Count != 0 ? AdUser.Properties["whenchanged"][0] : "")));
+                    UserObj.Members.Add(new PSNoteProperty("DistinguishedName", (AdUser.Properties["distinguishedname"].Count != 0 ? CleanString(Convert.ToString(AdUser.Properties["distinguishedname"][0])) : "")));
                     UserObj.Members.Add(new PSNoteProperty("CanonicalName", (AdUser.Properties["canonicalname"].Count != 0 ? AdUser.Properties["canonicalname"][0] : "")));
                     return new PSObject[] { UserObj };
                 }
@@ -3213,7 +3440,7 @@ Function Export-ADRExcel
             {
                 $disabled = 1
             }
-            $UserProperties = @("Cannot Change Password","Must Change Password at Logon","Password Not Changed after Max Age","Password Never Expires","Password Not Required","Reversible Password Encryption","Does Not Require Pre Auth","Account Locked Out","Never Logged in",$(($ADTemp | Get-Member -MemberType NoteProperty | Where-Object { $_.Name -like "Dormant*" }).Name))
+            $UserProperties = @("Cannot Change Password","Must Change Password at Logon",$(($ADTemp | Get-Member -MemberType NoteProperty | Where-Object { $_.Name -like "Password Age (>*" }).Name),"Password Never Expires","Password Not Required","Reversible Password Encryption","Does Not Require Pre Auth","Account Locked Out","Never Logged in",$(($ADTemp | Get-Member -MemberType NoteProperty | Where-Object { $_.Name -like "Dormant*" }).Name))
             ForEach ($property in $UserProperties)
             {
                 $row++
@@ -5369,10 +5596,6 @@ Function Get-ADRUser
     [string]
     Which protocol to use; ADWS (default) or LDAP.
 
-.PARAMETER UseAltCreds
-    [bool]
-    Whether to use provided credentials or not.
-
 .PARAMETER date
     [DateTime]
     Date when ADRecon was executed.
@@ -5401,9 +5624,6 @@ Function Get-ADRUser
         [string] $Protocol,
 
         [Parameter(Mandatory = $true)]
-        [bool] $UseAltCreds,
-
-        [Parameter(Mandatory = $true)]
         [DateTime] $date,
 
         [Parameter(Mandatory = $false)]
@@ -5423,11 +5643,12 @@ Function Get-ADRUser
     {
         Try
         {
-            $ADUsers = @( Get-ADUser -Filter * -ResultPageSize $PageSize -Properties AdminCount,AllowReversiblePasswordEncryption,CannotChangePassword,CanonicalName,Description,DistinguishedName,DoesNotRequirePreAuth,Enabled,LastLogonDate,LockedOut,LogonWorkstations,Name,PasswordLastSet,PasswordNeverExpires,PasswordNotRequired,primaryGroupID,pwdlastset,SamAccountName,SID,SIDHistory,TrustedForDelegation,TrustedToAuthForDelegation,whenChanged,whenCreated )
+            $ADUsers = @( Get-ADUser -Filter * -ResultPageSize $PageSize -Properties accountExpires,AccountExpirationDate,AccountNotDelegated,AdminCount,AllowReversiblePasswordEncryption,CannotChangePassword,CanonicalName,Description,DistinguishedName,DoesNotRequirePreAuth,Enabled,homeDirectory,LastLogonDate,lastLogonTimestamp,LockedOut,LogonWorkstations,mail,'msDS-AllowedToDelegateTo','msDS-SupportedEncryptionTypes',Name,PasswordExpired,PasswordLastSet,PasswordNeverExpires,PasswordNotRequired,profilePath,primaryGroupID,pwdlastset,SamAccountName,ScriptPath,SID,SIDHistory,SmartcardLogonRequired,TrustedForDelegation,TrustedToAuthForDelegation,UseDESKeyOnly,whenChanged,whenCreated )
         }
         Catch
         {
-            Write-Error "[EXCEPTION] $($_.Exception.Message)"
+            Write-Warning "[Get-ADRUser] Error while enumerating User Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
             Return $null
         }
 
@@ -5441,12 +5662,13 @@ Function Get-ADRUser
             }
             Catch
             {
-                Write-Warning "[EXCEPTION] $($_.Exception.Message)"
+                Write-Warning "[Get-ADRUser] Error retrieving Max Password Age from the Default Password Policy. Using value as 90 days"
+                Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
                 $PassMaxAge = 90
             }
 
             Write-Verbose "[*] Total Users: $([ADRecon.ADWSClass]::ObjectCount($ADUsers))"
-            $UserObj = [ADRecon.ADWSClass]::UserParser($ADUsers, $date, $PassMaxAge, $DormantTimeSpan, $Threads)
+            $UserObj = [ADRecon.ADWSClass]::UserParser($ADUsers, $date, $DormantTimeSpan, $PassMaxAge, $Threads)
             Remove-Variable ADUsers
         }
     }
@@ -5456,7 +5678,9 @@ Function Get-ADRUser
         $objSearcher = New-Object System.DirectoryServices.DirectorySearcher $objDomain
         $ObjSearcher.PageSize = $PageSize
         $ObjSearcher.Filter = "(samAccountType=805306368)"
-        $ObjSearcher.PropertiesToLoad.AddRange(("admincount","canonicalname","description","distinguishedname","lastLogontimestamp","name","objectsid","primarygroupid","pwdLastSet","samaccountName","serviceprincipalname","sidhistory","useraccountcontrol","userworkstations","whenchanged","whencreated"))
+        # https://msdn.microsoft.com/en-us/library/system.directoryservices.securitymasks(v=vs.110).aspx
+        $ObjSearcher.SecurityMasks = [System.DirectoryServices.SecurityMasks]'Dacl'
+        $ObjSearcher.PropertiesToLoad.AddRange(("accountExpires","admincount","canonicalname","description","distinguishedname","homedirectory","lastLogontimestamp","mail","msDS-AllowedToDelegateTo","msDS-SupportedEncryptionTypes","name","ntsecuritydescriptor","objectsid","profilepath","primarygroupid","pwdLastSet","samaccountName","scriptpath","sidhistory","useraccountcontrol","userworkstations","whenchanged","whencreated"))
         $ObjSearcher.SearchScope = "Subtree"
         Try
         {
@@ -5464,7 +5688,8 @@ Function Get-ADRUser
         }
         Catch
         {
-            Write-Error "[EXCEPTION] $($_.Exception.Message)"
+            Write-Warning "[Get-ADRUser] Error while enumerating User Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
             Return $null
         }
         $ObjSearcher.dispose()
@@ -5474,57 +5699,13 @@ Function Get-ADRUser
             $PassMaxAge = $($ObjDomain.ConvertLargeIntegerToInt64($ObjDomain.maxpwdage.value) /-864000000000)
             If (-Not $PassMaxAge)
             {
+                Write-Warning "[Get-ADRUser] Error retrieving Max Password Age from the Default Password Policy. Using value as 90 days"
+                Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
                 $PassMaxAge = 90
             }
-            $icnt = 1
-            $cnt = $([ADRecon.LDAPClass]::ObjectCount($ADUsers))
-            Write-Verbose "[*] Calculating if the user Cannot Change Password"
-            $CannotChangePassword = New-Object 'System.Collections.Generic.Dictionary[String,bool]'
-            $StopWatch = [System.Diagnostics.StopWatch]::StartNew()
-            $ADUsers | ForEach-Object {
-                If ($StopWatch.Elapsed.TotalMilliseconds -ge 1000)
-                {
-                    Write-Progress -Activity "Calculating if the user Cannot Change Password" -Status "$("{0:N2}" -f (($icnt/$cnt*100),2)) % Complete:" -PercentComplete 100
-                    $StopWatch.Reset()
-                    $StopWatch.Start()
-                }
-                # Get ACLs to determine if the user can change their password or not
-                $data = $_.GetDirectoryEntry()
-                $aclObject = $data.Get_ObjectSecurity()
-                ForEach ($access in $aclObject.Access)
-                {
-                    If (($access.ObjectType -eq "ab721a53-1e2f-11d0-9819-00aa0040529b") -or ($access.ObjectType -eq "AB721A53-1E2F-11D0-9819-00AA0040529B"))
-                    {
-                        If ($access.AccessControlType -eq "Deny")
-                        {
-                            If ($access.IdentityReference -eq "Everyone")
-                            {
-                                $DenyEveryone = $true
-                            }
-                            Elseif ($access.IdentityReference -eq "NT AUTHORITY\SELF")
-                            {
-                                $DenySelf = $true
-                            }
-                        }
-                    }
-                }
-                If ($DenyEveryone -and $DenySelf)
-                {
-                    $CannotChangePassword.Add($($_.properties.samaccountname),$true)
-                    Remove-Variable DenyEveryone
-                    Remove-Variable DenySelf
-                }
-                Else
-                {
-                    $CannotChangePassword.Add($($_.properties.samaccountname),$false)
-                }
-                Remove-Variable data
-                Remove-Variable aclObject
-                $icnt ++
-            }
-            Write-Progress -Activity "Calculating if the user Cannot Change Password" -Completed -Status "All Done"
-            Write-Verbose "[*] Total Users: $cnt"
-            $UserObj = [ADRecon.LDAPClass]::UserParser($ADUsers, $date, $PassMaxAge, $CannotChangePassword, $DormantTimeSpan, $Threads)
+
+            Write-Verbose "[*] Total Users: $([ADRecon.LDAPClass]::ObjectCount($ADUsers))"
+            $UserObj = [ADRecon.LDAPClass]::UserParser($ADUsers, $date, $DormantTimeSpan, $PassMaxAge, $Threads)
             Remove-Variable ADUsers
         }
     }
@@ -5552,10 +5733,6 @@ Function Get-ADRUserSPN
     [string]
     Which protocol to use; ADWS (default) or LDAP.
 
-.PARAMETER UseAltCreds
-    [bool]
-    Whether to use provided credentials or not.
-
 .PARAMETER objDomain
     [DirectoryServices.DirectoryEntry]
     Domain Directory Entry object.
@@ -5574,9 +5751,6 @@ Function Get-ADRUserSPN
     param(
         [Parameter(Mandatory = $true)]
         [string] $Protocol,
-
-        [Parameter(Mandatory = $true)]
-        [bool] $UseAltCreds,
 
         [Parameter(Mandatory = $false)]
         [DirectoryServices.DirectoryEntry] $objDomain,
@@ -8100,7 +8274,7 @@ Function Invoke-ADRecon
         [bool] $UseAltCreds = $false
     )
 
-    [string] $ADReconVersion = "v180706"
+    [string] $ADReconVersion = "v180707"
     Write-Output "[*] ADRecon $ADReconVersion by Prashant Mahajan (@prashant3535) from Sense of Security."
 
     If ($GenExcel)
@@ -8668,10 +8842,10 @@ Function Invoke-ADRecon
     If ($ADRUsers)
     {
         Write-Output "[-] Users - May take some time"
-        $ADRObject = Get-ADRUser $Protocol $UseAltCreds $date $objDomain $DormantTimeSpan $PageSize $Threads
+        $ADRObject = Get-ADRUser -Protocol $Protocol -date $date -objDomain $objDomain -DormantTimeSpan $DormantTimeSpan -PageSize $PageSize -Threads $Threads
         If ($ADRObject)
         {
-            Export-ADR $ADRObject $ADROutputDir $OutputType "Users"
+            Export-ADR -ADRObj $ADRObject -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "Users"
             Remove-Variable ADRObject
         }
         Remove-Variable ADRUsers
@@ -8679,10 +8853,10 @@ Function Invoke-ADRecon
     If ($ADRUserSPNs)
     {
         Write-Output "[-] User SPNs"
-        $ADRObject = Get-ADRUserSPN $Protocol $UseAltCreds $objDomain $PageSize $Threads
+        $ADRObject = Get-ADRUserSPN -Protocol $Protocol -objDomain $objDomain -PageSize $PageSize -Threads $Threads
         If ($ADRObject)
         {
-            Export-ADR $ADRObject $ADROutputDir $OutputType "UserSPNs"
+            Export-ADR -ADRObj $ADRObject -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "UserSPNs"
             Remove-Variable ADRObject
         }
         Remove-Variable ADRUserSPNs
