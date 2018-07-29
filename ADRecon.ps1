@@ -2863,6 +2863,164 @@ Function Get-ADRExcelPivotTable
     Remove-Variable SrcWorksheet
 }
 
+Function Get-ADRExcelAttributeStats
+{
+<#
+.SYNOPSIS
+    Helper to add Attribute Stats to the current WorkSheet.
+
+.DESCRIPTION
+    Helper to add Attribute Stats to the current WorkSheet.
+
+.PARAMETER SrcSheetName
+    [string]
+    Source Sheet Name.
+
+.PARAMETER Title1
+    [string]
+    Title1.
+
+.PARAMETER Title2
+    [string]
+    Title2.
+
+.PARAMETER ObjAttributes
+    [OrderedDictionary]
+    Attributes.
+#>
+    param (
+        [Parameter(Mandatory = $true)]
+        [string] $SrcSheetName,
+
+        [Parameter(Mandatory = $true)]
+        [string] $Title1,
+
+        [Parameter(Mandatory = $true)]
+        [string] $Title2,
+
+        [Parameter(Mandatory = $true)]
+        [System.Object] $ObjAttributes
+    )
+
+    $excel.ScreenUpdating = $false
+    $worksheet = $workbook.Worksheets.Item(1)
+    $SrcWorksheet = $workbook.Sheets.Item($SrcSheetName)
+
+    $row = 1
+    $column = 1
+    $worksheet.Cells.Item($row, $column) = $Title1
+    $worksheet.Cells.Item($row,$column).Style = "Heading 2"
+    $worksheet.Cells.Item($row,$column).HorizontalAlignment = -4108
+    $MergeCells = $worksheet.Range("A1:C1")
+    $MergeCells.Select() | Out-Null
+    $MergeCells.MergeCells = $true
+    Remove-Variable MergeCells
+
+    $row++
+    "Type","Count","Percentage" | ForEach-Object {
+        $worksheet.Cells.Item($row, $column) = $_
+        $worksheet.Cells.Item($row, $column).Font.Bold = $True
+        $column++
+    }
+
+    $ExcelColumn = ($SrcWorksheet.Columns.Find("Enabled"))
+    $EnabledColAddress = "$($ExcelColumn.Address($false,$false).Substring(0,$ExcelColumn.Address($false,$false).Length-1)):$($ExcelColumn.Address($false,$false).Substring(0,$ExcelColumn.Address($false,$false).Length-1))"
+
+    $row++
+    $column = 1
+    $worksheet.Cells.Item($row, $column) = "Enabled"
+    $worksheet.Cells.Item($row, $column+1).Formula = '=COUNTIF(' + $SrcWorksheet.Name + '!' + $EnabledColAddress + ',"TRUE")'
+    $worksheet.Cells.Item($row, $column+2).Formula = '=B3/B5'
+
+    $row++
+    $worksheet.Cells.Item($row, $column) = "Disabled"
+    $worksheet.Cells.Item($row, $column+1).Formula = '=COUNTIF(' + $SrcWorksheet.Name + '!' + $EnabledColAddress + ',"FALSE")'
+    $worksheet.Cells.Item($row, $column+2).Formula = '=B4/B5'
+
+    $ExcelColumn = ($SrcWorksheet.Columns.Find("UserName"))
+    $ColAddress = "$($ExcelColumn.Address($false,$false).Substring(0,$ExcelColumn.Address($false,$false).Length-1)):$($ExcelColumn.Address($false,$false).Substring(0,$ExcelColumn.Address($false,$false).Length-1))"
+    $row++
+    $worksheet.Cells.Item($row, $column) = "Total"
+    $worksheet.Cells.Item($row, $column+1).Formula = '=COUNTA(' + $SrcWorksheet.Name + '!' + $ColAddress +')-1' # Username Column
+    $worksheet.Cells.Item($row, $column+2).Formula = '=SUM(C3:C4)'
+
+    # http://www.excelhowto.com/macros/formatting-a-range-of-cells-in-excel-vba/
+    $rng = "C" + $($column+2) + ":C" + $($column+4)
+    $worksheet.Range("$rng").NumberFormat = "0.00%"
+
+    If ( [int]($worksheet.Cells.Item($row, $column+1).Text) -ne ( [int]($worksheet.Cells.Item($row-1, $column+1).Text) + [int]($worksheet.Cells.Item($row-2, $column+1).Text) ) )
+    {
+        $worksheet.Cells.Item($row, $column+1).Interior.ColorIndex = 3
+        $worksheet.Cells.Item($row, $column+1).font.ColorIndex = 2
+        Write-Warning "Enabled + Disabled != Total, Try running ADRecon as another user."
+    }
+
+    $row = 1
+    $column = 6
+    $worksheet.Cells.Item($row, $column) = $Title2
+    $worksheet.Cells.Item($row,$column).Style = "Heading 2"
+    $worksheet.Cells.Item($row,$column).HorizontalAlignment = -4108
+    $MergeCells = $worksheet.Range("F1:L1")
+    $MergeCells.Select() | Out-Null
+    $MergeCells.MergeCells = $true
+    Remove-Variable MergeCells
+
+    $row++
+    "Category","Enabled Count","Enabled Percentage","Disabled Count","Disabled Percentage","Total Count","Total Percentage" | ForEach-Object {
+        $worksheet.Cells.Item($row, $column) = $_
+        $worksheet.Cells.Item($row, $column).Font.Bold = $True
+        $column++
+    }
+
+    $column = 6
+    $i = 2
+
+    $ObjAttributes.keys | ForEach-Object {
+        $ExcelColumn = ($SrcWorksheet.Columns.Find($_))
+        $ColAddress = "$($ExcelColumn.Address($false,$false).Substring(0,$ExcelColumn.Address($false,$false).Length-1)):$($ExcelColumn.Address($false,$false).Substring(0,$ExcelColumn.Address($false,$false).Length-1))"
+        $row++
+        $i++
+        If ($_ -eq "Delegation Typ")
+        {
+            $worksheet.Cells.Item($row, $column) = "Unconstrained Delegation"
+        }
+        ElseIf ($_ -eq "Delegation Type")
+        {
+            $worksheet.Cells.Item($row, $column) = "Constrained Delegation"
+        }
+        Else
+        {
+            $worksheet.Cells.Item($row, $column).Formula = '=' + $SrcWorksheet.Name + '!' + $ExcelColumn.Address($false,$false)
+        }
+        $worksheet.Cells.Item($row, $column+1).Formula = '=COUNTIFS(' + $SrcWorksheet.Name + '!' + $EnabledColAddress + ',"TRUE",' + $SrcWorksheet.Name + '!' + $ColAddress + ',' + $ObjAttributes[$_] + ')'
+        $worksheet.Cells.Item($row, $column+2).Formula = "=G$i/B3"
+        $worksheet.Cells.Item($row, $column+3).Formula = '=COUNTIFS(' + $SrcWorksheet.Name + '!' + $EnabledColAddress + ',"FALSE",' + $SrcWorksheet.Name + '!' + $ColAddress + ',' + $ObjAttributes[$_] + ')'
+        # Check for divide by 0.
+        $worksheet.Cells.Item($row, $column+4).Formula = "=IF(B4<>0,I$i/B4,0)"
+        If ($_ -eq "SIDHistory")
+        {
+            $worksheet.Cells.Item($row, $column+5).Formula = '=COUNTIF(' + $SrcWorksheet.Name + '!' + $ColAddress + ',' + $ObjAttributes[$_] + ')-1'
+        }
+        Else
+        {
+            $worksheet.Cells.Item($row, $column+5).Formula = '=COUNTIF(' + $SrcWorksheet.Name + '!' + $ColAddress + ',' + $ObjAttributes[$_] + ')'
+        }
+        $worksheet.Cells.Item($row, $column+6).Formula = "=K$i/B5"
+    }
+
+    # http://www.excelhowto.com/macros/formatting-a-range-of-cells-in-excel-vba/
+    "H", "J" , "L" | ForEach-Object {
+        $rng = $_ + $($row - $ObjAttributes.Count + 1) + ":" + $_ + $($row)
+        $worksheet.Range($rng).NumberFormat = "0.00%"
+    }
+    $excel.ScreenUpdating = $true
+
+    Get-ADRExcelComObjRelease -ComObjtoRelease $SrcWorksheet
+    Remove-Variable SrcWorksheet
+    Get-ADRExcelComObjRelease -ComObjtoRelease $worksheet
+    Remove-Variable worksheet
+}
+
 Function Get-ADRExcelChart
 {
 <#
@@ -3365,101 +3523,38 @@ Function Export-ADRExcel
         $ADFileName = -join($ReportPath,'\','Users.csv')
         If (Test-Path $ADFileName)
         {
-            Get-ADRExcelWorkbook("User Stats")
-            $worksheet= $workbook.Worksheets.Item(1)
+            Get-ADRExcelWorkbook -Name "User Stats"
+            Remove-Variable ADFileName
 
-            $ADTemp = Import-Csv -Path $ADFileName
+            $ObjAttributes = New-Object System.Collections.Specialized.OrderedDictionary
+            $ObjAttributes.Add("Must Change Password at Logon",'"TRUE"')
+            $ObjAttributes.Add("Cannot Change Password",'"TRUE"')
+            $ObjAttributes.Add("Password Never Expires",'"TRUE"')
+            $ObjAttributes.Add("Reversible Password Encryption",'"TRUE"')
+            $ObjAttributes.Add("Smartcard Logon Required",'"TRUE"')
+            $ObjAttributes.Add("Delegation Permitted",'"TRUE"')
+            $ObjAttributes.Add("Kerberos DES Only",'"TRUE"')
+            $ObjAttributes.Add("Kerberos RC4",'"TRUE"')
+            $ObjAttributes.Add("Does Not Require Pre Auth",'"TRUE"')
+            $ObjAttributes.Add("Password Age (> ",'"TRUE"')
+            $ObjAttributes.Add("Account Locked Out",'"TRUE"')
+            $ObjAttributes.Add("Never Logged in",'"TRUE"')
+            $ObjAttributes.Add("Dormant",'"TRUE"')
+            $ObjAttributes.Add("Password Not Required",'"TRUE"')
+            $ObjAttributes.Add("Delegation Typ",'"Unconstrained"')
+            $ObjAttributes.Add("SIDHistory",'"*"')
 
-            $row = 1
-            $column = 1
-            $worksheet.Cells.Item($row, $column) = "User Accounts in AD"
-            $worksheet.Cells.Item($row,$column).Style = "Heading 2"
-            $worksheet.Cells.Item($row,$column).HorizontalAlignment = -4108
-            $MergeCells = $worksheet.Range("A1:C1")
-            $MergeCells.Select() | Out-Null
-            $MergeCells.MergeCells = $true
-            Remove-Variable MergeCells
+            Get-ADRExcelAttributeStats -SrcSheetName "Users" -Title1 "User Accounts in AD" -Title2 "Status of User Accounts" -ObjAttributes $ObjAttributes
+            Remove-Variable ObjAttributes
 
-            $row++
-            $worksheet.Cells.Item($row, $column) = "Type"
-            $worksheet.Cells.Item($row, $column).Font.Bold=$True
-            $worksheet.Cells.Item($row, $column+1) = "Count"
-            $worksheet.Cells.Item($row, $column+1).Font.Bold=$True
-            $worksheet.Cells.Item($row,$column+2) = 'Percentage'
-            $worksheet.Cells.Item($row, $column+2).Font.Bold=$True
+            Get-ADRExcelChart -ChartType "xlPie" -ChartLayout 3 -ChartTitle "User Accounts in AD" -RangetoCover "A21:D33" -ChartData $workbook.Worksheets.Item(1).Range("A3:A4,B3:B4")
+            $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item(20,1) , "" , "Users!A1", "", "Raw Data") | Out-Null
 
-            $total = ($ADTemp | Measure-Object | Select-Object -ExpandProperty Count)
-            $enabled = ($ADTemp | Where-Object ({$_.Enabled -eq $true}) | Measure-Object | Select-Object -ExpandProperty Count)
-            $disabled = ($ADTemp | Where-Object ({$_.Enabled -eq $false}) | Measure-Object | Select-Object -ExpandProperty Count)
+            Get-ADRExcelChart -ChartType "xlBarClustered" -ChartLayout 1 -ChartTitle "Status of User Accounts" -RangetoCover "F21:L43" -ChartData $workbook.Worksheets.Item(1).Range("F2:F18,G2:G18")
+            $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item(20,6) , "" , "Users!A1", "", "Raw Data") | Out-Null
 
-            $row++
-            $worksheet.Cells.Item($row, $column) = "Enabled"
-            $worksheet.Cells.Item($row, $column+1) = $enabled
-            $worksheet.Cells.Item($row, $column+2) = "{0:P2}" -f ($enabled/$total)
-
-            $row++
-            $worksheet.Cells.Item($row, $column) = "Disabled"
-            $worksheet.Cells.Item($row, $column+1) = $disabled
-            $worksheet.Cells.Item($row, $column+2) = "{0:P2}" -f ($disabled/$total)
-
-            $row++
-            $worksheet.Cells.Item($row, $column) = "Total"
-            $worksheet.Cells.Item($row, $column+1) = $total
-            If ($total -ne ($enabled + $disabled))
-            {
-                $worksheet.Cells.Item($row, $column+1).Interior.ColorIndex = 3
-                $worksheet.Cells.Item($row, $column+1).font.ColorIndex = 2
-                Write-Warning "Enabled + Disabled != Total Users, Try running ADRecon as another user."
-            }
-            $worksheet.Cells.Item($row, $column+2) = "{0:P2}" -f ($total/$total)
-
-            Get-ADRExcelChart -ChartType "xlPie" -ChartLayout 3 -ChartTitle "User Accounts in AD" -RangetoCover "A15:D27" -ChartData $worksheet.Range("A3:A4,B3:B4")
-            $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item(14,1) , "" , "Users!A1", "", "Raw Data") | Out-Null
-
-            $row = 1
-            $column = 6
-            $worksheet.Cells.Item($row, $column) = "Status of User Accounts"
-            $worksheet.Cells.Item($row,$column).Style = "Heading 2"
-            $worksheet.Cells.Item($row,$column).HorizontalAlignment = -4108
-            $MergeCells = $worksheet.Range("F1:L1")
-            $MergeCells.Select() | Out-Null
-            $MergeCells.MergeCells = $true
-            Remove-Variable MergeCells
-
-            $row++
-            $temp = @("Category","Enabled Count","Enabled Percentage","Disabled Count","Disabled Percentage","Total Count","Total Percentage")
-            $temp | ForEach-Object {
-                $worksheet.Cells.Item($row, $column) = $_
-                $worksheet.Cells.Item($row, $column).Font.Bold=$True
-                $column++
-            }
-
-            $column = 6
-            # "Attempted to divide by zero" exception
-            If ($disabled -eq 0)
-            {
-                $disabled = 1
-            }
-            $UserProperties = @("Cannot Change Password","Must Change Password at Logon",$(($ADTemp | Get-Member -MemberType NoteProperty | Where-Object { $_.Name -like "Password Age (>*" }).Name),"Password Never Expires","Password Not Required","Reversible Password Encryption","Does Not Require Pre Auth","Account Locked Out","Never Logged in",$(($ADTemp | Get-Member -MemberType NoteProperty | Where-Object { $_.Name -like "Dormant*" }).Name))
-            ForEach ($property in $UserProperties)
-            {
-                $row++
-                $worksheet.Cells.Item($row, $column) = $property
-                $worksheet.Cells.Item($row, $column+1) = ($ADTemp | Where-Object ({$_.$property -eq $true -and $_.Enabled -eq $true}) | Measure-Object | Select-Object -ExpandProperty Count)
-                $worksheet.Cells.Item($row, $column+2) = "{0:P2}" -f (([int] $worksheet.Cells.Item($row,$column+1).text)/$enabled)
-                $worksheet.Cells.Item($row, $column+3) = ($ADTemp | Where-Object ({$_.$property -eq $true -and $_.Enabled -eq $false}) | Measure-Object | Select-Object -ExpandProperty Count)
-                $worksheet.Cells.Item($row, $column+4) = "{0:P2}" -f (([int] $worksheet.Cells.Item($row,$column+3).text)/$disabled)
-                $worksheet.Cells.Item($row, $column+5) = ($ADTemp | Where-Object ({$_.$property -eq $true}) | Measure-Object | Select-Object -ExpandProperty Count)
-                $worksheet.Cells.Item($row, $column+6) = "{0:P2}" -f (([int] $worksheet.Cells.Item($row,$column+5).text)/$total)
-            }
-
-            Get-ADRExcelChart -ChartType "xlColumnClustered" -ChartLayout 5 -ChartTitle "Status of User Accounts" -RangetoCover "F15:J37" -ChartData $worksheet.Range("F2:F12,G2:H12")
-            $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item(14,6) , "" , "Users!A1", "", "Raw Data") | Out-Null
-
-            Remove-Variable ADTemp
-            $usedRange = $worksheet.UsedRange
-            $usedRange.EntireColumn.AutoFit() | Out-Null
-            $excel.Windows.Item(1).Displaygridlines=$false
+            $workbook.Worksheets.Item(1).UsedRange.EntireColumn.AutoFit() | Out-Null
+            $excel.Windows.Item(1).Displaygridlines = $false
         }
 
         # Create Table of Contents
@@ -6036,10 +6131,6 @@ Function Get-ADROU
     [string]
     Which protocol to use; ADWS (default) or LDAP.
 
-.PARAMETER UseAltCreds
-    [bool]
-    Whether to use provided credentials or not.
-
 .PARAMETER objDomain
     [DirectoryServices.DirectoryEntry]
     Domain Directory Entry object.
@@ -6055,9 +6146,6 @@ Function Get-ADROU
         [Parameter(Mandatory = $true)]
         [string] $Protocol,
 
-        [Parameter(Mandatory = $true)]
-        [bool] $UseAltCreds,
-
         [Parameter(Mandatory = $false)]
         [DirectoryServices.DirectoryEntry] $objDomain,
 
@@ -6069,11 +6157,12 @@ Function Get-ADROU
     {
         Try
         {
-            $ADOUs = Get-ADOrganizationalUnit -Filter * -Properties Created,DistinguishedName,Description,Name,gPLink,gPOptions
+            $ADOUs = Get-ADOrganizationalUnit -Filter * -Properties DistinguishedName,Description,Name,gPLink,gPOptions,whenCreated,whenChanged
         }
         Catch
         {
-            Write-Error "[EXCEPTION] $($_.Exception.Message)"
+            Write-Warning "[Get-ADROU] Error while enumerating OU Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
             Return $null
         }
 
@@ -6084,13 +6173,14 @@ Function Get-ADROU
             $ADOUs | ForEach-Object {
                 # Create the object for each instance.
                 $Obj = New-Object PSObject
-                $Obj | Add-Member -MemberType NoteProperty -Name Name -Value $_.Name
-                $Obj | Add-Member -MemberType NoteProperty -Name Created -Value $_.Created
-                $Obj | Add-Member -MemberType NoteProperty -Name DistinguishedName -Value $_.DistinguishedName
-                $Obj | Add-Member -MemberType NoteProperty -Name Description -Value $_.Description
-                $Obj | Add-Member -MemberType NoteProperty -Name gPLink -Value $_.gPLink
-                $Obj | Add-Member -MemberType NoteProperty -Name gPOptions -Value $_.gPOptions
-                $Obj | Add-Member -MemberType NoteProperty -Name Depth -Value $(($_.DistinguishedName -split 'OU=').Count -1)
+                $Obj | Add-Member -MemberType NoteProperty -Name "Name" -Value $_.Name
+                $Obj | Add-Member -MemberType NoteProperty -Name "Depth" -Value $(($_.DistinguishedName -split 'OU=').Count -1)
+                $Obj | Add-Member -MemberType NoteProperty -Name "Description" -Value $_.Description
+                $Obj | Add-Member -MemberType NoteProperty -Name "whenCreated" -Value $_.whenCreated
+                $Obj | Add-Member -MemberType NoteProperty -Name "whenChanged" -Value $_.whenChanged
+                $Obj | Add-Member -MemberType NoteProperty -Name "DistinguishedName" -Value $_.DistinguishedName
+                $Obj | Add-Member -MemberType NoteProperty -Name "gPLink" -Value $_.gPLink
+                $Obj | Add-Member -MemberType NoteProperty -Name "gPOptions" -Value $_.gPOptions
                 $OUObj += $Obj
             }
             Remove-Variable ADOUs
@@ -6102,7 +6192,7 @@ Function Get-ADROU
         $objSearcher = New-Object System.DirectoryServices.DirectorySearcher $objDomain
         $ObjSearcher.PageSize = $PageSize
         $ObjSearcher.Filter = "(objectCategory=organizationalunit)"
-        $ObjSearcher.PropertiesToLoad.AddRange(("whencreated","distinguishedname","description","name","gplink","gpoptions"))
+        $ObjSearcher.PropertiesToLoad.AddRange(("distinguishedname","description","name","gplink","gpoptions","whencreated","whenchanged"))
         $ObjSearcher.SearchScope = "Subtree"
 
         Try
@@ -6111,7 +6201,8 @@ Function Get-ADROU
         }
         Catch
         {
-            Write-Error "[EXCEPTION] $($_.Exception.Message)"
+            Write-Warning "[Get-ADROU] Error while enumerating OU Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
             Return $null
         }
         $ObjSearcher.dispose()
@@ -6123,13 +6214,14 @@ Function Get-ADROU
             $ADOUs | ForEach-Object {
                 # Create the object for each instance.
                 $Obj = New-Object PSObject
-                $Obj | Add-Member -MemberType NoteProperty -Name Name -Value ([string] $($_.Properties.name))
-                $Obj | Add-Member -MemberType NoteProperty -Name Created -Value ([DateTime] $($_.Properties.whencreated))
-                $Obj | Add-Member -MemberType NoteProperty -Name DistinguishedName -Value ([string] $($_.Properties.distinguishedname))
-                $Obj | Add-Member -MemberType NoteProperty -Name Description -Value ([string] $($_.Properties.description))
-                $Obj | Add-Member -MemberType NoteProperty -Name gPLink -Value ([string] $($_.Properties.gplink))
-                $Obj | Add-Member -MemberType NoteProperty -Name gPOptions -Value ([string] $($_.Properties.gpoptions))
-                $Obj | Add-Member -MemberType NoteProperty -Name Depth -Value $(($_.Properties.distinguishedname -split 'OU=').Count -1)
+                $Obj | Add-Member -MemberType NoteProperty -Name "Name" -Value ([string] $($_.Properties.name))
+                $Obj | Add-Member -MemberType NoteProperty -Name "Depth" -Value $(($_.Properties.distinguishedname -split 'OU=').Count -1)
+                $Obj | Add-Member -MemberType NoteProperty -Name "Description" -Value ([string] $($_.Properties.description))
+                $Obj | Add-Member -MemberType NoteProperty -Name "whenCreated" -Value ([DateTime] $($_.Properties.whencreated))
+                $Obj | Add-Member -MemberType NoteProperty -Name "whenChanged" -Value ([DateTime] $($_.Properties.whenchanged))
+                $Obj | Add-Member -MemberType NoteProperty -Name "DistinguishedName" -Value ([string] $($_.Properties.distinguishedname))
+                $Obj | Add-Member -MemberType NoteProperty -Name "gPLink" -Value ([string] $($_.Properties.gplink))
+                $Obj | Add-Member -MemberType NoteProperty -Name "gPOptions" -Value ([string] $($_.Properties.gpoptions))
                 $OUObj += $Obj
             }
             Remove-Variable ADOUs
@@ -6421,10 +6513,6 @@ Function Get-ADRGPO
     [string]
     Which protocol to use; ADWS (default) or LDAP.
 
-.PARAMETER UseAltCreds
-    [bool]
-    Whether to use provided credentials or not.
-
 .PARAMETER objDomain
     [DirectoryServices.DirectoryEntry]
     Domain Directory Entry object.
@@ -6444,9 +6532,6 @@ Function Get-ADRGPO
         [Parameter(Mandatory = $true)]
         [string] $Protocol,
 
-        [Parameter(Mandatory = $true)]
-        [bool] $UseAltCreds,
-
         [Parameter(Mandatory = $false)]
         [DirectoryServices.DirectoryEntry] $objDomain,
 
@@ -6458,11 +6543,12 @@ Function Get-ADRGPO
     {
         Try
         {
-            $ADDomainGPOs = Get-ADObject -LDAPFilter '(objectCategory=groupPolicyContainer)' -Properties DisplayName,whenCreated,whenChanged,Name,gPCFileSysPath
+            $ADDomainGPOs = Get-ADObject -LDAPFilter '(objectCategory=groupPolicyContainer)' -Properties DisplayName,DistinguishedName,Name,gPCFileSysPath,whenCreated,whenChanged
         }
         Catch
         {
-            Write-Error "[EXCEPTION] $($_.Exception.Message)"
+            Write-Warning "[Get-ADRGPO] Error while enumerating groupPolicyContainer Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
             Return $null
         }
 
@@ -6473,11 +6559,12 @@ Function Get-ADRGPO
             $ADDomainGPOs | ForEach-Object {
                 # Create the object for each instance.
                 $Obj = New-Object PSObject
-                $Obj | Add-Member -MemberType NoteProperty -Name DisplayName -Value $_.DisplayName
-                $Obj | Add-Member -MemberType NoteProperty -Name Created -Value $_.whenCreated
-                $Obj | Add-Member -MemberType NoteProperty -Name Changed -Value $_.whenChanged
-                $Obj | Add-Member -MemberType NoteProperty -Name Name -Value $([ADRecon.ADWSClass]::CleanString($_.Name))
-                $Obj | Add-Member -MemberType NoteProperty -Name FilePath -Value $_.gPCFileSysPath
+                $Obj | Add-Member -MemberType NoteProperty -Name "DisplayName" -Value $([ADRecon.ADWSClass]::CleanString($_.DisplayName))
+                $Obj | Add-Member -MemberType NoteProperty -Name "Name" -Value $([ADRecon.ADWSClass]::CleanString($_.Name))
+                $Obj | Add-Member -MemberType NoteProperty -Name "whenCreated" -Value $_.whenCreated
+                $Obj | Add-Member -MemberType NoteProperty -Name "whenChanged" -Value $_.whenChanged
+                $Obj | Add-Member -MemberType NoteProperty -Name "DistinguishedName" -Value $([ADRecon.ADWSClass]::CleanString($_.DistinguishedName))
+                $Obj | Add-Member -MemberType NoteProperty -Name "FilePath" -Value $_.gPCFileSysPath
                 $ADDomainGPOObj += $Obj
             }
             Remove-Variable ADDomainGPOs
@@ -6497,7 +6584,8 @@ Function Get-ADRGPO
         }
         Catch
         {
-            Write-Error "[EXCEPTION] $($_.Exception.Message)"
+            Write-Warning "[Get-ADRGPO] Error while enumerating groupPolicyContainer Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
             Return $null
         }
         $ObjSearcher.dispose()
@@ -6509,11 +6597,12 @@ Function Get-ADRGPO
             $ADDomainGPOs | ForEach-Object {
                 # Create the object for each instance.
                 $Obj = New-Object PSObject
-                $Obj | Add-Member -MemberType NoteProperty -Name DisplayName -Value ([string] $($_.Properties.displayname))
-                $Obj | Add-Member -MemberType NoteProperty -Name Created -Value ([DateTime] $($_.Properties.whencreated))
-                $Obj | Add-Member -MemberType NoteProperty -Name Changed -Value ([DateTime] $($_.Properties.whenchanged))
-                $Obj | Add-Member -MemberType NoteProperty -Name Name -Value $([ADRecon.LDAPClass]::CleanString($_.Properties.name))
-                $Obj | Add-Member -MemberType NoteProperty -Name FilePath -Value ([string] $($_.Properties.gpcfilesyspath))
+                $Obj | Add-Member -MemberType NoteProperty -Name "DisplayName" -Value $([ADRecon.LDAPClass]::CleanString($_.Properties.displayname))
+                $Obj | Add-Member -MemberType NoteProperty -Name "Name" -Value $([ADRecon.LDAPClass]::CleanString($_.Properties.name))
+                $Obj | Add-Member -MemberType NoteProperty -Name "whenCreated" -Value ([DateTime] $($_.Properties.whencreated))
+                $Obj | Add-Member -MemberType NoteProperty -Name "whenChanged" -Value ([DateTime] $($_.Properties.whenchanged))
+                $Obj | Add-Member -MemberType NoteProperty -Name "DistinguishedName" -Value $([ADRecon.LDAPClass]::CleanString($_.Properties.distinguishedname))
+                $Obj | Add-Member -MemberType NoteProperty -Name "FilePath" -Value ([string] $($_.Properties.gpcfilesyspath))
                 $ADDomainGPOObj += $Obj
             }
             Remove-Variable ADDomainGPOs
@@ -6795,10 +6884,6 @@ Function Get-ADRDNSZone
     [string]
     Which protocol to use; ADWS (default) or LDAP.
 
-.PARAMETER UseAltCreds
-    [bool]
-    Whether to use provided credentials or not.
-
 .PARAMETER ADROutputDir
     [string]
     Path for ADRecon output folder.
@@ -6831,9 +6916,6 @@ Function Get-ADRDNSZone
         [string] $Protocol,
 
         [Parameter(Mandatory = $true)]
-        [bool] $UseAltCreds,
-
-        [Parameter(Mandatory = $true)]
         [string] $ADROutputDir,
 
         [Parameter(Mandatory = $false)]
@@ -6860,7 +6942,8 @@ Function Get-ADRDNSZone
         }
         Catch
         {
-            Write-Error "[EXCEPTION] $($_.Exception.Message)"
+            Write-Warning "[Get-ADRDNSZone] Error while enumerating dnsZone Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
         }
 
         $DNSZoneArray = @()
@@ -6876,7 +6959,8 @@ Function Get-ADRDNSZone
         }
         Catch
         {
-            Write-Error "[EXCEPTION] $($_.Exception.Message)"
+            Write-Warning "[Get-ADRDNSZone] Error while enumerating DomainDnsZones dnsZone Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
         }
         If ($ADDNSZones1)
         {
@@ -6890,7 +6974,8 @@ Function Get-ADRDNSZone
         }
         Catch
         {
-            Write-Error "[EXCEPTION] $($_.Exception.Message)"
+            Write-Warning "[Get-ADRDNSZone] Error while enumerating ForestDnsZones dnsZone Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
         }
         If ($ADDNSZones2)
         {
@@ -6908,17 +6993,14 @@ Function Get-ADRDNSZone
                 # Create the object for each instance.
                 $Obj = New-Object PSObject
                 $Obj | Add-Member -MemberType NoteProperty -Name Name -Value $([ADRecon.ADWSClass]::CleanString($_.Name))
-                $Obj | Add-Member -MemberType NoteProperty -Name USNCreated -Value $_.usncreated
-                $Obj | Add-Member -MemberType NoteProperty -Name USNChanged -Value $_.usnchanged
-                $Obj | Add-Member -MemberType NoteProperty -Name Created -Value $_.whenCreated
-                $Obj | Add-Member -MemberType NoteProperty -Name Changed -Value $_.whenChanged
                 Try
                 {
                     $DNSNodes = Get-ADObject -SearchBase $($_.DistinguishedName) -LDAPFilter '(objectClass=dnsNode)' -Properties DistinguishedName,dnsrecord,dNSTombstoned,Name,ProtectedFromAccidentalDeletion,showInAdvancedViewOnly,whenChanged,whenCreated
                 }
                 Catch
                 {
-                    Write-Error "[EXCEPTION] $($_.Exception.Message)"
+                    Write-Warning "[Get-ADRDNSZone] Error while enumerating $($_.DistinguishedName) dnsNode Objects"
+                    Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
                 }
                 If ($DNSNodes)
                 {
@@ -6933,7 +7015,8 @@ Function Get-ADRDNSZone
                         }
                         Catch
                         {
-                            Write-Error "[EXCEPTION] $($_.Exception.Message)"
+                            Write-Warning "[Get-ADRDNSZone] Error while converting the DNSRecord"
+                            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
                         }
                         $ObjNode | Add-Member -MemberType NoteProperty -Name RecordType -Value $DNSRecord.RecordType
                         $ObjNode | Add-Member -MemberType NoteProperty -Name Data -Value $DNSRecord.Data
@@ -6941,8 +7024,8 @@ Function Get-ADRDNSZone
                         $ObjNode | Add-Member -MemberType NoteProperty -Name Age -Value $DNSRecord.Age
                         $ObjNode | Add-Member -MemberType NoteProperty -Name TimeStamp -Value $DNSRecord.TimeStamp
                         $ObjNode | Add-Member -MemberType NoteProperty -Name UpdatedAtSerial -Value $DNSRecord.UpdatedAtSerial
-                        $ObjNode | Add-Member -MemberType NoteProperty -Name Created -Value $_.whenCreated
-                        $ObjNode | Add-Member -MemberType NoteProperty -Name Changed -Value $_.whenChanged
+                        $ObjNode | Add-Member -MemberType NoteProperty -Name whenCreated -Value $_.whenCreated
+                        $ObjNode | Add-Member -MemberType NoteProperty -Name whenChanged -Value $_.whenChanged
                         # TO DO LDAP part
                         #$ObjNode | Add-Member -MemberType NoteProperty -Name dNSTombstoned -Value $_.dNSTombstoned
                         #$ObjNode | Add-Member -MemberType NoteProperty -Name ProtectedFromAccidentalDeletion -Value $_.ProtectedFromAccidentalDeletion
@@ -6959,6 +7042,10 @@ Function Get-ADRDNSZone
                 {
                     $Obj | Add-Member -MemberType NoteProperty -Name RecordCount -Value $null
                 }
+                $Obj | Add-Member -MemberType NoteProperty -Name USNCreated -Value $_.usncreated
+                $Obj | Add-Member -MemberType NoteProperty -Name USNChanged -Value $_.usnchanged
+                $Obj | Add-Member -MemberType NoteProperty -Name whenCreated -Value $_.whenCreated
+                $Obj | Add-Member -MemberType NoteProperty -Name whenChanged -Value $_.whenChanged
                 $Obj | Add-Member -MemberType NoteProperty -Name DistinguishedName -Value $_.DistinguishedName
                 $ADDNSZonesObj += $Obj
             }
@@ -6981,7 +7068,8 @@ Function Get-ADRDNSZone
         }
         Catch
         {
-            Write-Error "[EXCEPTION] $($_.Exception.Message)"
+            Write-Warning "[Get-ADRDNSZone] Error while enumerating dnsZone Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
         }
         $ObjSearcher.dispose()
 
@@ -6993,7 +7081,7 @@ Function Get-ADRDNSZone
         }
 
         $SearchPath = "CN=MicrosoftDNS,DC=DomainDnsZones"
-        If ($UseAltCreds)
+        If ($Credential -ne [Management.Automation.PSCredential]::Empty)
         {
             $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DomainController)/$($SearchPath),$($objDomain.distinguishedName)", $Credential.UserName,$Credential.GetNetworkCredential().Password
         }
@@ -7013,8 +7101,8 @@ Function Get-ADRDNSZone
         }
         Catch
         {
-            Write-Warning "[*] DomainDnsZones, try running with a Privileged Account"
-            Write-Warning "[EXCEPTION] $($_.Exception.Message)"
+            Write-Warning "[Get-ADRDNSZone] Error while enumerating $($SearchPath),$($objDomain.distinguishedName) dnsZone Objects. Try running with a Privileged Account."
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
         }
         $objSearcherPath.dispose()
 
@@ -7025,7 +7113,7 @@ Function Get-ADRDNSZone
         }
 
         $SearchPath = "CN=MicrosoftDNS,DC=ForestDnsZones"
-        If ($UseAltCreds)
+        If ($Credential -ne [Management.Automation.PSCredential]::Empty)
         {
             $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DomainController)/$($SearchPath),$($objDomain.distinguishedName)", $Credential.UserName,$Credential.GetNetworkCredential().Password
         }
@@ -7045,8 +7133,8 @@ Function Get-ADRDNSZone
         }
         Catch
         {
-            Write-Warning "[*] ForestDnsZones, try running with a Privileged Account"
-            Write-Warning "[EXCEPTION] $($_.Exception.Message)"
+            Write-Warning "[Get-ADRDNSZone] Error while enumerating $($SearchPath),$($objDomain.distinguishedName) dnsZone Objects. Try running with a Privileged Account."
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
         }
         $objSearcherPath.dispose()
 
@@ -7063,7 +7151,7 @@ Function Get-ADRDNSZone
             $ADDNSZonesObj = @()
             $ADDNSNodesObj = @()
             $DNSZoneArray | ForEach-Object {
-                If ($UseAltCreds)
+                If ($Credential -ne [Management.Automation.PSCredential]::Empty)
                 {
                     $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DomainController)/$($_.Properties.distinguishedname)", $Credential.UserName,$Credential.GetNetworkCredential().Password
                 }
@@ -7081,7 +7169,8 @@ Function Get-ADRDNSZone
                 }
                 Catch
                 {
-                    Write-Error "[EXCEPTION] $($_.Exception.Message)"
+                    Write-Warning "[Get-ADRDNSZone] Error while enumerating $($_.Properties.distinguishedname) dnsNode Objects"
+                    Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
                 }
                 $objSearcherPath.dispose()
                 Remove-Variable objSearchPath
@@ -7089,10 +7178,6 @@ Function Get-ADRDNSZone
                 # Create the object for each instance.
                 $Obj = New-Object PSObject
                 $Obj | Add-Member -MemberType NoteProperty -Name Name -Value $([ADRecon.LDAPClass]::CleanString($_.Properties.name))
-                $Obj | Add-Member -MemberType NoteProperty -Name USNCreated -Value ([string] $($_.Properties.usncreated))
-                $Obj | Add-Member -MemberType NoteProperty -Name USNChanged -Value ([string] $($_.Properties.usnchanged))
-                $Obj | Add-Member -MemberType NoteProperty -Name Created -Value ([DateTime] $($_.Properties.whencreated))
-                $Obj | Add-Member -MemberType NoteProperty -Name Changed -Value ([DateTime] $($_.Properties.whenchanged))
                 If ($DNSNodes)
                 {
                     $Obj | Add-Member -MemberType NoteProperty -Name RecordCount -Value $($DNSNodes | Measure-Object | Select-Object -ExpandProperty Count)
@@ -7111,7 +7196,8 @@ Function Get-ADRDNSZone
                         }
                         Catch
                         {
-                            Write-Error "[EXCEPTION] $($_.Exception.Message)"
+                            Write-Warning "[Get-ADRDNSZone] Error while converting the DNSRecord"
+                            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
                         }
                         $ObjNode | Add-Member -MemberType NoteProperty -Name RecordType -Value $DNSRecord.RecordType
                         $ObjNode | Add-Member -MemberType NoteProperty -Name Data -Value $DNSRecord.Data
@@ -7119,8 +7205,8 @@ Function Get-ADRDNSZone
                         $ObjNode | Add-Member -MemberType NoteProperty -Name Age -Value $DNSRecord.Age
                         $ObjNode | Add-Member -MemberType NoteProperty -Name TimeStamp -Value $DNSRecord.TimeStamp
                         $ObjNode | Add-Member -MemberType NoteProperty -Name UpdatedAtSerial -Value $DNSRecord.UpdatedAtSerial
-                        $ObjNode | Add-Member -MemberType NoteProperty -Name Created -Value ([DateTime] $($_.Properties.whencreated))
-                        $ObjNode | Add-Member -MemberType NoteProperty -Name Changed -Value ([DateTime] $($_.Properties.whenchanged))
+                        $ObjNode | Add-Member -MemberType NoteProperty -Name whenCreated -Value ([DateTime] $($_.Properties.whencreated))
+                        $ObjNode | Add-Member -MemberType NoteProperty -Name whenChanged -Value ([DateTime] $($_.Properties.whenchanged))
                         # TO DO
                         #$ObjNode | Add-Member -MemberType NoteProperty -Name dNSTombstoned -Value $null
                         #$ObjNode | Add-Member -MemberType NoteProperty -Name ProtectedFromAccidentalDeletion -Value $null
@@ -7137,6 +7223,10 @@ Function Get-ADRDNSZone
                 {
                     $Obj | Add-Member -MemberType NoteProperty -Name RecordCount -Value $null
                 }
+                $Obj | Add-Member -MemberType NoteProperty -Name USNCreated -Value ([string] $($_.Properties.usncreated))
+                $Obj | Add-Member -MemberType NoteProperty -Name USNChanged -Value ([string] $($_.Properties.usnchanged))
+                $Obj | Add-Member -MemberType NoteProperty -Name whenCreated -Value ([DateTime] $($_.Properties.whencreated))
+                $Obj | Add-Member -MemberType NoteProperty -Name whenChanged -Value ([DateTime] $($_.Properties.whenchanged))
                 $Obj | Add-Member -MemberType NoteProperty -Name DistinguishedName -Value ([string] $($_.Properties.distinguishedname))
                 $ADDNSZonesObj += $Obj
             }
@@ -7171,10 +7261,6 @@ Function Get-ADRPrinter
     [string]
     Which protocol to use; ADWS (default) or LDAP.
 
-.PARAMETER UseAltCreds
-    [bool]
-    Whether to use provided credentials or not.
-
 .PARAMETER objDomain
     [DirectoryServices.DirectoryEntry]
     Domain Directory Entry object.
@@ -7191,9 +7277,6 @@ Function Get-ADRPrinter
         [Parameter(Mandatory = $true)]
         [string] $Protocol,
 
-        [Parameter(Mandatory = $true)]
-        [bool] $UseAltCreds,
-
         [Parameter(Mandatory = $false)]
         [DirectoryServices.DirectoryEntry] $objDomain,
 
@@ -7209,7 +7292,8 @@ Function Get-ADRPrinter
         }
         Catch
         {
-            Write-Error "[EXCEPTION] $($_.Exception.Message)"
+            Write-Warning "[Get-ADRPrinter] Error while enumerating printQueue Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
             Return $null
         }
 
@@ -7223,15 +7307,15 @@ Function Get-ADRPrinter
                 $ADPrinters | ForEach-Object {
                     # Create the object for each instance.
                     $Obj = New-Object PSObject
-                    $Obj | Add-Member -MemberType NoteProperty -Name Name -Value $_.Name
-                    $Obj | Add-Member -MemberType NoteProperty -Name ServerName -Value $_.serverName
-                    $Obj | Add-Member -MemberType NoteProperty -Name ShareName -Value ([string]($_.printShareName))
-                    $Obj | Add-Member -MemberType NoteProperty -Name DriverName -Value $_.driverName
-                    $Obj | Add-Member -MemberType NoteProperty -Name DriverVersion -Value $_.driverVersion
-                    $Obj | Add-Member -MemberType NoteProperty -Name PortName -Value ([string]($_.portName))
-                    $Obj | Add-Member -MemberType NoteProperty -Name URL -Value ([string]($_.url))
-                    $Obj | Add-Member -MemberType NoteProperty -Name Created -Value $_.whenCreated
-                    $Obj | Add-Member -MemberType NoteProperty -Name Changed -Value $_.whenChanged
+                    $Obj | Add-Member -MemberType NoteProperty -Name "Name" -Value $_.Name
+                    $Obj | Add-Member -MemberType NoteProperty -Name "ServerName" -Value $_.serverName
+                    $Obj | Add-Member -MemberType NoteProperty -Name "ShareName" -Value ([string]($_.printShareName))
+                    $Obj | Add-Member -MemberType NoteProperty -Name "DriverName" -Value $_.driverName
+                    $Obj | Add-Member -MemberType NoteProperty -Name "DriverVersion" -Value $_.driverVersion
+                    $Obj | Add-Member -MemberType NoteProperty -Name "PortName" -Value ([string]($_.portName))
+                    $Obj | Add-Member -MemberType NoteProperty -Name "URL" -Value ([string]($_.url))
+                    $Obj | Add-Member -MemberType NoteProperty -Name "whenCreated" -Value $_.whenCreated
+                    $Obj | Add-Member -MemberType NoteProperty -Name "whenChanged" -Value $_.whenChanged
                     $ADPrintersObj += $Obj
                 }
             }
@@ -7252,7 +7336,8 @@ Function Get-ADRPrinter
         }
         Catch
         {
-            Write-Error "[EXCEPTION] $($_.Exception.Message)"
+            Write-Warning "[Get-ADRPrinter] Error while enumerating printQueue Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
             Return $null
         }
         $ObjSearcher.dispose()
@@ -7267,15 +7352,15 @@ Function Get-ADRPrinter
                 $ADPrinters | ForEach-Object {
                     # Create the object for each instance.
                     $Obj = New-Object PSObject
-                    $Obj | Add-Member -MemberType NoteProperty -Name Name -Value ([string] $($_.Properties.name))
-                    $Obj | Add-Member -MemberType NoteProperty -Name ServerName -Value ([string] $($_.Properties.servername))
-                    $Obj | Add-Member -MemberType NoteProperty -Name ShareName -Value ([string] $($_.Properties.printsharename))
-                    $Obj | Add-Member -MemberType NoteProperty -Name DriverName -Value ([string] $($_.Properties.drivername))
-                    $Obj | Add-Member -MemberType NoteProperty -Name DriverVersion -Value ([string] $($_.Properties.driverversion))
-                    $Obj | Add-Member -MemberType NoteProperty -Name PortName -Value ([string] $($_.Properties.portname))
-                    $Obj | Add-Member -MemberType NoteProperty -Name URL -Value ([string] $($_.Properties.url))
-                    $Obj | Add-Member -MemberType NoteProperty -Name Created -Value ([DateTime] $($_.Properties.whencreated))
-                    $Obj | Add-Member -MemberType NoteProperty -Name Changed -Value ([DateTime] $($_.Properties.whenchanged))
+                    $Obj | Add-Member -MemberType NoteProperty -Name "Name" -Value ([string] $($_.Properties.name))
+                    $Obj | Add-Member -MemberType NoteProperty -Name "ServerName" -Value ([string] $($_.Properties.servername))
+                    $Obj | Add-Member -MemberType NoteProperty -Name "ShareName" -Value ([string] $($_.Properties.printsharename))
+                    $Obj | Add-Member -MemberType NoteProperty -Name "DriverName" -Value ([string] $($_.Properties.drivername))
+                    $Obj | Add-Member -MemberType NoteProperty -Name "DriverVersion" -Value ([string] $($_.Properties.driverversion))
+                    $Obj | Add-Member -MemberType NoteProperty -Name "PortName" -Value ([string] $($_.Properties.portname))
+                    $Obj | Add-Member -MemberType NoteProperty -Name "URL" -Value ([string] $($_.Properties.url))
+                    $Obj | Add-Member -MemberType NoteProperty -Name "whenCreated" -Value ([DateTime] $($_.Properties.whencreated))
+                    $Obj | Add-Member -MemberType NoteProperty -Name "whenChanged" -Value ([DateTime] $($_.Properties.whenchanged))
                     $ADPrintersObj += $Obj
                 }
             }
@@ -7530,10 +7615,6 @@ Function Get-ADRLAPSCheck
     [string]
     Which protocol to use; ADWS (default) or LDAP.
 
-.PARAMETER UseAltCreds
-    [bool]
-    Whether to use provided credentials or not.
-
 .PARAMETER objDomain
     [DirectoryServices.DirectoryEntry]
     Domain Directory Entry object.
@@ -7548,9 +7629,6 @@ Function Get-ADRLAPSCheck
     param(
         [Parameter(Mandatory = $true)]
         [string] $Protocol,
-
-        [Parameter(Mandatory = $true)]
-        [bool] $UseAltCreds,
 
         [Parameter(Mandatory = $false)]
         [DirectoryServices.DirectoryEntry] $objDomain,
@@ -7568,12 +7646,12 @@ Function Get-ADRLAPSCheck
         Catch [System.ArgumentException]
         {
             Write-Warning "[*] LAPS is not implemented."
-            $LAPS = $false
             Return $null
         }
         Catch
         {
-            Write-Error "[EXCEPTION] $($_.Exception.Message)"
+            Write-Warning "[Get-ADRLAPSCheck] Error while enumerating LAPS Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
             Return $null
         }
 
@@ -7641,7 +7719,8 @@ Function Get-ADRLAPSCheck
         }
         Catch
         {
-            Write-Error "[EXCEPTION] $($_.Exception.Message)"
+            Write-Warning "[Get-ADRLAPSCheck] Error while enumerating LAPS Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
             Return $null
         }
         $ObjSearcher.dispose()
@@ -7725,10 +7804,6 @@ Function Get-ADRBitLocker
     [string]
     Which protocol to use; ADWS (default) or LDAP.
 
-.PARAMETER UseAltCreds
-    [bool]
-    Whether to use provided credentials or not.
-
 .PARAMETER objDomain
     [DirectoryServices.DirectoryEntry]
     Domain Directory Entry object.
@@ -7748,9 +7823,6 @@ Function Get-ADRBitLocker
         [Parameter(Mandatory = $true)]
         [string] $Protocol,
 
-        [Parameter(Mandatory = $true)]
-        [bool] $UseAltCreds,
-
         [Parameter(Mandatory = $false)]
         [DirectoryServices.DirectoryEntry] $objDomain,
 
@@ -7769,7 +7841,8 @@ Function Get-ADRBitLocker
         }
         Catch
         {
-            Write-Error "[EXCEPTION] $($_.Exception.Message)"
+            Write-Warning "[Get-ADRBitLocker] Error while enumerating msFVE-RecoveryInformation Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
             Return $null
         }
 
@@ -7785,26 +7858,43 @@ Function Get-ADRBitLocker
                     $Obj = New-Object PSObject
                     $Obj | Add-Member -MemberType NoteProperty -Name "Distinguished Name" -Value $((($_.distinguishedName -split '}')[1]).substring(1))
                     $Obj | Add-Member -MemberType NoteProperty -Name "Name" -Value $_.Name
-                    $Obj | Add-Member -MemberType NoteProperty -Name "Created" -Value $_.whenCreated
+                    $Obj | Add-Member -MemberType NoteProperty -Name "whenCreated" -Value $_.whenCreated
                     $Obj | Add-Member -MemberType NoteProperty -Name "Recovery Key ID" -Value $([GUID] $_.'msFVE-RecoveryGuid')
                     $Obj | Add-Member -MemberType NoteProperty -Name "Recovery Key" -Value $_.'msFVE-RecoveryPassword'
                     $Obj | Add-Member -MemberType NoteProperty -Name "Volume GUID" -Value $([GUID] $_.'msFVE-VolumeGuid')
-                    #$TempComp = Get-ADComputer -Identity $((($((($_.distinguishedName -split '}')[1]).substring(1)) -Split ("CN=")) -Split (","))[1]) -Properties msTPM-OwnerInformation,msTPM-TpmInformationForComputer
-                    $TempComp = Get-ADComputer -Identity $Obj.'Distinguished Name' -Properties msTPM-OwnerInformation,msTPM-TpmInformationForComputer
-                    # msTPM-OwnerInformation (Vista/7 or Server 2008/R2)
-                    $Obj | Add-Member -MemberType NoteProperty -Name "msTPM-OwnerInformation" -Value $TempComp.'msTPM-OwnerInformation'
-
-                    # msTPM-TpmInformationForComputer (Windows 8/10 or Server 2012/R2)
-                    $Obj | Add-Member -MemberType NoteProperty -Name "msTPM-TpmInformationForComputer" -Value $TempComp.'msTPM-TpmInformationForComputer'
-                    If ($TempComp.'msTPM-TpmInformationForComputer' -ne $null)
+                    Try
                     {
-                        # Grab the TPM Owner Info from the msTPM-InformationObject
-                        $TPMObject = Get-ADObject -Identity $TempComp.'msTPM-TpmInformationForComputer' -Properties msTPM-OwnerInformation
-                        $TPMRecoveryInfo = $TPMObject.'msTPM-OwnerInformation'
+                        $TempComp = Get-ADComputer -Identity $Obj.'Distinguished Name' -Properties msTPM-OwnerInformation,msTPM-TpmInformationForComputer
+                    }
+                    Catch
+                    {
+                        Write-Warning "[Get-ADRBitLocker] Error while enumerating $($Obj.'Distinguished Name') Computer Object"
+                        Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+                    }
+                    If ($TempComp)
+                    {
+                        # msTPM-OwnerInformation (Vista/7 or Server 2008/R2)
+                        $Obj | Add-Member -MemberType NoteProperty -Name "msTPM-OwnerInformation" -Value $TempComp.'msTPM-OwnerInformation'
+
+                        # msTPM-TpmInformationForComputer (Windows 8/10 or Server 2012/R2)
+                        $Obj | Add-Member -MemberType NoteProperty -Name "msTPM-TpmInformationForComputer" -Value $TempComp.'msTPM-TpmInformationForComputer'
+                        If ($TempComp.'msTPM-TpmInformationForComputer' -ne $null)
+                        {
+                            # Grab the TPM Owner Info from the msTPM-InformationObject
+                            $TPMObject = Get-ADObject -Identity $TempComp.'msTPM-TpmInformationForComputer' -Properties msTPM-OwnerInformation
+                            $TPMRecoveryInfo = $TPMObject.'msTPM-OwnerInformation'
+                        }
+                        Else
+                        {
+                            $TPMRecoveryInfo = $null
+                        }
                     }
                     Else
                     {
+                        $Obj | Add-Member -MemberType NoteProperty -Name "msTPM-OwnerInformation" -Value $null
+                        $Obj | Add-Member -MemberType NoteProperty -Name "msTPM-TpmInformationForComputer" -Value $null
                         $TPMRecoveryInfo = $null
+
                     }
                     $Obj | Add-Member -MemberType NoteProperty -Name "TPM Owner Password" -Value $TPMRecoveryInfo
                     $BitLockerObj += $Obj
@@ -7828,7 +7918,8 @@ Function Get-ADRBitLocker
         }
         Catch
         {
-            Write-Error "[EXCEPTION] $($_.Exception.Message)"
+            Write-Warning "[Get-ADRBitLocker] Error while enumerating msFVE-RecoveryInformation Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
             Return $null
         }
         $ObjSearcher.dispose()
@@ -7845,7 +7936,7 @@ Function Get-ADRBitLocker
                     $Obj = New-Object PSObject
                     $Obj | Add-Member -MemberType NoteProperty -Name "Distinguished Name" -Value $((($_.Properties.distinguishedname -split '}')[1]).substring(1))
                     $Obj | Add-Member -MemberType NoteProperty -Name "Name" -Value ([string] ($_.Properties.name))
-                    $Obj | Add-Member -MemberType NoteProperty -Name "Created" -Value ([DateTime] $($_.Properties.whencreated))
+                    $Obj | Add-Member -MemberType NoteProperty -Name "whenCreated" -Value ([DateTime] $($_.Properties.whencreated))
                     $Obj | Add-Member -MemberType NoteProperty -Name "Recovery Key ID" -Value $([GUID] $_.Properties.'msfve-recoveryguid'[0])
                     $Obj | Add-Member -MemberType NoteProperty -Name "Recovery Key" -Value ([string] ($_.Properties.'msfve-recoverypassword'))
                     $Obj | Add-Member -MemberType NoteProperty -Name "Volume GUID" -Value $([GUID] $_.Properties.'msfve-volumeguid'[0])
@@ -7862,7 +7953,8 @@ Function Get-ADRBitLocker
                     }
                     Catch
                     {
-                        Write-Error "[EXCEPTION] $($_.Exception.Message)"
+                        Write-Warning "[Get-ADRBitLocker] Error while enumerating $($Obj.'Distinguished Name') Computer Object"
+                        Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
                     }
                     $ObjSearcher.dispose()
 
@@ -7876,18 +7968,48 @@ Function Get-ADRBitLocker
                         If ($TempComp.Properties.'mstpm-tpminformationforcomputer' -ne $null)
                         {
                             # Grab the TPM Owner Info from the msTPM-InformationObject
-                            If ($UseAltCreds)
+                            If ($Credential -ne [Management.Automation.PSCredential]::Empty)
                             {
                                 $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DomainController)/$($TempComp.Properties.'mstpm-tpminformationforcomputer')", $Credential.UserName,$Credential.GetNetworkCredential().Password
                                 $objSearcherPath = New-Object System.DirectoryServices.DirectorySearcher $objSearchPath
                                 $objSearcherPath.PropertiesToLoad.AddRange(("mstpm-ownerinformation"))
-                                $TPMObject = $objSearcherPath.FindAll()
-                                $TPMRecoveryInfo = $([string] $TPMObject.Properties.'mstpm-ownerinformation')
+                                Try
+                                {
+                                    $TPMObject = $objSearcherPath.FindAll()
+                                }
+                                Catch
+                                {
+                                    Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+                                }
+                                $objSearcherPath.dispose()
+
+                                If ($TPMObject)
+                                {
+                                    $TPMRecoveryInfo = $([string] $TPMObject.Properties.'mstpm-ownerinformation')
+                                }
+                                Else
+                                {
+                                    $TPMRecoveryInfo = $null
+                                }
                             }
                             Else
                             {
-                                $TPMObject = ([ADSI]"LDAP://$($TempComp.Properties.'mstpm-tpminformationforcomputer')")
-                                $TPMRecoveryInfo = $([string] $TPMObject.Properties.'mstpm-ownerinformation')
+                                Try
+                                {
+                                    $TPMObject = ([ADSI]"LDAP://$($TempComp.Properties.'mstpm-tpminformationforcomputer')")
+                                }
+                                Catch
+                                {
+                                    Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+                                }
+                                If ($TPMObject)
+                                {
+                                    $TPMRecoveryInfo = $([string] $TPMObject.Properties.'mstpm-ownerinformation')
+                                }
+                                Else
+                                {
+                                    $TPMRecoveryInfo = $null
+                                }
                             }
                         }
                     }
@@ -7962,48 +8084,53 @@ Function Get-ADRGPOReport
             If ($SaveVerbosePreference)
             {
                 $script:VerbosePreference = $SaveVerbosePreference
+                Remove-Variable SaveVerbosePreference
             }
         }
         Catch
         {
-            Write-Warning "[EXCEPTION] $($_.Exception.Message)"
+            Write-Warning "[Get-ADRGPOReport] Error importing the GroupPolicy Module. Skipping GPOReport"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
             If ($SaveVerbosePreference)
             {
                 $script:VerbosePreference = $SaveVerbosePreference
+                Remove-Variable SaveVerbosePreference
             }
             Return $null
         }
         Try
         {
-            Write-Verbose "[*] Domain GPO Report XML"
+            Write-Verbose "[*] GPOReport XML"
             $ADFileName = -join($ADROutputDir,'\','GPO-Report','.xml')
             Get-GPOReport -All -ReportType XML -Path $ADFileName
         }
         Catch
         {
-            Write-Warning "[EXCEPTION] $($_.Exception.Message)"
             If ($UseAltCreds)
             {
                 Write-Warning "[*] Run the tool using RUNAS."
                 Write-Warning "[*] runas /user:<Domain FQDN>\<Username> /netonly powershell.exe"
+                Return $null
             }
-            Return $null
+            Write-Warning "[Get-ADRGPOReport] Error getting the GPOReport in XML"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
         }
         Try
         {
-            Write-Verbose "[*] Domain GPO Report HTML"
+            Write-Verbose "[*] GPOReport HTML"
             $ADFileName = -join($ADROutputDir,'\','GPO-Report','.html')
             Get-GPOReport -All -ReportType HTML -Path $ADFileName
         }
         Catch
         {
-            Write-Error "[EXCEPTION] $($_.Exception.Message)"
             If ($UseAltCreds)
             {
                 Write-Warning "[*] Run the tool using RUNAS."
                 Write-Warning "[*] runas /user:<Domain FQDN>\<Username> /netonly powershell.exe"
+                Return $null
             }
-            Return $null
+            Write-Warning "[Get-ADRGPOReport] Error getting the GPOReport in XML"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
         }
     }
     If ($Protocol -eq 'LDAP')
@@ -8887,10 +9014,10 @@ Function Invoke-ADRecon
     If ($ADROUs)
     {
         Write-Output "[-] OrganizationalUnits (OUs)"
-        $ADRObject = Get-ADROU $Protocol $UseAltCreds $objDomain $PageSize
+        $ADRObject = Get-ADROU -Protocol $Protocol -objDomain $objDomain -PageSize $PageSize
         If ($ADRObject)
         {
-            Export-ADR $ADRObject $ADROutputDir $OutputType "OUs"
+            Export-ADR -ADRObj $ADRObject -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "OUs"
             Remove-Variable ADRObject
         }
         Remove-Variable ADROUs
@@ -8909,10 +9036,10 @@ Function Invoke-ADRecon
     If ($ADRGPOs)
     {
         Write-Output "[-] GPOs"
-        $ADRObject = Get-ADRGPO $Protocol $UseAltCreds $objDomain $PageSize
+        $ADRObject = Get-ADRGPO -Protocol $Protocol -objDomain $objDomain -PageSize $PageSize
         If ($ADRObject)
         {
-            Export-ADR $ADRObject $ADROutputDir $OutputType "GPOs"
+            Export-ADR -ADRObj $ADRObject -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "GPOs"
             Remove-Variable ADRObject
         }
         Remove-Variable ADRGPOs
@@ -8920,16 +9047,16 @@ Function Invoke-ADRecon
     If ($ADRDNSZones)
     {
         Write-Output "[-] DNS Zones and Records"
-        Get-ADRDNSZone $Protocol $UseAltCreds $ADROutputDir $objDomain $DomainController $Credential $PageSize $OutputType
+        Get-ADRDNSZone -Protocol $Protocol -ADROutputDir $ADROutputDir -objDomain $objDomain -DomainController $DomainController -Credential $Credential -PageSize $PageSize -OutputType $OutputType
         Remove-Variable ADRDNSZones
     }
     If ($ADRPrinters)
     {
         Write-Output "[-] Printers"
-        $ADRObject = Get-ADRPrinter $Protocol $UseAltCreds $objDomain $PageSize
+        $ADRObject = Get-ADRPrinter -Protocol $Protocol -objDomain $objDomain -PageSize $PageSize
         If ($ADRObject)
         {
-            Export-ADR $ADRObject $ADROutputDir $OutputType "Printers"
+            Export-ADR -ADRObj $ADRObject -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "Printers"
             Remove-Variable ADRObject
         }
         Remove-Variable ADRPrinters
@@ -8959,10 +9086,10 @@ Function Invoke-ADRecon
     If ($ADRLAPS)
     {
         Write-Output "[-] LAPS - Needs Privileged Account"
-        $ADRObject = Get-ADRLAPSCheck $Protocol $UseAltCreds $objDomain $PageSize
+        $ADRObject = Get-ADRLAPSCheck -Protocol $Protocol -objDomain $objDomain -PageSize $PageSize
         If ($ADRObject)
         {
-            Export-ADR $ADRObject $ADROutputDir $OutputType "LAPS"
+            Export-ADR -ADRObj $ADRObject -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "LAPS"
             Remove-Variable ADRObject
         }
         Remove-Variable ADRLAPS
@@ -8970,10 +9097,10 @@ Function Invoke-ADRecon
     If ($ADRBitLocker)
     {
         Write-Output "[-] BitLocker Recovery Keys - Needs Privileged Account"
-        $ADRObject = Get-ADRBitLocker $Protocol $UseAltCreds $objDomain $DomainController $Credential
+        $ADRObject = Get-ADRBitLocker -Protocol $Protocol -objDomain $objDomain -DomainController $DomainController -Credential $Credential
         If ($ADRObject)
         {
-            Export-ADR $ADRObject $ADROutputDir $OutputType "BitLockerRecoveryKeys"
+            Export-ADR -ADRObj $ADRObject -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "BitLockerRecoveryKeys"
             Remove-Variable ADRObject
         }
         Remove-Variable ADRBitLocker
@@ -8981,7 +9108,7 @@ Function Invoke-ADRecon
     If ($ADRGPOReport)
     {
         Write-Output "[-] GPOReport - May take some time"
-        Get-ADRGPOReport $Protocol $UseAltCreds $ADROutputDir
+        Get-ADRGPOReport -Protocol $Protocol -UseAltCreds $UseAltCreds -ADROutputDir $ADROutputDir
         Remove-Variable ADRGPOReport
     }
 
