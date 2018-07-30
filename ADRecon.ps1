@@ -6,10 +6,10 @@
 
 .DESCRIPTION
 
-    ADRecon is a tool which extracts various artifacts (as highlighted below) out of an AD environment in a specially formatted Microsoft Excel report that includes summary views with metrics to facilitate analysis.
-    The report can provide a holistic picture of the current state of the target AD environment.
+    ADRecon is a tool which extracts and combines various artefacts (as highlighted below) out of an AD environment. The information can be presented in a specially formatted Microsoft Excel report that includes summary views with metrics to facilitate analysis and provide a holistic picture of the current state of the target AD environment.
     The tool is useful to various classes of security professionals like auditors, DFIR, students, administrators, etc. It can also be an invaluable post-exploitation tool for a penetration tester.
-    It can be run from any workstation that is connected to the environment even hosts that are not domain members. Furthermore, the tool can be executed in the context of a non-privileged (i.e. standard domain user) accounts. Fine Grained Password Policy, LAPS and BitLocker may require Privileged user accounts.
+    It can be run from any workstation that is connected to the environment, even hosts that are not domain members. Furthermore, the tool can be executed in the context of a non-privileged (i.e. standard domain user) account.
+    Fine Grained Password Policy, LAPS and BitLocker may require Privileged user accounts.
     The tool will use Microsoft Remote Server Administration Tools (RSAT) if available, otherwise it will communicate with the Domain Controller using LDAP.
     The following information is gathered by the tool:
     - Forest;
@@ -21,7 +21,7 @@
     - Fine Grained Password Policy (if implemented);
     - Domain Controllers, SMB versions, whether SMB Signing is supported and FSMO roles;
     - Users and their attributes;
-    - Service Principal Names;
+    - Service Principal Names (SPNs);
     - Groups and memberships;
     - Organizational Units (OUs) and their ACLs;
     - Group Policy Object details;
@@ -30,7 +30,7 @@
     - Computers and their attributes;
     - LAPS passwords (if implemented);
     - BitLocker Recovery Keys (if implemented); and
-    - Domain GPO Report (requires RSAT).
+    - GPOReport (requires RSAT).
 
     Author     : Prashant Mahajan
     Company    : https://www.senseofsecurity.com.au
@@ -74,7 +74,7 @@
 	Path for ADRecon output folder to save the files and the ADRecon-Report.xlsx. (The folder specified will be created if it doesn't exist)
 
 .PARAMETER Collect
-    What attributes to collect; Comma separated; e.g Forest,Domain (Default all)
+    Which modules to run; Comma separated; e.g Forest,Domain (Default all)
     Valid values include: Forest, Domain, Trusts, Sites, Subnets, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, Groups, GroupMembers, OUs, OUPermissions, GPOs, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker.
 
 .PARAMETER OutputType
@@ -83,6 +83,9 @@
 
 .PARAMETER DormantTimeSpan
     Timespan for Dormant accounts. (Default 90 days)
+
+.PARAMETER PassMaxAge
+    Maximum machine account password age. (Default 30 days)
 
 .PARAMETER PageSize
     The PageSize to set for the LDAP searcher object.
@@ -132,24 +135,27 @@
     [*] Commencing - <timestamp>
     [-] Domain
     [-] Forest
+    [-] Trusts
+    [-] Sites
+    [-] Subnets
     [-] Default Password Policy
     [-] Fine Grained Password Policy - May need a Privileged Account
     [-] Domain Controllers
-    [-] Domain Users - May take some time
-    [-] Domain User SPNs
-    [-] Domain Groups - May take some time
-    [-] Domain Group Memberships - May take some time
-    [-] Domain OrganizationalUnits (OUs)
+    [-] Users - May take some time
+    [-] User SPNs
+    [-] Groups - May take some time
+    [-] Group Memberships - May take some time
+    [-] OrganizationalUnits (OUs)
     [-] Domain OrganizationalUnits Permissions - May take some time
-    [-] Domain GPOs
-    [-] Domain DNS Zones and Records
-    [-] Domain Printers
-    [-] Domain Computers - May take some time
-    [-] Domain Computer SPNs
+    [-] GPOs
+    [-] DNS Zones and Records
+    [-] Printers
+    [-] Computers - May take some time
+    [-] Computer SPNs
     [-] LAPS - Needs Privileged Account
     WARNING: [*] LAPS is not implemented.
     [-] BitLocker Recovery Keys - Needs Privileged Account
-    [-] Domain GPO Report - May take some time
+    [-] GPOReport - May take some time
     WARNING: [EXCEPTION] Current security context is not associated with an Active Directory domain or forest.
     WARNING: [*] Run the tool using RUNAS.
     WARNING: [*] runas /user:<Domain FQDN>\<Username> /netonly powershell.exe
@@ -169,32 +175,29 @@
     [*] Commencing - <timestamp>
     [-] Domain
     [-] Forest
+    [-] Trusts
+    [-] Sites
+    [-] Subnets
     [-] Default Password Policy
     [-] Fine Grained Password Policy - May need a Privileged Account
     [-] Domain Controllers
-    [-] Domain Users - May take some time
-    [-] Domain User SPNs
-    [-] Domain Groups - May take some time
-    [-] Domain Group Memberships - May take some time
-    [-] Domain OrganizationalUnits (OUs)
+    [-] Users - May take some time
+    [-] User SPNs
+    [-] Groups - May take some time
+    [-] Group Memberships - May take some time
+    [-] OrganizationalUnits (OUs)
     [-] Domain OrganizationalUnits Permissions - May take some time
-    [-] Domain GPOs
-    [-] Domain DNS Zones and Records
-    WARNING: [*] DomainDnsZones, try running with a Privileged Account
-    WARNING: [EXCEPTION] Exception calling "FindAll" with "0" argument(s): "The specified directory service attribute or
-    value does not exist.
-    "
-    WARNING: [*] ForestDnsZones, try running with a Privileged Account
-    WARNING: [EXCEPTION] Exception calling "FindAll" with "0" argument(s): "The specified directory service attribute or
-    value does not exist.
-    "
-    [-] Domain Printers
-    [-] Domain Computers - May take some time
-    [-] Domain Computer SPNs
+    [-] GPOs
+    [-] DNS Zones and Records
+    WARNING: [Get-ADRDNSZone] Error while accessing CN=MicrosoftDNS,DC=DomainDnsZones,<Domain DN>. Try running with a Privileged Account.
+    WARNING: [Get-ADRDNSZone] Error while accessing CN=MicrosoftDNS,DC=ForestDnsZones,<Domain DN>. Try running with a Privileged Account.
+    [-] Printers
+    [-] Computers - May take some time
+    [-] Computer SPNs
     [-] LAPS - Needs Privileged Account
     WARNING: [*] LAPS is not implemented.
     [-] BitLocker Recovery Keys - Needs Privileged Account
-    [-] Domain GPO Report - May take some time
+    [-] GPOReport - May take some time
     WARNING: [*] Currently, the module is only supported with ADWS.
     [*] Total Execution Time (mins): <minutes>
     [*] Output Directory: C:\ADRecon-Report-<timestamp>
@@ -3954,11 +3957,15 @@ Function Export-ADR
     [array]
     Output Type.
 
+.PARAMETER ADRModuleName
+    [String]
+    Module Name.
+
 .OUTPUTS
     STDOUT, CSV, XML, JSON and/or HTML file, etc.
 #>
     param(
-        [Parameter(Mandatory = $false)]
+        [Parameter(Mandatory = $true)]
         [PSObject] $ADRObj,
 
         [Parameter(Mandatory = $true)]
@@ -3967,8 +3974,8 @@ Function Export-ADR
         [Parameter(Mandatory = $true)]
         [array] $OutputType,
 
-        [Parameter(Mandatory = $false)]
-        [string] $ADRModuleName
+        [Parameter(Mandatory = $true)]
+        [String] $ADRModuleName
     )
 
     Switch ($OutputType)
@@ -3992,22 +3999,22 @@ Function Export-ADR
         'CSV'
         {
             $ADFileName  = -join($ADROutputDir,'\','CSV-Files','\',$ADRModuleName,'.csv')
-            Export-ADRCSV $ADRObj $ADFileName
+            Export-ADRCSV -ADRObj $ADRObj -ADFileName $ADFileName
         }
         'XML'
         {
             $ADFileName  = -join($ADROutputDir,'\','XML-Files','\',$ADRModuleName,'.xml')
-            Export-ADRXML $ADRObj $ADFileName
+            Export-ADRXML -ADRObj $ADRObj -ADFileName $ADFileName
         }
         'JSON'
         {
             $ADFileName  = -join($ADROutputDir,'\','JSON-Files','\',$ADRModuleName,'.json')
-            Export-ADRXML $ADRObj $ADFileName
+            Export-ADRXML -ADRObj $ADRObj -ADFileName $ADFileName
         }
         'HTML'
         {
             $ADFileName  = -join($ADROutputDir,'\','HTML-Files','\',$ADRModuleName,'.html')
-            Export-ADRHTML $ADRObj $ADFileName
+            Export-ADRHTML -ADRObj $ADRObj -ADFileName $ADFileName
         }
     }
 }
@@ -8311,10 +8318,6 @@ Function Get-ADRAbout
     [string]
     Which protocol to use; ADWS (default) or LDAP.
 
-.PARAMETER UseAltCreds
-    [bool]
-    Whether to use provided credentials or not.
-
 .PARAMETER date
     [DateTime]
     Date
@@ -8341,9 +8344,6 @@ Function Get-ADRAbout
     param(
         [Parameter(Mandatory = $true)]
         [string] $Protocol,
-
-        [Parameter(Mandatory = $true)]
-        [bool] $UseAltCreds,
 
         [Parameter(Mandatory = $true)]
         [DateTime] $date,
@@ -8489,7 +8489,7 @@ Function Invoke-ADRecon
         [bool] $UseAltCreds = $false
     )
 
-    [string] $ADReconVersion = "v180707"
+    [string] $ADReconVersion = "v180708"
     Write-Output "[*] ADRecon $ADReconVersion by Prashant Mahajan (@prashant3535) from Sense of Security."
 
     If ($GenExcel)
@@ -8499,7 +8499,7 @@ Function Invoke-ADRecon
             Write-Output "[Invoke-ADRecon] Invalid Path ... Exiting"
             Return $null
         }
-        Export-ADRExcel $GenExcel
+        Export-ADRExcel -ExcelPath $GenExcel
         Return $null
     }
 
@@ -8809,7 +8809,7 @@ Function Invoke-ADRecon
             }
         }
         $ADROutputDir = $((Convert-Path $ADROutputDir).TrimEnd("\"))
-        Write-Verbose $ADROutputDir
+        Write-Verbose "[*] Output Directory: $ADROutputDir"
     }
     ElseIf ($ADRCreate)
     {
@@ -9200,15 +9200,15 @@ Function Invoke-ADRecon
         Remove-Variable ADRGPOReport
     }
 
-    $TotalTime = "{0:N2}" -f ((Get-DateDiff (Get-Date) $date).TotalMinutes)
+    $TotalTime = "{0:N2}" -f ((Get-DateDiff -Date1 (Get-Date) -Date2 $date).TotalMinutes)
 
-    $AboutADRecon = Get-ADRAbout $Protocol $UseAltCreds $date $ADReconVersion $Credential $RanonComputer $TotalTime
+    $AboutADRecon = Get-ADRAbout -Protocol $Protocol -date $date -ADReconVersion $ADReconVersion -Credential $Credential -RanonComputer $RanonComputer -TotalTime $TotalTime
 
     If ( ($OutputType -Contains "CSV") -or ($OutputType -Contains "XML") -or ($OutputType -Contains "JSON") -or ($OutputType -Contains "HTML") )
     {
         If ($AboutADRecon)
         {
-            Export-ADR $AboutADRecon $ADROutputDir $OutputType "AboutADRecon"
+            Export-ADR -ADRObj $AboutADRecon -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "AboutADRecon"
         }
         Write-Output "[*] Total Execution Time (mins): $($TotalTime)"
         Write-Output "[*] Output Directory: $ADROutputDir"
