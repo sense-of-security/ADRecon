@@ -2567,7 +2567,7 @@ Function Get-ADRExcelComObj
             $script:VerbosePreference = $SaveVerbosePreference
             Remove-Variable SaveVerbosePreference
         }
-        Write-Warning "[Get-ADRExcelComObj] Excel does not appear to be installed. Skipping generation of ADRecon-Report-<ddMMMyy>.xlsx. Use the -GenExcel parameter to generate the ADRecon-Report.xslx on a host with Microsoft Excel installed."
+        Write-Warning "[Get-ADRExcelComObj] Excel does not appear to be installed. Skipping generation of ADRecon-Report.xlsx. Use the -GenExcel parameter to generate the ADRecon-Report.xslx on a host with Microsoft Excel installed."
         Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
         Return $null
     }
@@ -3145,6 +3145,43 @@ Function Get-ADRExcelChart
     Remove-Variable worksheet
 }
 
+Function Get-ADRExcelSort
+{
+<#
+.SYNOPSIS
+    Sorts a WorkSheet in the active Workbook.
+
+.DESCRIPTION
+    Sorts a WorkSheet in the active Workbook.
+
+.PARAMETER ColumnName
+    [string]
+    Name of the Column.
+#>
+    param (
+        [Parameter(Mandatory = $true)]
+        [string] $ColumnName
+    )
+
+    $worksheet = $workbook.Worksheets.Item(1)
+    $worksheet.Activate();
+
+    $ExcelColumn = ($worksheet.Columns.Find($ColumnName))
+    If ($ExcelColumn)
+    {
+        If ($ExcelColumn.Text -ne $ColumnName)
+        {
+            Write-Verbose "[Get-ADRExcelSort] Wrong Column Selected: $($ColumnName)"
+        }
+        # Sort by Column
+        $workSheet.ListObjects.Item(1).Sort.SortFields.Clear()
+        $workSheet.ListObjects.Item(1).Sort.SortFields.Add($ExcelColumn) | Out-Null
+        $worksheet.ListObjects.Item(1).Sort.Apply()
+    }
+    Get-ADRExcelComObjRelease -ComObjtoRelease $worksheet
+    Remove-Variable worksheet
+}
+
 Function Export-ADRExcel
 {
 <#
@@ -3311,6 +3348,8 @@ Function Export-ADRExcel
             Get-ADRExcelWorkbook -Name "Computer SPNs"
             Get-ADRExcelImport -ADFileName $ADFileName
             Remove-Variable ADFileName
+
+            Get-ADRExcelSort -ColumnName "Name"
         }
 
         $ADFileName = -join($ReportPath,'\','Computers.csv')
@@ -3319,6 +3358,18 @@ Function Export-ADRExcel
             Get-ADRExcelWorkbook -Name "Computers"
             Get-ADRExcelImport -ADFileName $ADFileName
             Remove-Variable ADFileName
+
+            Get-ADRExcelSort -ColumnName "UserName"
+
+            $worksheet = $workbook.Worksheets.Item(1)
+            # Freeze First Row and Column
+            $worksheet.Select()
+            $worksheet.Application.ActiveWindow.splitcolumn = 1
+            $worksheet.Application.ActiveWindow.splitrow = 1
+            $worksheet.Application.ActiveWindow.FreezePanes = $true
+
+            Get-ADRExcelComObjRelease -ComObjtoRelease $worksheet
+            Remove-Variable worksheet
         }
 
         $ADFileName = -join($ReportPath,'\','OUPermissions.csv')
@@ -3351,6 +3402,8 @@ Function Export-ADRExcel
             Get-ADRExcelWorkbook -Name "Groups"
             Get-ADRExcelImport -ADFileName $ADFileName
             Remove-Variable ADFileName
+
+            Get-ADRExcelSort -ColumnName "Name"
         }
 
         $ADFileName = -join($ReportPath,'\','GroupMembers.csv')
@@ -3359,6 +3412,8 @@ Function Export-ADRExcel
             Get-ADRExcelWorkbook -Name "Group Members"
             Get-ADRExcelImport -ADFileName $ADFileName
             Remove-Variable ADFileName
+
+            Get-ADRExcelSort -ColumnName "Group Name"
         }
 
         $ADFileName = -join($ReportPath,'\','Users.csv')
@@ -3368,15 +3423,21 @@ Function Export-ADRExcel
             Get-ADRExcelImport -ADFileName $ADFileName
             Remove-Variable ADFileName
 
+            Get-ADRExcelSort -ColumnName "UserName"
+
             $worksheet = $workbook.Worksheets.Item(1)
-            $worksheet.Activate();
+
+            # Freeze First Row and Column
+            $worksheet.Select()
+            $worksheet.Application.ActiveWindow.splitcolumn = 1
+            $worksheet.Application.ActiveWindow.splitrow = 1
+            $worksheet.Application.ActiveWindow.FreezePanes = $true
+
             $worksheet.Cells.Item(1,3).Interior.ColorIndex = 5
             $worksheet.Cells.Item(1,3).font.ColorIndex = 2
             # Set Filter to Enabled Accounts only
             $worksheet.UsedRange.Select() | Out-Null
             $excel.Selection.AutoFilter(3,$true) | Out-Null
-            $worksheet.Range("A1").Select() | Out-Null
-
             Get-ADRExcelComObjRelease -ComObjtoRelease $worksheet
             Remove-Variable worksheet
         }
