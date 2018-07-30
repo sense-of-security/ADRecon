@@ -3580,6 +3580,33 @@ Function Export-ADRExcel
             Remove-Variable worksheet
         }
 
+        # Computer Stats
+        $ADFileName = -join($ReportPath,'\','Computers.csv')
+        If (Test-Path $ADFileName)
+        {
+            Get-ADRExcelWorkbook -Name "Computer Stats"
+            Remove-Variable ADFileName
+
+            $ObjAttributes = New-Object System.Collections.Specialized.OrderedDictionary
+            $ObjAttributes.Add("Delegation Typ",'"Unconstrained"')
+            $ObjAttributes.Add("Delegation Type",'"Constrained"')
+            $ObjAttributes.Add("SIDHistory",'"*"')
+            $ObjAttributes.Add("Dormant",'"TRUE"')
+            $ObjAttributes.Add("Password Age (> ",'"TRUE"')
+
+            Get-ADRExcelAttributeStats -SrcSheetName "Computers" -Title1 "Computer Accounts in AD" -Title2 "Status of Computer Accounts" -ObjAttributes $ObjAttributes
+            Remove-Variable ObjAttributes
+
+            Get-ADRExcelChart -ChartType "xlPie" -ChartLayout 3 -ChartTitle "Computer Accounts in AD" -RangetoCover "A10:D22" -ChartData $workbook.Worksheets.Item(1).Range("A3:A4,B3:B4")
+            $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item(9,1) , "" , "Computers!A1", "", "Raw Data") | Out-Null
+
+            Get-ADRExcelChart -ChartType "xlBarClustered" -ChartLayout 1 -ChartTitle "Status of Computer Accounts" -RangetoCover "F10:L22" -ChartData $workbook.Worksheets.Item(1).Range("F2:F7,G2:G7")
+            $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item(9,6) , "" , "Computers!A1", "", "Raw Data") | Out-Null
+
+            $workbook.Worksheets.Item(1).UsedRange.EntireColumn.AutoFit() | Out-Null
+            $excel.Windows.Item(1).Displaygridlines = $false
+        }
+
         # User Stats
         $ADFileName = -join($ReportPath,'\','Users.csv')
         If (Test-Path $ADFileName)
