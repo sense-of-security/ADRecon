@@ -23,7 +23,8 @@
     - Users and their attributes;
     - Service Principal Names (SPNs);
     - Groups and memberships;
-    - Organizational Units (OUs) and their ACLs;
+    - Organizational Units (OUs);
+    - ACLs for the Domain, OUs, Root Containers and GroupPolicy objects;
     - Group Policy Object details;
     - DNS Zones and Records;
     - Printers;
@@ -75,7 +76,7 @@
 
 .PARAMETER Collect
     Which modules to run; Comma separated; e.g Forest,Domain (Default all)
-    Valid values include: Forest, Domain, Trusts, Sites, Subnets, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, Groups, GroupMembers, OUs, OUPermissions, GPOs, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker.
+    Valid values include: Forest, Domain, Trusts, Sites, Subnets, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, Groups, GroupMembers, OUs, ACLs, GPOs, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker.
 
 .PARAMETER OutputType
     Output Type; Comma seperated; e.g STDOUT,CSV,XML,JSON,HTML,Excel (Default STDOUT with -Collect parameter, else CSV and Excel).
@@ -86,6 +87,9 @@
 
 .PARAMETER PassMaxAge
     Maximum machine account password age. (Default 30 days)
+
+.PARAMETER ResolveSIDs
+    Whether to resolve SIDs in the ACLs module. (Default False)
 
 .PARAMETER PageSize
     The PageSize to set for the LDAP searcher object.
@@ -146,7 +150,7 @@
     [-] Groups - May take some time
     [-] Group Memberships - May take some time
     [-] OrganizationalUnits (OUs)
-    [-] Domain OrganizationalUnits Permissions - May take some time
+    [-] ACLs - May take some time
     [-] GPOs
     [-] DNS Zones and Records
     [-] Printers
@@ -186,7 +190,7 @@
     [-] Groups - May take some time
     [-] Group Memberships - May take some time
     [-] OrganizationalUnits (OUs)
-    [-] Domain OrganizationalUnits Permissions - May take some time
+    [-] ACLs - May take some time
     [-] GPOs
     [-] DNS Zones and Records
     WARNING: [Get-ADRDNSZone] Error while accessing CN=MicrosoftDNS,DC=DomainDnsZones,<Domain DN>. Try running with a Privileged Account.
@@ -230,8 +234,8 @@ param
     [Parameter(Mandatory = $false, HelpMessage = "Path for ADRecon output folder to save the CSV/XML/JSON/HTML files and the ADRecon-Report-<ddMMMyy>.xlsx. (The folder specified will be created if it doesn't exist)")]
     [string] $OutputDir,
 
-    [Parameter(Mandatory = $false, HelpMessage = "Which modules to run; Comma separated; e.g Forest,Domain (Default all) Valid values include: Forest, Domain, Trusts, Sites, Subnets, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, Groups, GroupMembers, OUs, OUPermissions, GPOs, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker")]
-    [ValidateSet('Forest', 'Domain', 'Trusts', 'Sites', 'Subnets', 'PasswordPolicy', 'FineGrainedPasswordPolicy', 'DomainControllers', 'Users', 'UserSPNs', 'Groups', 'GroupMembers', 'OUs', 'OUPermissions', 'GPOs', 'GPOReport', 'DNSZones', 'Printers', 'Computers', 'ComputerSPNs', 'LAPS', 'BitLocker', 'Default')]
+    [Parameter(Mandatory = $false, HelpMessage = "Which modules to run; Comma separated; e.g Forest,Domain (Default all) Valid values include: Forest, Domain, Trusts, Sites, Subnets, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, Groups, GroupMembers, OUs, ACLs, GPOs, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker")]
+    [ValidateSet('Forest', 'Domain', 'Trusts', 'Sites', 'Subnets', 'PasswordPolicy', 'FineGrainedPasswordPolicy', 'DomainControllers', 'Users', 'UserSPNs', 'Groups', 'GroupMembers', 'OUs', 'ACLs', 'GPOs', 'GPOReport', 'DNSZones', 'Printers', 'Computers', 'ComputerSPNs', 'LAPS', 'BitLocker', 'Default')]
     [array] $Collect = 'Default',
 
     [Parameter(Mandatory = $false, HelpMessage = "Output type; Comma seperated; e.g STDOUT,CSV,XML,JSON,HTML,Excel (Default STDOUT with -Collect parameter, else CSV and Excel)")]
@@ -245,6 +249,9 @@ param
     [Parameter(Mandatory = $false, HelpMessage = "Maximum machine account password age. Default 30 days")]
     [ValidateRange(1,1000)]
     [int] $PassMaxAge = 30,
+
+    [Parameter(Mandatory = $false, HelpMessage = "Whether to resolve SIDs in the ACLs module. Default False")]
+    [bool] $ResolveSID = $false,
 
     [Parameter(Mandatory = $false, HelpMessage = "The PageSize to set for the LDAP searcher object. Default 200")]
     [ValidateRange(1,10000)]
@@ -703,7 +710,7 @@ namespace ADRecon
                         }
                         Memberof = Memberof.TrimStart(',');
                     }
-                    else
+                    else if (Memberof != null)
                     {
                         Memberof = ((Convert.ToString(MemberOfAttribute.Value)).Split(',')[0]).Split('=')[1];
                     }
@@ -1650,11 +1657,14 @@ namespace ADRecon
                         Enabled = !((userFlags & UACFlags.ACCOUNTDISABLE) == UACFlags.ACCOUNTDISABLE);
                     }
                     String Description = (AdUser.Properties["Description"].Count != 0 ? Convert.ToString(AdUser.Properties["Description"][0]) : "");
-                    foreach (String Member in AdUser.Properties["memberof"])
+                    if (AdUser.Properties["memberof"].Count != 0)
                     {
-                        Memberof = Memberof + "," + ((Convert.ToString(Member)).Split(',')[0]).Split('=')[1];
+                        foreach (String Member in AdUser.Properties["memberof"])
+                        {
+                            Memberof = Memberof + "," + ((Convert.ToString(Member)).Split(',')[0]).Split('=')[1];
+                        }
+                        Memberof = Memberof.TrimStart(',');
                     }
-                    Memberof = Memberof.TrimStart(',');
                     foreach (String SPN in AdUser.Properties["serviceprincipalname"])
                     {
                         String[] SPNArray = SPN.Split('/');
@@ -3174,12 +3184,33 @@ Function Get-ADRExcelSort
     {
         If ($ExcelColumn.Text -ne $ColumnName)
         {
-            Write-Verbose "[Get-ADRExcelSort] Wrong Column Selected: $($ColumnName)"
+            $BeginAddress = $ExcelColumn.Address(0,0,1,1)
+            $End = $False
+            Do {
+                Write-Verbose "[Get-ADRExcelSort] $($ExcelColumn.Text) selected instead of $($ColumnName) in the $($worksheet.Name) worksheet."
+                $ExcelColumn = ($worksheet.Columns.FindNext($ExcelColumn))
+                $Address = $ExcelColumn.Address(0,0,1,1)
+                If ( ($Address -eq $BeginAddress) -or ($ExcelColumn.Text -eq $ColumnName) )
+                {
+                    $End = $True
+                }
+            } Until ($End -eq $True)
         }
-        # Sort by Column
-        $workSheet.ListObjects.Item(1).Sort.SortFields.Clear()
-        $workSheet.ListObjects.Item(1).Sort.SortFields.Add($ExcelColumn) | Out-Null
-        $worksheet.ListObjects.Item(1).Sort.Apply()
+        If ($ExcelColumn.Text -eq $ColumnName)
+        {
+            # Sort by Column
+            $workSheet.ListObjects.Item(1).Sort.SortFields.Clear()
+            $workSheet.ListObjects.Item(1).Sort.SortFields.Add($ExcelColumn) | Out-Null
+            $worksheet.ListObjects.Item(1).Sort.Apply()
+        }
+        Else
+        {
+            Write-Verbose "[Get-ADRExcelSort] $($ColumnName) not found in the $($worksheet.Name) worksheet."
+        }
+    }
+    Else
+    {
+        Write-Verbose "[Get-ADRExcelSort] $($ColumnName) not found in the $($worksheet.Name) worksheet."
     }
     Get-ADRExcelComObjRelease -ComObjtoRelease $worksheet
     Remove-Variable worksheet
@@ -3375,12 +3406,23 @@ Function Export-ADRExcel
             Remove-Variable worksheet
         }
 
-        $ADFileName = -join($ReportPath,'\','OUPermissions.csv')
+        $ADFileName = -join($ReportPath,'\','ACLs.csv')
         If (Test-Path $ADFileName)
         {
-            Get-ADRExcelWorkbook -Name "OUPerms"
+            Get-ADRExcelWorkbook -Name "ACLs"
             Get-ADRExcelImport -ADFileName $ADFileName
             Remove-Variable ADFileName
+
+            $worksheet = $workbook.Worksheets.Item(1)
+            $worksheet.Activate();
+
+            # hide Owner, ActiveDirectoryRights, InheritanceType, ObjectType, InheritedObjectType, ObjectFlags, AccessControlType, IdentityReference, IsInherited, InheritanceFlags and PropagationFlags columns
+            10 .. 20 | ForEach-Object {
+                $worksheet.Columns.Item($_).hidden = $true
+            }
+
+            Get-ADRExcelComObjRelease -ComObjtoRelease $worksheet
+            Remove-Variable worksheet
         }
 
         $ADFileName = -join($ReportPath,'\','OUs.csv')
@@ -3406,7 +3448,7 @@ Function Export-ADRExcel
             Get-ADRExcelImport -ADFileName $ADFileName
             Remove-Variable ADFileName
 
-            Get-ADRExcelSort -ColumnName "Name"
+            Get-ADRExcelSort -ColumnName "DistinguishedName"
         }
 
         $ADFileName = -join($ReportPath,'\','GroupMembers.csv')
@@ -3573,6 +3615,10 @@ Function Export-ADRExcel
 
             # https://msdn.microsoft.com/en-us/vba/excel-vba/articles/xlsortorder-enumeration-excel
             $worksheet.PivotTables($PivotTableName).PivotFields("Group Name").AutoSort([Microsoft.Office.Interop.Excel.XlSortOrder]::xlDescending,"Count (Not-Recursive)")
+
+            $worksheet.Cells.Item(3,1).Interior.ColorIndex = 5
+            $worksheet.Cells.Item(3,1).font.ColorIndex = 2
+
             $excel.ScreenUpdating = $true
 
             Get-ADRExcelChart -ChartType "xlColumnClustered" -ChartLayout 10 -ChartTitle "Privileged Groups in AD" -RangetoCover "D2:P16" -StartRow "A3" -StartColumn "B3"
@@ -4278,8 +4324,9 @@ Function Get-ADRDomain
                 }
                 Catch
                 {
-                    Write-Warning "[Get-ADRDomain] Error retrieving Domain SID"
+                    Write-Warning "[Get-ADRDomain] Error retrieving Domain SID using the GlobalCatalog $($GlobalCatalog.IPAddress). Using SID from the ObjDomain."
                     Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+                    $ADDomainSID = New-Object System.Security.Principal.SecurityIdentifier($objDomain.objectSid[0], 0)
                 }
             }
         }
@@ -4297,7 +4344,7 @@ Function Get-ADRDomain
             }
             Catch
             {
-                Write-Warning "[Get-ADRDomain] Error retrieving Domain SID."
+                Write-Warning "[Get-ADRDomain] Error retrieving Domain SID using the GlobalCatalog $($GlobalCatalog.IPAddress). Using SID from the ObjDomain."
                 Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
                 $ADDomainSID = New-Object System.Security.Principal.SecurityIdentifier($objDomain.objectSid[0], 0)
             }
@@ -6333,23 +6380,315 @@ Function Get-ADROU
     }
 }
 
-# based on https://gallery.technet.microsoft.com/Active-Directory-OU-1d09f989
-Function Get-ADROUPermission
+# Modified ConvertFrom-SID function from https://github.com/PowerShellMafia/PowerSploit/blob/dev/Recon/PowerView.ps1
+Function ConvertFrom-SID
 {
 <#
 .SYNOPSIS
-    Returns all Organizational Units (OU) permissions in the current (or specified) domain.
+    Converts a security identifier (SID) to a group/user name.
+
+    Author: Will Schroeder (@harmj0y)
+    License: BSD 3-Clause
 
 .DESCRIPTION
-    Returns all Organizational Units (OU) permissions in the current (or specified) domain.
+    Converts a security identifier string (SID) to a group/user name using IADsNameTranslate interface.
 
 .PARAMETER Protocol
     [string]
     Which protocol to use; ADWS (default) or LDAP.
 
-.PARAMETER UseAltCreds
+.PARAMETER ObjectSid
+    Specifies one or more SIDs to convert.
+
+.PARAMETER DomainFQDN
+    Specifies the FQDN of the Domain.
+
+.PARAMETER Credential
+    Specifies an alternate credential to use for the translation.
+
+.PARAMETER ResolveSIDs
     [bool]
-    Whether to use provided credentials or not.
+    Whether to resolve SIDs in the ACLs module. (Default False)
+
+.EXAMPLE
+
+    ConvertFrom-SID S-1-5-21-890171859-3433809279-3366196753-1108
+
+    TESTLAB\harmj0y
+
+.EXAMPLE
+
+    "S-1-5-21-890171859-3433809279-3366196753-1107", "S-1-5-21-890171859-3433809279-3366196753-1108", "S-1-5-32-562" | ConvertFrom-SID
+
+    TESTLAB\WINDOWS2$
+    TESTLAB\harmj0y
+    BUILTIN\Distributed COM Users
+
+.EXAMPLE
+
+    $SecPassword = ConvertTo-SecureString 'Password123!' -AsPlainText -Force
+    $Cred = New-Object System.Management.Automation.PSCredential('TESTLAB\dfm', $SecPassword)
+    ConvertFrom-SID S-1-5-21-890171859-3433809279-3366196753-1108 -Credential $Cred
+
+    TESTLAB\harmj0y
+
+.INPUTS
+    [String]
+    Accepts one or more SID strings on the pipeline.
+
+.OUTPUTS
+    [String]
+    The converted DOMAIN\username.
+#>
+    Param(
+        [Parameter(Mandatory = $true)]
+        [string] $Protocol,
+
+        [Parameter(Mandatory = $true)]
+        [Alias('SID')]
+        #[ValidatePattern('^S-1-.*')]
+        [String]
+        $ObjectSid,
+
+        [Parameter(Mandatory = $false)]
+        [string] $DomainFQDN,
+
+        [Parameter(Mandatory = $false)]
+        [Management.Automation.PSCredential] $Credential = [Management.Automation.PSCredential]::Empty,
+
+        [Parameter(Mandatory = $false)]
+        [bool] $ResolveSID = $false
+    )
+
+    BEGIN {
+        # Name Translator Initialization Types
+        # https://msdn.microsoft.com/en-us/library/aa772266%28v=vs.85%29.aspx
+        $ADS_NAME_INITTYPE_DOMAIN   = 1 # Initializes a NameTranslate object by setting the domain that the object binds to.
+        #$ADS_NAME_INITTYPE_SERVER   = 2 # Initializes a NameTranslate object by setting the server that the object binds to.
+        $ADS_NAME_INITTYPE_GC       = 3 # Initializes a NameTranslate object by locating the global catalog that the object binds to.
+
+        # Name Transator Name Types
+        # https://msdn.microsoft.com/en-us/library/aa772267%28v=vs.85%29.aspx
+        #$ADS_NAME_TYPE_1779                     = 1 # Name format as specified in RFC 1779. For example, "CN=Jeff Smith,CN=users,DC=Fabrikam,DC=com".
+        #$ADS_NAME_TYPE_CANONICAL                = 2 # Canonical name format. For example, "Fabrikam.com/Users/Jeff Smith".
+        $ADS_NAME_TYPE_NT4                      = 3 # Account name format used in Windows. For example, "Fabrikam\JeffSmith".
+        #$ADS_NAME_TYPE_DISPLAY                  = 4 # Display name format. For example, "Jeff Smith".
+        #$ADS_NAME_TYPE_DOMAIN_SIMPLE            = 5 # Simple domain name format. For example, "JeffSmith@Fabrikam.com".
+        #$ADS_NAME_TYPE_ENTERPRISE_SIMPLE        = 6 # Simple enterprise name format. For example, "JeffSmith@Fabrikam.com".
+        #$ADS_NAME_TYPE_GUID                     = 7 # Global Unique Identifier format. For example, "{95ee9fff-3436-11d1-b2b0-d15ae3ac8436}".
+        $ADS_NAME_TYPE_UNKNOWN                  = 8 # Unknown name type. The system will estimate the format. This element is a meaningful option only with the IADsNameTranslate.Set or the IADsNameTranslate.SetEx method, but not with the IADsNameTranslate.Get or IADsNameTranslate.GetEx method.
+        #$ADS_NAME_TYPE_USER_PRINCIPAL_NAME      = 9 # User principal name format. For example, "JeffSmith@Fabrikam.com".
+        #$ADS_NAME_TYPE_CANONICAL_EX             = 10 # Extended canonical name format. For example, "Fabrikam.com/Users Jeff Smith".
+        #$ADS_NAME_TYPE_SERVICE_PRINCIPAL_NAME   = 11 # Service principal name format. For example, "www/www.fabrikam.com@fabrikam.com".
+        #$ADS_NAME_TYPE_SID_OR_SID_HISTORY_NAME  = 12 # A SID string, as defined in the Security Descriptor Definition Language (SDDL), for either the SID of the current object or one from the object SID history. For example, "O:AOG:DAD:(A;;RPWPCCDCLCSWRCWDWOGA;;;S-1-0-0)"
+
+        # https://msdn.microsoft.com/en-us/library/aa772250.aspx
+        #$ADS_CHASE_REFERRALS_NEVER       = (0x00) # The client should never chase the referred-to server. Setting this option prevents a client from contacting other servers in a referral process.
+        #$ADS_CHASE_REFERRALS_SUBORDINATE = (0x20) # The client chases only subordinate referrals which are a subordinate naming context in a directory tree. For example, if the base search is requested for "DC=Fabrikam,DC=Com", and the server returns a result set and a referral of "DC=Sales,DC=Fabrikam,DC=Com" on the AdbSales server, the client can contact the AdbSales server to continue the search. The ADSI LDAP provider always turns off this flag for paged searches.
+        #$ADS_CHASE_REFERRALS_EXTERNAL    = (0x40) # The client chases external referrals. For example, a client requests server A to perform a search for "DC=Fabrikam,DC=Com". However, server A does not contain the object, but knows that an independent server, B, owns it. It then refers the client to server B.
+        $ADS_CHASE_REFERRALS_ALWAYS      = (0x60) # Referrals are chased for either the subordinate or external type.
+    }
+
+    PROCESS {
+        $TargetSid = $($ObjectSid.TrimStart("O:"))
+        $TargetSid = $($TargetSid.Trim('*'))
+        If ($TargetSid -match '^S-1-.*')
+        {
+            Try
+            {
+                # try to resolve any built-in SIDs first - https://support.microsoft.com/en-us/kb/243330
+                Switch ($TargetSid) {
+                    'S-1-0'         { 'Null Authority' }
+                    'S-1-0-0'       { 'Nobody' }
+                    'S-1-1'         { 'World Authority' }
+                    'S-1-1-0'       { 'Everyone' }
+                    'S-1-2'         { 'Local Authority' }
+                    'S-1-2-0'       { 'Local' }
+                    'S-1-2-1'       { 'Console Logon ' }
+                    'S-1-3'         { 'Creator Authority' }
+                    'S-1-3-0'       { 'Creator Owner' }
+                    'S-1-3-1'       { 'Creator Group' }
+                    'S-1-3-2'       { 'Creator Owner Server' }
+                    'S-1-3-3'       { 'Creator Group Server' }
+                    'S-1-3-4'       { 'Owner Rights' }
+                    'S-1-4'         { 'Non-unique Authority' }
+                    'S-1-5'         { 'NT Authority' }
+                    'S-1-5-1'       { 'Dialup' }
+                    'S-1-5-2'       { 'Network' }
+                    'S-1-5-3'       { 'Batch' }
+                    'S-1-5-4'       { 'Interactive' }
+                    'S-1-5-6'       { 'Service' }
+                    'S-1-5-7'       { 'Anonymous' }
+                    'S-1-5-8'       { 'Proxy' }
+                    'S-1-5-9'       { 'Enterprise Domain Controllers' }
+                    'S-1-5-10'      { 'Principal Self' }
+                    'S-1-5-11'      { 'Authenticated Users' }
+                    'S-1-5-12'      { 'Restricted Code' }
+                    'S-1-5-13'      { 'Terminal Server Users' }
+                    'S-1-5-14'      { 'Remote Interactive Logon' }
+                    'S-1-5-15'      { 'This Organization ' }
+                    'S-1-5-17'      { 'This Organization ' }
+                    'S-1-5-18'      { 'Local System' }
+                    'S-1-5-19'      { 'NT Authority' }
+                    'S-1-5-20'      { 'NT Authority' }
+                    'S-1-5-80-0'    { 'All Services ' }
+                    'S-1-5-32-544'  { 'BUILTIN\Administrators' }
+                    'S-1-5-32-545'  { 'BUILTIN\Users' }
+                    'S-1-5-32-546'  { 'BUILTIN\Guests' }
+                    'S-1-5-32-547'  { 'BUILTIN\Power Users' }
+                    'S-1-5-32-548'  { 'BUILTIN\Account Operators' }
+                    'S-1-5-32-549'  { 'BUILTIN\Server Operators' }
+                    'S-1-5-32-550'  { 'BUILTIN\Print Operators' }
+                    'S-1-5-32-551'  { 'BUILTIN\Backup Operators' }
+                    'S-1-5-32-552'  { 'BUILTIN\Replicators' }
+                    'S-1-5-32-554'  { 'BUILTIN\Pre-Windows 2000 Compatible Access' }
+                    'S-1-5-32-555'  { 'BUILTIN\Remote Desktop Users' }
+                    'S-1-5-32-556'  { 'BUILTIN\Network Configuration Operators' }
+                    'S-1-5-32-557'  { 'BUILTIN\Incoming Forest Trust Builders' }
+                    'S-1-5-32-558'  { 'BUILTIN\Performance Monitor Users' }
+                    'S-1-5-32-559'  { 'BUILTIN\Performance Log Users' }
+                    'S-1-5-32-560'  { 'BUILTIN\Windows Authorization Access Group' }
+                    'S-1-5-32-561'  { 'BUILTIN\Terminal Server License Servers' }
+                    'S-1-5-32-562'  { 'BUILTIN\Distributed COM Users' }
+                    'S-1-5-32-569'  { 'BUILTIN\Cryptographic Operators' }
+                    'S-1-5-32-573'  { 'BUILTIN\Event Log Readers' }
+                    'S-1-5-32-574'  { 'BUILTIN\Certificate Service DCOM Access' }
+                    'S-1-5-32-575'  { 'BUILTIN\RDS Remote Access Servers' }
+                    'S-1-5-32-576'  { 'BUILTIN\RDS Endpoint Servers' }
+                    'S-1-5-32-577'  { 'BUILTIN\RDS Management Servers' }
+                    'S-1-5-32-578'  { 'BUILTIN\Hyper-V Administrators' }
+                    'S-1-5-32-579'  { 'BUILTIN\Access Control Assistance Operators' }
+                    'S-1-5-32-580'  { 'BUILTIN\Remote Management Users' }
+                    Default {
+                        # based on Convert-ADName function from https://github.com/PowerShellMafia/PowerSploit/blob/dev/Recon/PowerView.ps1
+                        If ( ($TargetSid -match '^S-1-.*') -and ($ResolveSID) )
+                        {
+                            If ($Protocol -eq 'ADWS')
+                            {
+                                Try
+                                {
+                                    $ADObject = Get-ADObject -Filter "objectSid -eq '$TargetSid'" -Properties DistinguishedName,sAMAccountName
+                                }
+                                Catch
+                                {
+                                    Write-Warning "[ConvertFrom-SID] Error while enumerating Object using SID"
+                                    Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+                                }
+                                If ($ADObject)
+                                {
+                                    $UserDomain = Get-DNtoFQDN -ADObjectDN $ADObject.DistinguishedName
+                                    $ADSOutput = $UserDomain + "\" + $ADObject.sAMAccountName
+                                    Remove-Variable UserDomain
+                                }
+                            }
+
+                            If ($Protocol -eq 'LDAP')
+                            {
+                                If ($Credential -ne [Management.Automation.PSCredential]::Empty)
+                                {
+                                    $ADObject = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$DomainFQDN/<SID=$TargetSid>",($Credential.GetNetworkCredential()).UserName,($Credential.GetNetworkCredential()).Password)
+                                }
+                                Else
+                                {
+                                    $ADObject = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$DomainFQDN/<SID=$TargetSid>")
+                                }
+                                If ($ADObject)
+                                {
+                                    If (-Not ([string]::IsNullOrEmpty($ADObject.Properties.samaccountname)) )
+                                    {
+                                        $UserDomain = Get-DNtoFQDN -ADObjectDN $([string] ($ADObject.Properties.distinguishedname))
+                                        $ADSOutput = $UserDomain + "\" + $([string] ($ADObject.Properties.samaccountname))
+                                        Remove-Variable UserDomain
+                                    }
+                                }
+                            }
+
+                            If ( (-Not $ADSOutput) -or ([string]::IsNullOrEmpty($ADSOutput)) )
+                            {
+                                $ADSOutputType = $ADS_NAME_TYPE_NT4
+                                $Init = $true
+                                $Translate = New-Object -ComObject NameTranslate
+                                If ($Credential -ne [Management.Automation.PSCredential]::Empty)
+                                {
+                                    $ADSInitType = $ADS_NAME_INITTYPE_DOMAIN
+                                    Try
+                                    {
+                                        [System.__ComObject].InvokeMember(“InitEx”,”InvokeMethod”,$null,$Translate,$(@($ADSInitType,$DomainFQDN,($Credential.GetNetworkCredential()).UserName,$DomainFQDN,($Credential.GetNetworkCredential()).Password)))
+                                    }
+                                    Catch
+                                    {
+                                        $Init = $false
+                                        #Write-Verbose "[ConvertFrom-SID] Error initializing translation for $($TargetSid) using alternate credentials"
+                                        #Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+                                    }
+                                }
+                                Else
+                                {
+                                    $ADSInitType = $ADS_NAME_INITTYPE_GC
+                                    Try
+                                    {
+                                        [System.__ComObject].InvokeMember(“Init”,”InvokeMethod”,$null,$Translate,($ADSInitType,$null))
+                                    }
+                                    Catch
+                                    {
+                                        $Init = $false
+                                        #Write-Verbose "[ConvertFrom-SID] Error initializing translation for $($TargetSid)"
+                                        #Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+                                    }
+                                }
+                                If ($Init)
+                                {
+                                    [System.__ComObject].InvokeMember(“ChaseReferral”,”SetProperty”,$null,$Translate,$ADS_CHASE_REFERRALS_ALWAYS)
+                                    Try
+                                    {
+                                        [System.__ComObject].InvokeMember(“Set”,”InvokeMethod”,$null,$Translate,($ADS_NAME_TYPE_UNKNOWN, $TargetSID))
+                                        $ADSOutput = [System.__ComObject].InvokeMember(“Get”,”InvokeMethod”,$null,$Translate,$ADSOutputType)
+                                    }
+                                    Catch
+                                    {
+                                        #Write-Verbose "[ConvertFrom-SID] Error translating $($TargetSid)"
+                                        #Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+                                    }
+                                }
+                            }
+                        }
+                        If (-Not ([string]::IsNullOrEmpty($ADSOutput)) )
+                        {
+                            Return $ADSOutput
+                        }
+                        Else
+                        {
+                            Return $TargetSid
+                        }
+                    }
+                }
+            }
+            Catch
+            {
+                #Write-Output "[ConvertFrom-SID] Error converting SID $($TargetSid)"
+                #Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+            }
+        }
+        Else
+        {
+            Return $TargetSid
+        }
+    }
+}
+
+# based on https://gallery.technet.microsoft.com/Active-Directory-OU-1d09f989
+Function Get-ADRACL
+{
+<#
+.SYNOPSIS
+    Returns all ACLs for the Domain, OUs, Root Containers and GroupPolicy objects in the current (or specified) domain.
+
+.DESCRIPTION
+    Returns all ACLs for the Domain, OUs, Root Containers and GroupPolicy objects in the current (or specified) domain.
+
+.PARAMETER Protocol
+    [string]
+    Which protocol to use; ADWS (default) or LDAP.
 
 .PARAMETER objDomain
     [DirectoryServices.DirectoryEntry]
@@ -6362,6 +6701,10 @@ Function Get-ADROUPermission
 .PARAMETER Credential
     [Management.Automation.PSCredential]
     Credentials.
+
+.PARAMETER ResolveSIDs
+    [bool]
+    Whether to resolve SIDs in the ACLs module. (Default False)
 
 .PARAMETER PageSize
     [int]
@@ -6377,9 +6720,6 @@ Function Get-ADROUPermission
         [Parameter(Mandatory = $true)]
         [string] $Protocol,
 
-        [Parameter(Mandatory = $true)]
-        [bool] $UseAltCreds,
-
         [Parameter(Mandatory = $false)]
         [DirectoryServices.DirectoryEntry] $objDomain,
 
@@ -6389,83 +6729,154 @@ Function Get-ADROUPermission
         [Parameter(Mandatory = $false)]
         [Management.Automation.PSCredential] $Credential = [Management.Automation.PSCredential]::Empty,
 
+        [Parameter(Mandatory = $false)]
+        [bool] $ResolveSID = $false,
+
         [Parameter(Mandatory = $true)]
         [int] $PageSize
     )
 
-    # based on https://gallery.technet.microsoft.com/Active-Directory-OU-1d09f989
     If ($Protocol -eq 'ADWS')
     {
-        Try
+        If ($Credential -eq [Management.Automation.PSCredential]::Empty)
         {
-            If (-Not $UseAltCreds)
+            If (Test-Path AD:)
             {
                 Set-Location AD:
             }
-            $schemaIDGUID = @{}
-            $GUIDs = @{'00000000-0000-0000-0000-000000000000' = 'All'}
-
+            Else
+            {
+                Write-Warning "Default AD drive not found ... Skipping ACL enumeration"
+                Return $null
+            }
+        }
+        $GUIDs = @{'00000000-0000-0000-0000-000000000000' = 'All'}
+        Try
+        {
+            Write-Verbose "[*] Enumerating schemaIDs"
             $schemaIDs = Get-ADObject -SearchBase (Get-ADRootDSE).schemaNamingContext -LDAPFilter '(schemaIDGUID=*)' -Properties name, schemaIDGUID
+        }
+        Catch
+        {
+            Write-Warning "[Get-ADRACL] Error while enumerating schemaIDs"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+        }
 
+        If ($schemaIDs)
+        {
             $schemaIDs | Where-Object {$_} | ForEach-Object {
                 # convert the GUID
                 $GUIDs[(New-Object Guid (,$_.schemaIDGUID)).Guid] = $_.name
             }
             Remove-Variable schemaIDs
+        }
 
+        Try
+        {
+            Write-Verbose "[*] Enumerating Active Directory Rights"
             $schemaIDs = Get-ADObject -SearchBase "CN=Extended-Rights,$((Get-ADRootDSE).configurationNamingContext)" -LDAPFilter '(objectClass=controlAccessRight)' -Properties name, rightsGUID
+        }
+        Catch
+        {
+            Write-Warning "[Get-ADRACL] Error while enumerating Active Directory Rights"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+        }
 
+        If ($schemaIDs)
+        {
             $schemaIDs | Where-Object {$_} | ForEach-Object {
                 # convert the GUID
                 $GUIDs[(New-Object Guid (,$_.rightsGUID)).Guid] = $_.name
             }
             Remove-Variable schemaIDs
+        }
 
-            # Get a list of all OUs.  Add in the root containers for good measure (users, computers, etc.).
-            $OUs  = @(Get-ADDomain | Select-Object -ExpandProperty DistinguishedName)
-            $OUs += Get-ADOrganizationalUnit -Filter * | Select-Object -ExpandProperty DistinguishedName
-            $OUs += Get-ADObject -SearchBase (Get-ADDomain).DistinguishedName -SearchScope OneLevel -LDAPFilter '(objectClass=container)' | Select-Object -ExpandProperty DistinguishedName
-            ForEach ($OU in $OUs)
-            {
-                $OUPermissions += Get-Acl -Path "$OU" |
-                Select-Object -ExpandProperty Access |
-                Select-Object @{name='organizationalUnit';expression={$OU}}, `
-                       @{name='objectTypeName';expression={$GUIDs[$_.objectType.ToString()]}}, `
-                       @{name='inheritedObjectTypeName';expression={$GUIDs[$_.inheritedObjectType.ToString()]}}, `
-                       *
-            }
-            Remove-Variable OUs
-            Remove-Variable GUIDs
+        # Get the DistinguishedNames of Domain, OUs, Root Containers and GroupPolicy objects.
+        $Objs = @()
+        Try
+        {
+            $ADDomain = Get-ADDomain
         }
         Catch
         {
-            Write-Error "[EXCEPTION] $($_.Exception.Message)"
+            Write-Warning "[Get-ADRACL] Error getting Domain Context"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+        }
+        If ($ADDomain)
+        {
+            $Objs += $ADDomain | Select-Object @{Name = 'name'; expression={$ADDomain.DNSRoot}}, @{name = 'DistinguishedName'; expression={$ADDomain.DistinguishedName}}, @{name='Type'; expression = {"Domain"}}
+        }
+        Try
+        {
+            Write-Verbose "[*] Enumerating OU Objects"
+            $Objs += Get-ADOrganizationalUnit -Filter * -Properties Name, DistinguishedName | Select-Object @{name = 'Name'; expression={$_.Name}}, @{name = 'DistinguishedName'; expression={$_.DistinguishedName}}, @{name='Type'; expression = {"OU"}}
+        }
+        Catch
+        {
+            Write-Warning "[Get-ADRACL] Error while enumerating OU Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+        }
+        If ($ADDomain)
+        {
+            Try
+            {
+                Write-Verbose "[*] Enumerating Container Objects"
+                $Objs += Get-ADObject -SearchBase $($ADDomain.DistinguishedName) -SearchScope OneLevel -LDAPFilter '(objectClass=container)' -Properties Name, DistinguishedName | Select-Object @{name = 'Name'; expression={$_.Name}}, @{name = 'DistinguishedName'; expression={$_.DistinguishedName}}, @{name='Type'; expression = {"Container"}}
+            }
+            Catch
+            {
+                Write-Warning "[Get-ADRACL] Error while enumerating Container Objects"
+                Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+            }
+        }
+        Try
+        {
+            Write-Verbose "[*] Enumerating GPO Objects"
+            $Objs += Get-ADObject -LDAPFilter '(objectCategory=groupPolicyContainer)' -Properties DisplayName, DistinguishedName | Select-Object @{name = 'Name'; expression={$_.DisplayName}}, @{name = 'DistinguishedName'; expression={$_.DistinguishedName}}, @{name='Type'; expression = {"GPO"}}
+        }
+        Catch
+        {
+            Write-Warning "[Get-ADRACL] Error while enumerating GPO Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+        }
+
+        If ($Objs)
+        {
+            $ACLObj = @()
+            Write-Verbose "[*] Total Objects: $([ADRecon.ADWSClass]::ObjectCount($Objs))"
+            $DomainFQDN = Get-DNtoFQDN($ADDomain.DistinguishedName)
+            ForEach ($Obj in $Objs)
+            {
+                Try
+                {
+                    $ACLObj += Get-Acl -Path $Obj.DistinguishedName | Select-Object Owner -ExpandProperty Access |
+                    Select-Object @{name='Name';expression={$Obj.Name}}, `
+                            @{name='Type';expression={$Obj.Type}}, `
+                            @{name='objectTypeName';expression={$GUIDs[$_.objectType.ToString()]}}, `
+                            @{name='inheritedObjectTypeName';expression={$GUIDs[$_.inheritedObjectType.ToString()]}}, `
+                            @{name='ActiveDirectoryRight';expression={$_.ActiveDirectoryRights}}, `
+                            @{name='AccessControl';expression={$_.AccessControlType}}, `
+                            @{name='IdentityReferenceName';expression={ConvertFrom-SID -Protocol $Protocol -ObjectSid $_.IdentityReference -DomainFQDN $DomainFQDN -Credential $Credential -ResolveSID $ResolveSID}}, `
+                            @{name='OwnerName';expression={ConvertFrom-SID -Protocol $Protocol -ObjectSid $_.Owner -DomainFQDN $DomainFQDN -Credential $Credential -ResolveSID $ResolveSID}}, `
+                            @{name='DistinguishedName';expression={$Obj.DistinguishedName}}, `
+                            *
+                }
+                Catch
+                {
+                    Write-Warning "[Get-ADRACL] Error while enumerating ACL for $Obj.DistinguishedName"
+                    Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+                }
+            }
+            Remove-Variable Objs
+            Remove-Variable GUIDs
         }
     }
 
     If ($Protocol -eq 'LDAP')
     {
-        $objSearcher = New-Object System.DirectoryServices.DirectorySearcher $objDomain
-        $ObjSearcher.PageSize = $PageSize
-        $ObjSearcher.Filter = "(objectCategory=organizationalunit)"
-        $ObjSearcher.SearchScope = "Subtree"
+        $GUIDs = @{'00000000-0000-0000-0000-000000000000' = 'All'}
 
-        Try
-        {
-            $ADOUs = $ObjSearcher.FindAll()
-        }
-        Catch
-        {
-            Write-Error "[EXCEPTION] $($_.Exception.Message)"
-        }
-        $ObjSearcher.dispose()
-
-        $OUPermissions = @()
-        If ($ADOUs)
-        {
-            $GUIDs = @{'00000000-0000-0000-0000-000000000000' = 'All'}
-
-        If ($UseAltCreds)
+        If ($Credential -ne [Management.Automation.PSCredential]::Empty)
         {
             $DomainFQDN = Get-DNtoFQDN($objDomain.distinguishedName)
             $DomainContext = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext("Domain",$($DomainFQDN),$($Credential.UserName),$($Credential.GetNetworkCredential().password))
@@ -6475,119 +6886,221 @@ Function Get-ADROUPermission
             }
             Catch
             {
-                Write-Error "[EXCEPTION] $($_.Exception.Message)"
+                Write-Warning "[Get-ADRACL] Error getting Domain Context"
+                Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
             }
 
-            $ForestContext = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext("Forest",$($ADDomain.Forest),$($Credential.UserName),$($Credential.GetNetworkCredential().password))
             Try
             {
+                $ForestContext = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext("Forest",$($ADDomain.Forest),$($Credential.UserName),$($Credential.GetNetworkCredential().password))
                 $ADForest = [System.DirectoryServices.ActiveDirectory.Forest]::GetForest($ForestContext)
                 $SchemaPath = $ADForest.Schema.Name
+                Remove-Variable ADForest
             }
             Catch
             {
-                Write-Error "[EXCEPTION] $($_.Exception.Message)"
+                Write-Warning "[Get-ADRACL] Error enumerating SchemaPath"
+                Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
             }
         }
         Else
         {
+            $ADDomain = [System.DirectoryServices.ActiveDirectory.Domain]::GetCurrentDomain()
             $ADForest = [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest()
             $SchemaPath = $ADForest.Schema.Name
             Remove-Variable ADForest
         }
 
-            If ($SchemaPath)
+        If ($SchemaPath)
+        {
+            Write-Verbose "[*] Enumerating schemaIDs"
+            If ($Credential -ne [Management.Automation.PSCredential]::Empty)
             {
-                If ($UseAltCreds)
-                {
-                    $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DomainController)/$($SchemaPath)", $Credential.UserName,$Credential.GetNetworkCredential().Password
-                    $objSearcherPath = New-Object System.DirectoryServices.DirectorySearcher $objSearchPath
-                }
-                Else
-                {
-                    $objSearcherPath = New-Object System.DirectoryServices.DirectorySearcher ([ADSI] "LDAP://$($SchemaPath)")
-                }
-                $objSearcherPath.PageSize = $PageSize
-                $objSearcherPath.filter = "(schemaIDGUID=*)"
-
-                Try
-                {
-                    $SchemaSearcher = $objSearcherPath.FindAll()
-                }
-                Catch
-                {
-                    Write-Error "[EXCEPTION] $($_.Exception.Message)"
-                }
-
-                If ($SchemaSearcher)
-                {
-                    $SchemaSearcher | Where-Object {$_} | ForEach-Object {
-                        # convert the GUID
-                        $GUIDs[(New-Object Guid (,$_.properties.schemaidguid[0])).Guid] = $_.properties.name[0]
-                    }
-                    $SchemaSearcher.dispose()
-                }
-                $objSearcherPath.dispose()
-
-                If ($UseAltCreds)
-                {
-                    $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DomainController)/$($SchemaPath.replace("Schema","Extended-Rights"))", $Credential.UserName,$Credential.GetNetworkCredential().Password
-                    $objSearcherPath = New-Object System.DirectoryServices.DirectorySearcher $objSearchPath
-                }
-                Else
-                {
-                    $objSearcherPath = New-Object System.DirectoryServices.DirectorySearcher ([ADSI] "LDAP://$($SchemaPath.replace("Schema","Extended-Rights"))")
-                }
-                $objSearcherPath.PageSize = $PageSize
-                $objSearcherPath.filter = "(objectClass=controlAccessRight)"
-
-                Try
-                {
-                    $RightsSearcher = $objSearcherPath.FindAll()
-                }
-                Catch
-                {
-                    Write-Error "[EXCEPTION] $($_.Exception.Message)"
-                }
-
-                If ($RightsSearcher)
-                {
-                    $RightsSearcher | Where-Object {$_} | ForEach-Object {
-                        # convert the GUID
-                        $GUIDs[$_.properties.rightsguid[0].toString()] = $_.properties.name[0]
-                    }
-                    $RightsSearcher.dispose()
-                }
-                $objSearcherPath.dispose()
+                $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DomainController)/$($SchemaPath)", $Credential.UserName,$Credential.GetNetworkCredential().Password
+                $objSearcherPath = New-Object System.DirectoryServices.DirectorySearcher $objSearchPath
             }
-            If ($UseAltCreds)
+            Else
             {
-                ForEach ($OU in $ADOUs)
+                $objSearcherPath = New-Object System.DirectoryServices.DirectorySearcher ([ADSI] "LDAP://$($SchemaPath)")
+            }
+            $objSearcherPath.PageSize = $PageSize
+            $objSearcherPath.filter = "(schemaIDGUID=*)"
+
+            Try
+            {
+                $SchemaSearcher = $objSearcherPath.FindAll()
+            }
+            Catch
+            {
+                Write-Warning "[Get-ADRACL] Error enumerating SchemaIDs"
+                Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+            }
+
+            If ($SchemaSearcher)
+            {
+                $SchemaSearcher | Where-Object {$_} | ForEach-Object {
+                    # convert the GUID
+                    $GUIDs[(New-Object Guid (,$_.properties.schemaidguid[0])).Guid] = $_.properties.name[0]
+                }
+                $SchemaSearcher.dispose()
+            }
+            $objSearcherPath.dispose()
+
+            Write-Verbose "[*] Enumerating Active Directory Rights"
+            If ($Credential -ne [Management.Automation.PSCredential]::Empty)
+            {
+                $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DomainController)/$($SchemaPath.replace("Schema","Extended-Rights"))", $Credential.UserName,$Credential.GetNetworkCredential().Password
+                $objSearcherPath = New-Object System.DirectoryServices.DirectorySearcher $objSearchPath
+            }
+            Else
+            {
+                $objSearcherPath = New-Object System.DirectoryServices.DirectorySearcher ([ADSI] "LDAP://$($SchemaPath.replace("Schema","Extended-Rights"))")
+            }
+            $objSearcherPath.PageSize = $PageSize
+            $objSearcherPath.filter = "(objectClass=controlAccessRight)"
+
+            Try
+            {
+                $RightsSearcher = $objSearcherPath.FindAll()
+            }
+            Catch
+            {
+                Write-Warning "[Get-ADRACL] Error enumerating Active Directory Rights"
+                Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+            }
+
+            If ($RightsSearcher)
+            {
+                $RightsSearcher | Where-Object {$_} | ForEach-Object {
+                    # convert the GUID
+                    $GUIDs[$_.properties.rightsguid[0].toString()] = $_.properties.name[0]
+                }
+                $RightsSearcher.dispose()
+            }
+            $objSearcherPath.dispose()
+        }
+
+        # Get the DistinguishedNames of Domain, OUs, Root Containers and GroupPolicy objects.
+        $Objs = @()
+        If ($ADDomain)
+        {
+            $Objs += $ADDomain | Select-Object @{Name = 'name'; expression={$ADDomain.Name}}, @{name = 'DistinguishedName'; expression={$objDomain.distinguishedName}}, @{name='Type'; expression = {"Domain"}}
+        }
+        Write-Verbose "[*] Enumerating OU Objects"
+        $objSearcher = New-Object System.DirectoryServices.DirectorySearcher $objDomain
+        $ObjSearcher.PageSize = $PageSize
+        $ObjSearcher.Filter = "(objectCategory=organizationalunit)"
+        $ObjSearcher.PropertiesToLoad.AddRange(("name","distinguishedname"))
+        $ObjSearcher.SearchScope = "Subtree"
+
+        Try
+        {
+            $Objs += $ObjSearcher.FindAll() | Select-Object @{name = 'Name'; expression={$_.Properties.name}}, @{name = 'DistinguishedName'; expression={$_.Properties.distinguishedname}}, @{name='Type'; expression = {"OU"}}
+        }
+        Catch
+        {
+            Write-Warning "[Get-ADRACL] Error while enumerating OU Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+        }
+        $ObjSearcher.dispose()
+
+        Write-Verbose "[*] Enumerating Container Objects"
+        $objSearcher = New-Object System.DirectoryServices.DirectorySearcher $objDomain
+        $ObjSearcher.PageSize = $PageSize
+        $ObjSearcher.Filter = "(objectClass=container)"
+        $ObjSearcher.PropertiesToLoad.AddRange(("name","distinguishedname"))
+        $ObjSearcher.SearchScope = "OneLevel"
+
+        Try
+        {
+            $Objs += $ObjSearcher.FindAll() | Select-Object @{name = 'Name'; expression={$_.Properties.name}}, @{name = 'DistinguishedName'; expression={$_.Properties.distinguishedname}}, @{name='Type'; expression = {"Container"}}
+        }
+        Catch
+        {
+            Write-Warning "[Get-ADRACL] Error while enumerating Container Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+        }
+        $ObjSearcher.dispose()
+
+        Write-Verbose "[*] Enumerating GPO Objects"
+        $objSearcher = New-Object System.DirectoryServices.DirectorySearcher $objDomain
+        $ObjSearcher.PageSize = $PageSize
+        $ObjSearcher.Filter = "(objectCategory=groupPolicyContainer)"
+        $ObjSearcher.PropertiesToLoad.AddRange(("displayname","distinguishedname"))
+        $ObjSearcher.SearchScope = "Subtree"
+
+        Try
+        {
+            $Objs += $ObjSearcher.FindAll() | Select-Object @{name = 'Name'; expression={$_.Properties.displayname}}, @{name = 'DistinguishedName'; expression={$_.Properties.distinguishedname}}, @{name='Type'; expression = {"GPO"}}
+        }
+        Catch
+        {
+            Write-Warning "[Get-ADRACL] Error while enumerating GPO Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+        }
+        $ObjSearcher.dispose()
+
+        If ($Objs)
+        {
+            Write-Verbose "[*] Total Objects: $([ADRecon.LDAPClass]::ObjectCount($Objs))"
+            $ACLObj = @()
+            $DomainFQDN = Get-DNtoFQDN($objDomain.distinguishedName)
+            If ($Credential -ne [Management.Automation.PSCredential]::Empty)
+            {
+                ForEach ($Obj in $Objs)
                 {
-                    $OUPermissions += (New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DomainController)/$($OU.Properties.distinguishedname)", $Credential.UserName,$Credential.GetNetworkCredential().Password).PsBase.ObjectSecurity.access | Select-Object @{name='organizationalUnit';expression={$OU.properties.distinguishedname}}, `
-                       @{name='objectTypeName';expression={$GUIDs[$_.objectType.ToString()]}}, `
-                       @{name='inheritedObjectTypeName';expression={$GUIDs[$_.inheritedObjectType.ToString()]}}, `
-                       *
+                    Try
+                    {
+                        $ACLObj += (New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DomainController)/$($Obj.DistinguishedName)", $Credential.UserName,$Credential.GetNetworkCredential().Password).PsBase.ObjectSecurity | Select-Object Owner -ExpandProperty Access | Select-Object @{name='Name';expression={$Obj.Name}}, `
+                            @{name='Type';expression={$Obj.Type}}, `
+                            @{name='objectTypeName';expression={$GUIDs[$_.objectType.ToString()]}}, `
+                            @{name='inheritedObjectTypeName';expression={$GUIDs[$_.inheritedObjectType.ToString()]}}, `
+                            @{name='ActiveDirectoryRight';expression={$_.ActiveDirectoryRights}}, `
+                            @{name='AccessControl';expression={$_.AccessControlType}}, `
+                            @{name='IdentityReferenceName';expression={ConvertFrom-SID -Protocol $Protocol -ObjectSid $_.IdentityReference -DomainFQDN $DomainFQDN -Credential $Credential -ResolveSID $ResolveSID}}, `
+                            @{name='OwnerName';expression={ConvertFrom-SID -Protocol $Protocol -ObjectSid $_.Owner -DomainFQDN $DomainFQDN -Credential $Credential -ResolveSID $ResolveSID}}, `
+                            @{name='DistinguishedName';expression={$Obj.DistinguishedName}}, `
+                            *
+                    }
+                    Catch
+                    {
+                        Write-Warning "[Get-ADRACL] Error while enumerating ACL for $Obj.DistinguishedName"
+                        Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+                    }
                 }
             }
             Else
             {
-                ForEach ($OU in $ADOUs)
+                ForEach ($Obj in $Objs)
                 {
-                $OUPermissions += (($OU.GetDirectoryEntry()).Get_ObjectSecurity()).Access | Select-Object @{name='organizationalUnit';expression={$OU.properties.distinguishedname}}, `
-                       @{name='objectTypeName';expression={$GUIDs[$_.objectType.ToString()]}}, `
-                       @{name='inheritedObjectTypeName';expression={$GUIDs[$_.inheritedObjectType.ToString()]}}, `
-                       *
+                    Try
+                    {
+                        $ACLObj += (New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($Obj.DistinguishedName)").PsBase.ObjectSecurity | Select-Object Owner -ExpandProperty Access | Select-Object @{name='Name';expression={$Obj.Name}}, `
+                            @{name='Type';expression={$Obj.Type}}, `
+                            @{name='objectTypeName';expression={$GUIDs[$_.objectType.ToString()]}}, `
+                            @{name='inheritedObjectTypeName';expression={$GUIDs[$_.inheritedObjectType.ToString()]}}, `
+                            @{name='ActiveDirectoryRight';expression={$_.ActiveDirectoryRights}}, `
+                            @{name='AccessControl';expression={$_.AccessControlType}}, `
+                            @{name='IdentityReferenceName';expression={ConvertFrom-SID -Protocol $Protocol -ObjectSid $_.IdentityReference -ResolveSID $ResolveSID}}, `
+                            @{name='OwnerName';expression={ConvertFrom-SID -Protocol $Protocol -ObjectSid $_.Owner -ResolveSID $ResolveSID}}, `
+                            @{name='DistinguishedName';expression={$Obj.DistinguishedName}}, `
+                            *
+                    }
+                    Catch
+                    {
+                        Write-Warning "[Get-ADRACL] Error while enumerating ACL for $Obj.DistinguishedName"
+                        Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+                    }
                 }
             }
+            Remove-Variable Objs
             Remove-Variable GUIDs
-            Remove-Variable ADOUs
         }
     }
 
-    If ($OUPermissions)
+    If ($ACLObj)
     {
-        Return $OUPermissions
+        Return $ACLObj
     }
     Else
     {
@@ -7973,7 +8486,7 @@ Function Get-ADRBitLocker
 
                         # msTPM-TpmInformationForComputer (Windows 8/10 or Server 2012/R2)
                         $Obj | Add-Member -MemberType NoteProperty -Name "msTPM-TpmInformationForComputer" -Value $TempComp.'msTPM-TpmInformationForComputer'
-                        If ($TempComp.'msTPM-TpmInformationForComputer' -ne $null)
+                        If ($null -ne $TempComp.'msTPM-TpmInformationForComputer')
                         {
                             # Grab the TPM Owner Info from the msTPM-InformationObject
                             $TPMObject = Get-ADObject -Identity $TempComp.'msTPM-TpmInformationForComputer' -Properties msTPM-OwnerInformation
@@ -8060,7 +8573,7 @@ Function Get-ADRBitLocker
 
                         # msTPM-TpmInformationForComputer (Windows 8/10 or Server 2012/R2)
                         $Obj | Add-Member -MemberType NoteProperty -Name "msTPM-TpmInformationForComputer" -Value $([string] $TempComp.Properties.'mstpm-tpminformationforcomputer')
-                        If ($TempComp.Properties.'mstpm-tpminformationforcomputer' -ne $null)
+                        If ($null -ne $TempComp.Properties.'mstpm-tpminformationforcomputer')
                         {
                             # Grab the TPM Owner Info from the msTPM-InformationObject
                             If ($Credential -ne [Management.Automation.PSCredential]::Empty)
@@ -8409,7 +8922,7 @@ Function Invoke-ADRecon
 
 .PARAMETER Collect
     [array]
-    Which modules to run; Forest, Domain, Trusts, Sites, Subnets, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, PasswordAttributes, Groups, GroupMembers, OUs, ACLs, GPOs, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker, Kerberoast, DomainAccountsusedforServiceLogon
+    Which modules to run; Forest, Domain, Trusts, Sites, Subnets, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, PasswordAttributes, Groups, GroupMembers, OUs, ACLs, GPOs, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker
 
 .PARAMETER DomainController
     [string]
@@ -8480,6 +8993,9 @@ Function Invoke-ADRecon
         [int] $PassMaxAge = 30,
 
         [Parameter(Mandatory = $false)]
+        [bool] $ResolveSID = $false,
+
+        [Parameter(Mandatory = $false)]
         [int] $PageSize = 200,
 
         [Parameter(Mandatory = $false)]
@@ -8489,7 +9005,7 @@ Function Invoke-ADRecon
         [bool] $UseAltCreds = $false
     )
 
-    [string] $ADReconVersion = "v180708"
+    [string] $ADReconVersion = "v180801"
     Write-Output "[*] ADRecon $ADReconVersion by Prashant Mahajan (@prashant3535) from Sense of Security."
 
     If ($GenExcel)
@@ -8697,7 +9213,7 @@ Function Invoke-ADRecon
         'Groups' { $ADRGroups = $true }
         'GroupMembers' { $ADRGroupMembers = $true }
         'OUs' { $ADROUs = $true }
-        'OUPermissions' { $ADROUPermissions = $true }
+        'ACLs' { $ADRACLs = $true }
         'GPOs' { $ADRGPOs = $true }
         'GPOReport'
         {
@@ -8725,7 +9241,7 @@ Function Invoke-ADRecon
             $ADRGroups = $true
             $ADRGroupMembers = $true
             $ADROUs = $true
-            $ADROUPermissions = $true
+            $ADRACLs = $true
             $ADRGPOs = $true
             $ADRGPOReport = $true
             $ADRDNSZones = $true
@@ -9110,16 +9626,16 @@ Function Invoke-ADRecon
         }
         Remove-Variable ADROUs
     }
-    If ($ADROUPermissions)
+    If ($ADRACLs)
     {
-        Write-Output "[-] Domain OrganizationalUnits Permissions - May take some time"
-        $ADRObject = Get-ADROUPermission $Protocol $UseAltCreds $objDomain $DomainController $Credential $PageSize
+        Write-Output "[-] ACLs - May take some time"
+        $ADRObject = Get-ADRACL -Protocol $Protocol -objDomain $objDomain -DomainController $DomainController -Credential $Credential -ResolveSID $ResolveSID -PageSize $PageSize
         If ($ADRObject)
         {
-            Export-ADR $ADRObject $ADROutputDir $OutputType "OUPermissions"
+            Export-ADR -ADRObj $ADRObject -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "ACLs"
             Remove-Variable ADRObject
         }
-        Remove-Variable ADROUPermissions
+        Remove-Variable ADRACLs
     }
     If ($ADRGPOs)
     {
@@ -9259,7 +9775,7 @@ If ($Log)
     Start-Transcript -Path "$(Get-Location)\ADRecon-Console-Log.txt"
 }
 
-Invoke-ADRecon -GenExcel $GenExcel -Protocol $Protocol -Collect $Collect -DomainController $DomainController -Credential $Credential -OutputType $OutputType -ADROutputDir $OutputDir -DormantTimeSpan $DormantTimeSpan -PassMaxAge $PassMaxAge -PageSize $PageSize -Threads $Threads
+Invoke-ADRecon -GenExcel $GenExcel -Protocol $Protocol -Collect $Collect -DomainController $DomainController -Credential $Credential -OutputType $OutputType -ADROutputDir $OutputDir -DormantTimeSpan $DormantTimeSpan -PassMaxAge $PassMaxAge -ResolveSID $ResolveSID -PageSize $PageSize -Threads $Threads
 
 If ($Log)
 {

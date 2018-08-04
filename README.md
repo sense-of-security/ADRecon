@@ -19,7 +19,8 @@ The following information is gathered by the tool:
 - Users and their attributes;
 - Service Principal Names (SPNs);
 - Groups and memberships;
-- Organizational Units (OUs) and their ACLs;
+- Organizational Units (OUs);
+- ACLs for the Domain, OUs, Root Containers and GroupPolicy objects;
 - Group Policy Object details;
 - DNS Zones and Records;
 - Printers;
@@ -112,7 +113,7 @@ When you run ADRecon, a `ADRecon-Report-<timestamp>` folder will be created whic
 
 -Collect <String>
     Which modules to run (Comma separated; e.g Forest,Domain. Default all)
-    Valid values include: Forest, Domain, Trusts, Sites, Subnets, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, Groups, GroupMembers, OUs, OUPermissions, GPOs, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker.
+    Valid values include: Forest, Domain, Trusts, Sites, Subnets, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, Groups, GroupMembers, OUs, ACLs, GPOs, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker.
 
 -OutputType <String>
     Output Type; Comma seperated; e.g CSV,STDOUT,Excel (Default STDOUT with -Collect parameter, else CSV and Excel).
@@ -123,6 +124,9 @@ When you run ADRecon, a `ADRecon-Report-<timestamp>` folder will be created whic
 
 -PassMaxAge <Int>
     Maximum machine account password age. (Default 30 days)
+
+- ResolveSIDs <Bool>
+    Whether to resolve SIDs in the ACLs module. (Default False)
 
 -PageSize <Int>
     The PageSize to set for the LDAP searcher object. (Default 200)
