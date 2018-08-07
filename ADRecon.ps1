@@ -76,7 +76,7 @@
 
 .PARAMETER Collect
     Which modules to run; Comma separated; e.g Forest,Domain (Default all)
-    Valid values include: Forest, Domain, Trusts, Sites, Subnets, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, Groups, GroupMembers, OUs, ACLs, GPOs, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker.
+    Valid values include: Forest, Domain, Trusts, Sites, Subnets, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, PasswordAttributes, Groups, GroupMembers, OUs, ACLs, GPOs, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker.
 
 .PARAMETER OutputType
     Output Type; Comma seperated; e.g STDOUT,CSV,XML,JSON,HTML,Excel (Default STDOUT with -Collect parameter, else CSV and Excel).
@@ -147,6 +147,7 @@
     [-] Domain Controllers
     [-] Users - May take some time
     [-] User SPNs
+    [-] PasswordAttributes - Experimental
     [-] Groups - May take some time
     [-] Group Memberships - May take some time
     [-] OrganizationalUnits (OUs)
@@ -187,6 +188,7 @@
     [-] Domain Controllers
     [-] Users - May take some time
     [-] User SPNs
+    [-] PasswordAttributes - Experimental
     [-] Groups - May take some time
     [-] Group Memberships - May take some time
     [-] OrganizationalUnits (OUs)
@@ -234,8 +236,8 @@ param
     [Parameter(Mandatory = $false, HelpMessage = "Path for ADRecon output folder to save the CSV/XML/JSON/HTML files and the ADRecon-Report-<ddMMMyy>.xlsx. (The folder specified will be created if it doesn't exist)")]
     [string] $OutputDir,
 
-    [Parameter(Mandatory = $false, HelpMessage = "Which modules to run; Comma separated; e.g Forest,Domain (Default all) Valid values include: Forest, Domain, Trusts, Sites, Subnets, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, Groups, GroupMembers, OUs, ACLs, GPOs, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker")]
-    [ValidateSet('Forest', 'Domain', 'Trusts', 'Sites', 'Subnets', 'PasswordPolicy', 'FineGrainedPasswordPolicy', 'DomainControllers', 'Users', 'UserSPNs', 'Groups', 'GroupMembers', 'OUs', 'ACLs', 'GPOs', 'GPOReport', 'DNSZones', 'Printers', 'Computers', 'ComputerSPNs', 'LAPS', 'BitLocker', 'Default')]
+    [Parameter(Mandatory = $false, HelpMessage = "Which modules to run; Comma separated; e.g Forest,Domain (Default all) Valid values include: Forest, Domain, Trusts, Sites, Subnets, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, PasswordAttributes, Groups, GroupMembers, OUs, ACLs, GPOs, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker")]
+    [ValidateSet('Forest', 'Domain', 'Trusts', 'Sites', 'Subnets', 'PasswordPolicy', 'FineGrainedPasswordPolicy', 'DomainControllers', 'Users', 'UserSPNs', 'PasswordAttributes', 'Groups', 'GroupMembers', 'OUs', 'ACLs', 'GPOs', 'GPOReport', 'DNSZones', 'Printers', 'Computers', 'ComputerSPNs', 'LAPS', 'BitLocker', 'Default')]
     [array] $Collect = 'Default',
 
     [Parameter(Mandatory = $false, HelpMessage = "Output type; Comma seperated; e.g STDOUT,CSV,XML,JSON,HTML,Excel (Default STDOUT with -Collect parameter, else CSV and Excel)")]
@@ -6058,6 +6060,108 @@ Function Get-ADRUserSPN
 
 }
 
+#TODO
+Function Get-ADRPasswordAttributes
+{
+<#
+.SYNOPSIS
+    Returns all objects with plaintext passwords in the current (or specified) domain.
+
+.DESCRIPTION
+    Returns all objects with plaintext passwords in the current (or specified) domain.
+
+.PARAMETER Protocol
+    [string]
+    Which protocol to use; ADWS (default) or LDAP.
+
+.PARAMETER objDomain
+    [DirectoryServices.DirectoryEntry]
+    Domain Directory Entry object.
+
+.PARAMETER PageSize
+    [int]
+    The PageSize to set for the LDAP searcher object. Default 200.
+
+.OUTPUTS
+    PSObject.
+
+.LINK
+    https://www.ibm.com/support/knowledgecenter/en/ssw_aix_71/com.ibm.aix.security/ad_password_attribute_selection.htm
+    https://msdn.microsoft.com/en-us/library/cc223248.aspx
+    https://msdn.microsoft.com/en-us/library/cc223249.aspx
+#>
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Protocol,
+
+        [Parameter(Mandatory = $false)]
+        [DirectoryServices.DirectoryEntry] $objDomain,
+
+        [Parameter(Mandatory = $true)]
+        [int] $PageSize
+    )
+
+    If ($Protocol -eq 'ADWS')
+    {
+        Try
+        {
+            $ADUsers = Get-ADObject -LDAPFilter '(|(UserPassword=*)(UnixUserPassword=*)(unicodePwd=*)(msSFU30Password=*))' -ResultPageSize $PageSize -Properties *
+        }
+        Catch
+        {
+            Write-Warning "[Get-ADRPasswordAttributes] Error while enumerating Password Attributes"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+            Return $null
+        }
+
+        If ($ADUsers)
+        {
+            Write-Warning "[*] Total PasswordAttribute Objects: $([ADRecon.ADWSClass]::ObjectCount($ADUsers))"
+            $UserObj = $ADUsers
+            Remove-Variable ADUsers
+        }
+    }
+
+    If ($Protocol -eq 'LDAP')
+    {
+        $objSearcher = New-Object System.DirectoryServices.DirectorySearcher $objDomain
+        $ObjSearcher.PageSize = $PageSize
+        $ObjSearcher.Filter = "(|(UserPassword=*)(UnixUserPassword=*)(unicodePwd=*)(msSFU30Password=*))"
+        $ObjSearcher.SearchScope = "Subtree"
+        Try
+        {
+            $ADUsers = $ObjSearcher.FindAll()
+        }
+        Catch
+        {
+            Write-Warning "[Get-ADRPasswordAttributes] Error while enumerating Password Attributes"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+            Return $null
+        }
+        $ObjSearcher.dispose()
+
+        If ($ADUsers)
+        {
+            $cnt = [ADRecon.LDAPClass]::ObjectCount($ADUsers)
+            If ($cnt -gt 0)
+            {
+                Write-Warning "[*] Total PasswordAttribute Objects: $cnt"
+            }
+            $UserObj = $ADUsers
+            Remove-Variable ADUsers
+        }
+    }
+
+    If ($UserObj)
+    {
+        Return $UserObj
+    }
+    Else
+    {
+        Return $null
+    }
+}
+
 Function Get-ADRGroup
 {
 <#
@@ -9005,7 +9109,7 @@ Function Invoke-ADRecon
         [bool] $UseAltCreds = $false
     )
 
-    [string] $ADReconVersion = "v180801"
+    [string] $ADReconVersion = "v180802"
     Write-Output "[*] ADRecon $ADReconVersion by Prashant Mahajan (@prashant3535) from Sense of Security."
 
     If ($GenExcel)
@@ -9210,6 +9314,7 @@ Function Invoke-ADRecon
         'DomainControllers' { $ADRDomainControllers = $true }
         'Users' { $ADRUsers = $true }
         'UserSPNs' { $ADRUserSPNs = $true }
+        'PasswordAttributes' { $ADRPasswordAttributes = $true }
         'Groups' { $ADRGroups = $true }
         'GroupMembers' { $ADRGroupMembers = $true }
         'OUs' { $ADROUs = $true }
@@ -9238,6 +9343,7 @@ Function Invoke-ADRecon
             $ADRDomainControllers = $true
             $ADRUsers = $true
             $ADRUserSPNs = $true
+            $ADRPasswordAttributes = $true
             $ADRGroups = $true
             $ADRGroupMembers = $true
             $ADROUs = $true
@@ -9591,6 +9697,17 @@ Function Invoke-ADRecon
             Remove-Variable ADRObject
         }
         Remove-Variable ADRUserSPNs
+    }
+    If ($ADRPasswordAttributes)
+    {
+        Write-Output "[-] PasswordAttributes - Experimental"
+        $ADRObject = Get-ADRPasswordAttributes -Protocol $Protocol -objDomain $objDomain -PageSize $PageSize
+        If ($ADRObject)
+        {
+            Export-ADR -ADRObj $ADRObject -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "PasswordAttributes"
+            Remove-Variable ADRObject
+        }
+        Remove-Variable ADRPasswordAttributes
     }
     If ($ADRGroups)
     {
