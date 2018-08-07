@@ -113,7 +113,7 @@ When you run ADRecon, a `ADRecon-Report-<timestamp>` folder will be created whic
 
 -Collect <String>
     Which modules to run (Comma separated; e.g Forest,Domain. Default all)
-    Valid values include: Forest, Domain, Trusts, Sites, Subnets, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, Groups, GroupMembers, OUs, ACLs, GPOs, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker.
+    Valid values include: Forest, Domain, Trusts, Sites, Subnets, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, PasswordAttributes, Groups, GroupMembers, OUs, ACLs, GPOs, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker.
 
 -OutputType <String>
     Output Type; Comma seperated; e.g CSV,STDOUT,Excel (Default STDOUT with -Collect parameter, else CSV and Excel).
@@ -147,6 +147,7 @@ When you run ADRecon, a `ADRecon-Report-<timestamp>` folder will be created whic
 - Additional export and storage option: export to ~~STDOUT~~, SQLite, ~~xml~~, ~~json~~, ~~html~~.
 - Use the EPPlus library for Excel Report generation and remove the dependency on MS Excel.
 - List issues identified and provide recommended remediation advice based on analysis of the data.
+- Add PowerShell Core support.
 
 ### Bugs, Issues and Feature Requests
 

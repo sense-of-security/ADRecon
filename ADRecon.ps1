@@ -395,6 +395,12 @@ namespace ADRecon
             return ADRObj;
         }
 
+        public static Object[] PrinterParser(Object[] ADPrinters, int numOfThreads)
+        {
+            Object[] ADRObj = runProcessor(ADPrinters, numOfThreads, "Printers");
+            return ADRObj;
+        }
+
         static Object[] runProcessor(Object[] arrayToProcess, int numOfThreads, string processorType)
         {
             int totalRecords = arrayToProcess.Length;
@@ -444,6 +450,8 @@ namespace ADRecon
                     return new ComputerRecordProcessor();
                 case "ComputerSPNs":
                     return new ComputerSPNRecordProcessor();
+                case "Printers":
+                    return new PrinterRecordProcessor();
             }
             throw new ArgumentException("Invalid processor type " + name);
         }
@@ -1112,6 +1120,34 @@ namespace ADRecon
             }
         }
 
+        class PrinterRecordProcessor : IRecordProcessor
+        {
+            public PSObject[] processRecord(Object record)
+            {
+                try
+                {
+                    PSObject AdPrinter = (PSObject) record;
+
+                    PSObject PrinterObj = new PSObject();
+                    PrinterObj.Members.Add(new PSNoteProperty("Name", AdPrinter.Members["Name"].Value));
+                    PrinterObj.Members.Add(new PSNoteProperty("ServerName", AdPrinter.Members["serverName"].Value));
+                    PrinterObj.Members.Add(new PSNoteProperty("ShareName", ((Microsoft.ActiveDirectory.Management.ADPropertyValueCollection) (AdPrinter.Members["printShareName"].Value)).Value));
+                    PrinterObj.Members.Add(new PSNoteProperty("DriverName", AdPrinter.Members["driverName"].Value));
+                    PrinterObj.Members.Add(new PSNoteProperty("DriverVersion", AdPrinter.Members["driverVersion"].Value));
+                    PrinterObj.Members.Add(new PSNoteProperty("PortName", ((Microsoft.ActiveDirectory.Management.ADPropertyValueCollection) (AdPrinter.Members["portName"].Value)).Value));
+                    PrinterObj.Members.Add(new PSNoteProperty("URL", ((Microsoft.ActiveDirectory.Management.ADPropertyValueCollection) (AdPrinter.Members["url"].Value)).Value));
+                    PrinterObj.Members.Add(new PSNoteProperty("whenCreated", AdPrinter.Members["whenCreated"].Value));
+                    PrinterObj.Members.Add(new PSNoteProperty("whenChanged", AdPrinter.Members["whenChanged"].Value));
+                    return new PSObject[] { PrinterObj };
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("{0} Exception caught.", e);
+                    return new PSObject[] { };
+                }
+            }
+        }
+
         //The interface and implmentation class used to handle the results (this implementation just writes the strings to a file)
 
         interface IResultsHandler
@@ -1295,6 +1331,12 @@ namespace ADRecon
             return ADRObj;
         }
 
+        public static Object[] PrinterParser(Object[] ADPrinters, int numOfThreads)
+        {
+            Object[] ADRObj = runProcessor(ADPrinters, numOfThreads, "Printers");
+            return ADRObj;
+        }
+
         static Object[] runProcessor(Object[] arrayToProcess, int numOfThreads, string processorType)
         {
             int totalRecords = arrayToProcess.Length;
@@ -1344,6 +1386,8 @@ namespace ADRecon
                     return new ComputerRecordProcessor();
                 case "ComputerSPNs":
                     return new ComputerSPNRecordProcessor();
+                case "Printers":
+                    return new PrinterRecordProcessor();
             }
             throw new ArgumentException("Invalid processor type " + name);
         }
@@ -1995,6 +2039,34 @@ namespace ADRecon
                         }
                     }
                     return SPNList.ToArray();
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("{0} Exception caught.", e);
+                    return new PSObject[] { };
+                }
+            }
+        }
+
+        class PrinterRecordProcessor : IRecordProcessor
+        {
+            public PSObject[] processRecord(Object record)
+            {
+                try
+                {
+                    SearchResult AdPrinter = (SearchResult) record;
+
+                    PSObject PrinterObj = new PSObject();
+                    PrinterObj.Members.Add(new PSNoteProperty("Name", AdPrinter.Properties["Name"][0]));
+                    PrinterObj.Members.Add(new PSNoteProperty("ServerName", AdPrinter.Properties["serverName"][0]));
+                    PrinterObj.Members.Add(new PSNoteProperty("ShareName", AdPrinter.Properties["printShareName"][0]));
+                    PrinterObj.Members.Add(new PSNoteProperty("DriverName", AdPrinter.Properties["driverName"][0]));
+                    PrinterObj.Members.Add(new PSNoteProperty("DriverVersion", AdPrinter.Properties["driverVersion"][0]));
+                    PrinterObj.Members.Add(new PSNoteProperty("PortName", AdPrinter.Properties["portName"][0]));
+                    PrinterObj.Members.Add(new PSNoteProperty("URL", AdPrinter.Properties["url"][0]));
+                    PrinterObj.Members.Add(new PSNoteProperty("whenCreated", AdPrinter.Properties["whenCreated"][0]));
+                    PrinterObj.Members.Add(new PSNoteProperty("whenChanged", AdPrinter.Properties["whenChanged"][0]));
+                    return new PSObject[] { PrinterObj };
                 }
                 catch (Exception e)
                 {
@@ -8000,7 +8072,7 @@ Function Get-ADRPrinter
     {
         Try
         {
-            $ADPrinters = Get-ADObject -LDAPFilter '(objectCategory=printQueue)' -Properties serverName,printShareName,driverName,driverVersion,portName,url,whenCreated,whenChanged,Name
+            $ADPrinters = @( Get-ADObject -LDAPFilter '(objectCategory=printQueue)' -Properties driverName,driverVersion,Name,portName,printShareName,serverName,url,whenChanged,whenCreated )
         }
         Catch
         {
@@ -8011,26 +8083,8 @@ Function Get-ADRPrinter
 
         If ($ADPrinters)
         {
-            $cnt = $([ADRecon.ADWSClass]::ObjectCount($ADPrinters))
-            If ($cnt -ge 1)
-            {
-                Write-Verbose "[*] Total Printers: $cnt"
-                $ADPrintersObj = @()
-                $ADPrinters | ForEach-Object {
-                    # Create the object for each instance.
-                    $Obj = New-Object PSObject
-                    $Obj | Add-Member -MemberType NoteProperty -Name "Name" -Value $_.Name
-                    $Obj | Add-Member -MemberType NoteProperty -Name "ServerName" -Value $_.serverName
-                    $Obj | Add-Member -MemberType NoteProperty -Name "ShareName" -Value ([string]($_.printShareName))
-                    $Obj | Add-Member -MemberType NoteProperty -Name "DriverName" -Value $_.driverName
-                    $Obj | Add-Member -MemberType NoteProperty -Name "DriverVersion" -Value $_.driverVersion
-                    $Obj | Add-Member -MemberType NoteProperty -Name "PortName" -Value ([string]($_.portName))
-                    $Obj | Add-Member -MemberType NoteProperty -Name "URL" -Value ([string]($_.url))
-                    $Obj | Add-Member -MemberType NoteProperty -Name "whenCreated" -Value $_.whenCreated
-                    $Obj | Add-Member -MemberType NoteProperty -Name "whenChanged" -Value $_.whenChanged
-                    $ADPrintersObj += $Obj
-                }
-            }
+            Write-Verbose "[*] Total Printers: $([ADRecon.ADWSClass]::ObjectCount($ADPrinters))"
+            $PrintersObj = [ADRecon.ADWSClass]::PrinterParser($ADPrinters, $Threads)
             Remove-Variable ADPrinters
         }
     }
@@ -8060,29 +8114,15 @@ Function Get-ADRPrinter
             If ($cnt -ge 1)
             {
                 Write-Verbose "[*] Total Printers: $cnt"
-                $ADPrintersObj = @()
-                $ADPrinters | ForEach-Object {
-                    # Create the object for each instance.
-                    $Obj = New-Object PSObject
-                    $Obj | Add-Member -MemberType NoteProperty -Name "Name" -Value ([string] $($_.Properties.name))
-                    $Obj | Add-Member -MemberType NoteProperty -Name "ServerName" -Value ([string] $($_.Properties.servername))
-                    $Obj | Add-Member -MemberType NoteProperty -Name "ShareName" -Value ([string] $($_.Properties.printsharename))
-                    $Obj | Add-Member -MemberType NoteProperty -Name "DriverName" -Value ([string] $($_.Properties.drivername))
-                    $Obj | Add-Member -MemberType NoteProperty -Name "DriverVersion" -Value ([string] $($_.Properties.driverversion))
-                    $Obj | Add-Member -MemberType NoteProperty -Name "PortName" -Value ([string] $($_.Properties.portname))
-                    $Obj | Add-Member -MemberType NoteProperty -Name "URL" -Value ([string] $($_.Properties.url))
-                    $Obj | Add-Member -MemberType NoteProperty -Name "whenCreated" -Value ([DateTime] $($_.Properties.whencreated))
-                    $Obj | Add-Member -MemberType NoteProperty -Name "whenChanged" -Value ([DateTime] $($_.Properties.whenchanged))
-                    $ADPrintersObj += $Obj
-                }
+                $PrintersObj = [ADRecon.LDAPClass]::PrinterParser($ADPrinters, $Threads)
             }
             Remove-Variable ADPrinters
         }
     }
 
-    If ($ADPrintersObj)
+    If ($PrintersObj)
     {
-        Return $ADPrintersObj
+        Return $PrintersObj
     }
     Else
     {
