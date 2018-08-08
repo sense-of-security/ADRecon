@@ -401,6 +401,12 @@ namespace ADRecon
             return ADRObj;
         }
 
+        public static Object[] LAPSParser(Object[] AdComputers, int numOfThreads)
+        {
+            Object[] ADRObj = runProcessor(AdComputers, numOfThreads, "LAPS");
+            return ADRObj;
+        }
+
         static Object[] runProcessor(Object[] arrayToProcess, int numOfThreads, string processorType)
         {
             int totalRecords = arrayToProcess.Length;
@@ -452,6 +458,8 @@ namespace ADRecon
                     return new ComputerSPNRecordProcessor();
                 case "Printers":
                     return new PrinterRecordProcessor();
+                case "LAPS":
+                    return new LAPSRecordProcessor();
             }
             throw new ArgumentException("Invalid processor type " + name);
         }
@@ -1148,6 +1156,40 @@ namespace ADRecon
             }
         }
 
+        class LAPSRecordProcessor : IRecordProcessor
+        {
+            public PSObject[] processRecord(Object record)
+            {
+                try
+                {
+                    PSObject AdComputer = (PSObject) record;
+                    bool PasswordStored = false;
+                    DateTime? CurrentExpiration = null;
+                    try
+                    {
+                        CurrentExpiration = DateTime.FromFileTime((long)(AdComputer.Members["ms-Mcs-AdmPwdExpirationTime"].Value));
+                        PasswordStored = true;
+                    }
+                    catch //(Exception e)
+                    {
+                        //Console.WriteLine("{0} Exception caught.", e);
+                    }
+                    PSObject LAPSObj = new PSObject();
+                    LAPSObj.Members.Add(new PSNoteProperty("Hostname", (AdComputer.Members["DNSHostName"].Value != null ? AdComputer.Members["DNSHostName"].Value : AdComputer.Members["CN"].Value )));
+                    LAPSObj.Members.Add(new PSNoteProperty("Stored", PasswordStored));
+                    LAPSObj.Members.Add(new PSNoteProperty("Readable", (AdComputer.Members["ms-Mcs-AdmPwd"].Value != null ? true : false)));
+                    LAPSObj.Members.Add(new PSNoteProperty("Password", AdComputer.Members["ms-Mcs-AdmPwd"].Value));
+                    LAPSObj.Members.Add(new PSNoteProperty("Expiration", CurrentExpiration));
+                    return new PSObject[] { LAPSObj };
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("{0} Exception caught.", e);
+                    return new PSObject[] { };
+                }
+            }
+        }
+
         //The interface and implmentation class used to handle the results (this implementation just writes the strings to a file)
 
         interface IResultsHandler
@@ -1287,6 +1329,20 @@ namespace ADRecon
             return ADRObject.Length;
         }
 
+        public static bool LAPSCheck(Object[] AdComputers)
+        {
+            bool LAPS = false;
+            foreach (SearchResult AdComputer in AdComputers)
+            {
+                if (AdComputer.Properties["ms-mcs-admpwdexpirationtime"].Count == 1)
+                {
+                    LAPS = true;
+                    return LAPS;
+                }
+            }
+            return LAPS;
+        }
+
         public static Object[] UserParser(Object[] AdUsers, DateTime Date1, int DormantTimeSpan, int PassMaxAge, int numOfThreads)
         {
             LDAPClass.Date1 = Date1;
@@ -1334,6 +1390,12 @@ namespace ADRecon
         public static Object[] PrinterParser(Object[] ADPrinters, int numOfThreads)
         {
             Object[] ADRObj = runProcessor(ADPrinters, numOfThreads, "Printers");
+            return ADRObj;
+        }
+
+        public static Object[] LAPSParser(Object[] AdComputers, int numOfThreads)
+        {
+            Object[] ADRObj = runProcessor(AdComputers, numOfThreads, "LAPS");
             return ADRObj;
         }
 
@@ -1388,6 +1450,8 @@ namespace ADRecon
                     return new ComputerSPNRecordProcessor();
                 case "Printers":
                     return new PrinterRecordProcessor();
+                case "LAPS":
+                    return new LAPSRecordProcessor();
             }
             throw new ArgumentException("Invalid processor type " + name);
         }
@@ -2067,6 +2131,36 @@ namespace ADRecon
                     PrinterObj.Members.Add(new PSNoteProperty("whenCreated", AdPrinter.Properties["whenCreated"][0]));
                     PrinterObj.Members.Add(new PSNoteProperty("whenChanged", AdPrinter.Properties["whenChanged"][0]));
                     return new PSObject[] { PrinterObj };
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("{0} Exception caught.", e);
+                    return new PSObject[] { };
+                }
+            }
+        }
+
+        class LAPSRecordProcessor : IRecordProcessor
+        {
+            public PSObject[] processRecord(Object record)
+            {
+                try
+                {
+                    SearchResult AdComputer = (SearchResult) record;
+                    bool PasswordStored = false;
+                    DateTime? CurrentExpiration = null;
+                    if (AdComputer.Properties["ms-mcs-admpwdexpirationtime"].Count != 0)
+                    {
+                        CurrentExpiration = DateTime.FromFileTime((long)(AdComputer.Properties["ms-mcs-admpwdexpirationtime"][0]));
+                        PasswordStored = true;
+                    }
+                    PSObject LAPSObj = new PSObject();
+                    LAPSObj.Members.Add(new PSNoteProperty("Hostname", (AdComputer.Properties["dnshostname"].Count != 0 ? AdComputer.Properties["dnshostname"][0] : AdComputer.Properties["cn"][0] )));
+                    LAPSObj.Members.Add(new PSNoteProperty("Stored", PasswordStored));
+                    LAPSObj.Members.Add(new PSNoteProperty("Readable", (AdComputer.Properties["ms-mcs-admpwd"].Count != 0 ? true : false)));
+                    LAPSObj.Members.Add(new PSNoteProperty("Password", (AdComputer.Properties["ms-mcs-admpwd"].Count != 0 ? AdComputer.Properties["ms-mcs-admpwd"][0] : null)));
+                    LAPSObj.Members.Add(new PSNoteProperty("Expiration", CurrentExpiration));
+                    return new PSObject[] { LAPSObj };
                 }
                 catch (Exception e)
                 {
@@ -8393,7 +8487,7 @@ Function Get-ADRLAPSCheck
     {
         Try
         {
-            $ADComputers = Get-ADObject -LDAPFilter "(objectClass=computer)" -Properties cn,dnshostname,'ms-mcs-admpwd','ms-mcs-admpwdexpirationtime' -ResultPageSize $PageSize
+            $ADComputers = @( Get-ADObject -LDAPFilter "(samAccountType=805306369)" -Properties CN,DNSHostName,'ms-Mcs-AdmPwd','ms-Mcs-AdmPwdExpirationTime' -ResultPageSize $PageSize )
         }
         Catch [System.ArgumentException]
         {
@@ -8409,51 +8503,8 @@ Function Get-ADRLAPSCheck
 
         If ($ADComputers)
         {
-            $LAPSObj = @()
-            $ADComputers | ForEach-Object {
-                [string] $CurrentPassword = $_.'ms-mcs-admpwd'
-                If ($_.'ms-mcs-admpwdexpirationtime' -ge 0)
-                {
-                    $CurrentExpiration = [dateTime]::FromFileTime("$($_.'ms-mcs-admpwdexpirationtime')")
-                }
-                Else
-                {
-                    $CurrentExpiration = "NA"
-                }
-                $PasswordAvailable = $false
-                $PasswordStored = $true
-                If ($CurrentPassword.length -ge 1)
-                {
-                    $PasswordAvailable = $true
-                }
-                If ($CurrentExpiration -eq "NA")
-                {
-                    $PasswordStored = $false
-                    $PasswordAvailable = "NA"
-                    $CurrentPassword = $null
-                }
-                If ($null -ne $_.dnshostname)
-                {
-                    $CurrentHostname = $_.dnshostname
-                }
-                Else
-                {
-                    $CurrentHostname = $_.cn
-                }
-                # Create the object for each instance.
-                $Obj = New-Object PSObject
-                $Obj | Add-Member -MemberType NoteProperty -Name Hostname -Value $CurrentHostname
-                $Obj | Add-Member -MemberType NoteProperty -Name Stored -Value $PasswordStored
-                $Obj | Add-Member -MemberType NoteProperty -Name Readable -Value $PasswordAvailable
-                $Obj | Add-Member -MemberType NoteProperty -Name Password -Value $CurrentPassword
-                $Obj | Add-Member -MemberType NoteProperty -Name Expiration -Value $CurrentExpiration
-                $LAPSObj += $Obj
-                Remove-Variable CurrentHostname
-                Remove-Variable PasswordStored
-                Remove-Variable PasswordAvailable
-                Remove-Variable CurrentPassword
-                Remove-Variable CurrentExpiration
-            }
+            Write-Verbose "[*] Total LAPS Objects: $([ADRecon.ADWSClass]::ObjectCount($ADComputers))"
+            $LAPSObj = [ADRecon.ADWSClass]::LAPSParser($ADComputers, $Threads)
             Remove-Variable ADComputers
         }
     }
@@ -8462,8 +8513,8 @@ Function Get-ADRLAPSCheck
     {
         $objSearcher = New-Object System.DirectoryServices.DirectorySearcher $objDomain
         $ObjSearcher.PageSize = $PageSize
-        $ObjSearcher.Filter = "(objectClass=computer)"
-        $ObjSearcher.PropertiesToLoad.AddRange(("cn","dnshostname","ms-mcs-admpwdexpirationtime","ms-mcs-admpwd"))
+        $ObjSearcher.Filter = "(samAccountType=805306369)"
+        $ObjSearcher.PropertiesToLoad.AddRange(("cn","dnshostname","ms-mcs-admpwd","ms-mcs-admpwdexpirationtime"))
         $ObjSearcher.SearchScope = "Subtree"
         Try
         {
@@ -8477,59 +8528,20 @@ Function Get-ADRLAPSCheck
         }
         $ObjSearcher.dispose()
 
-        If ($($ADComputers | ForEach-Object {$_.Properties.'ms-mcs-admpwdexpirationtime'} | Measure-Object | Select-Object -ExpandProperty Count) -eq 0)
+        If ($ADComputers)
         {
-            Write-Warning "[*] LAPS is not implemented."
-            Return $null
-        }
-        Else
-        {
-            $LAPSObj = @()
-            $ADComputers | ForEach-Object {
-                [string] $CurrentPassword = $_.properties.'ms-mcs-admpwd'
-                If ($_.properties.'ms-mcs-admpwdexpirationtime' -ge 0)
-                {
-                    $CurrentExpiration = [dateTime]::FromFileTime("$($_.properties.'ms-mcs-admpwdexpirationtime')")
-                }
-                Else
-                {
-                    $CurrentExpiration = "NA"
-                }
-                $PasswordAvailable = $false
-                $PasswordStored = $true
-                If ($CurrentPassword.length -ge 1)
-                {
-                    $PasswordAvailable = $true
-                }
-                If ($CurrentExpiration -eq "NA")
-                {
-                    $PasswordStored = $false
-                    $PasswordAvailable = "NA"
-                    $CurrentPassword = $null
-                }
-                If ($null -ne $_.properties.dnshostname)
-                {
-                    $CurrentHostname = ([string] $($_.properties.dnshostname))
-                }
-                Else
-                {
-                    $CurrentHostname = ([string] $($_.properties.cn))
-                }
-                # Create the object for each instance.
-                $Obj = New-Object PSObject
-                $Obj | Add-Member -MemberType NoteProperty -Name Hostname -Value $CurrentHostname
-                $Obj | Add-Member -MemberType NoteProperty -Name Stored -Value $PasswordStored
-                $Obj | Add-Member -MemberType NoteProperty -Name Readable -Value $PasswordAvailable
-                $Obj | Add-Member -MemberType NoteProperty -Name Password -Value $CurrentPassword
-                $Obj | Add-Member -MemberType NoteProperty -Name Expiration -Value $CurrentExpiration
-                $LAPSObj += $Obj
-                Remove-Variable CurrentHostname
-                Remove-Variable PasswordStored
-                Remove-Variable PasswordAvailable
-                Remove-Variable CurrentPassword
-                Remove-Variable CurrentExpiration
+            $LAPSCheck = [ADRecon.LDAPClass]::LAPSCheck($ADComputers)
+            If (-Not $LAPSCheck)
+            {
+                Write-Warning "[*] LAPS is not implemented."
+                Return $null
             }
-            Remove-Variable ADComputers
+            Else
+            {
+                Write-Verbose "[*] Total LAPS Objects: $([ADRecon.LDAPClass]::ObjectCount($ADComputers))"
+                $LAPSObj = [ADRecon.LDAPClass]::LAPSParser($ADComputers, $Threads)
+                Remove-Variable ADComputers
+            }
         }
     }
 
@@ -9149,7 +9161,7 @@ Function Invoke-ADRecon
         [bool] $UseAltCreds = $false
     )
 
-    [string] $ADReconVersion = "v180802"
+    [string] $ADReconVersion = "v180804"
     Write-Output "[*] ADRecon $ADReconVersion by Prashant Mahajan (@prashant3535) from Sense of Security."
 
     If ($GenExcel)
