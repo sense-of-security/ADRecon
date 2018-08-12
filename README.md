@@ -31,6 +31,8 @@ The following information is gathered by the tool:
 
 ADRecon was presented at: [![Black Hat Arsenal Asia 2018](https://github.com/toolswatch/badges/blob/master/arsenal/asia/2018.svg)](https://www.blackhat.com/asia-18/arsenal.html#adrecon-active-directory-recon) - [Slidedeck](https://www.slideshare.net/prashant3535/adrecon-bh-asia-2018-arsenal-presentation)
 
+[![Black Hat Arsenal USA 2018](https://github.com/toolswatch/badges/blob/master/arsenal/usa/2018.svg)](https://www.blackhat.com/us-18/arsenal/schedule/index.html#adrecon-active-directory-recon-11912) | [![DEFCON 26 Demolabs](https://hackwith.github.io/badges/defcon/26/demolabs.svg)](https://www.defcon.org/html/defcon-26/dc-26-demolabs.html) - [Slidedeck](https://www.slideshare.net/prashant3535/adrecon-bh-usa-2018-arsenal-and-def-con-26-demo-labs-presentation)
+
 ## Getting Started
 
 These instructions will get you a copy of the tool up and running on your local machine.
