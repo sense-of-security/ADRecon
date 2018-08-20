@@ -146,7 +146,7 @@ When you run ADRecon, a `ADRecon-Report-<timestamp>` folder will be created whic
 - ~~Add Domain Trust Enumeration.~~
 - Add option to filter default ACLs.
 - Gather ACLs for other objects such as Users, Group, etc.
-- Additional export and storage option: export to ~~STDOUT~~, SQLite, ~~xml~~, ~~json~~, ~~html~~.
+- Additional export and storage option: export to ~~STDOUT~~, SQLite, ~~xml~~, ~~json~~, ~~html~~, pdf.
 - Use the EPPlus library for Excel Report generation and remove the dependency on MS Excel.
 - List issues identified and provide recommended remediation advice based on analysis of the data.
 - Add PowerShell Core support.
