@@ -395,6 +395,12 @@ namespace ADRecon
             return ADRObj;
         }
 
+        public static Object[] GPOParser(Object[] AdGPOs, int numOfThreads)
+        {
+            Object[] ADRObj = runProcessor(AdGPOs, numOfThreads, "GPOs");
+            return ADRObj;
+        }
+
         public static Object[] PrinterParser(Object[] ADPrinters, int numOfThreads)
         {
             Object[] ADRObj = runProcessor(ADPrinters, numOfThreads, "Printers");
@@ -456,6 +462,8 @@ namespace ADRecon
                     return new ComputerRecordProcessor();
                 case "ComputerSPNs":
                     return new ComputerSPNRecordProcessor();
+                case "GPOs":
+                    return new GPORecordProcessor();
                 case "Printers":
                     return new PrinterRecordProcessor();
                 case "LAPS":
@@ -1128,6 +1136,30 @@ namespace ADRecon
             }
         }
 
+        class GPORecordProcessor : IRecordProcessor
+        {
+            public PSObject[] processRecord(Object record)
+            {
+                try
+                {
+
+                    PSObject GPOObj = new PSObject();
+                    GPOObj.Members.Add(new PSNoteProperty("DisplayName", CleanString(Convert.ToString(AdGPO.Members["DisplayName"].Value))));
+                    GPOObj.Members.Add(new PSNoteProperty("GUID", CleanString(Convert.ToString(AdGPO.Members["Name"].Value))));
+                    GPOObj.Members.Add(new PSNoteProperty("whenCreated", AdGPO.Members["whenCreated"].Value));
+                    GPOObj.Members.Add(new PSNoteProperty("whenChanged", AdGPO.Members["whenChanged"].Value));
+                    GPOObj.Members.Add(new PSNoteProperty("DistinguishedName", CleanString(Convert.ToString(AdGPO.Members["DistinguishedName"].Value))));
+                    GPOObj.Members.Add(new PSNoteProperty("FilePath", AdGPO.Members["gPCFileSysPath"].Value));
+                    return new PSObject[] { GPOObj };
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("{0} Exception caught.", e);
+                    return new PSObject[] { };
+                }
+            }
+        }
+
         class PrinterRecordProcessor : IRecordProcessor
         {
             public PSObject[] processRecord(Object record)
@@ -1387,6 +1419,12 @@ namespace ADRecon
             return ADRObj;
         }
 
+        public static Object[] GPOParser(Object[] AdGPOs, int numOfThreads)
+        {
+            Object[] ADRObj = runProcessor(AdGPOs, numOfThreads, "GPOs");
+            return ADRObj;
+        }
+
         public static Object[] PrinterParser(Object[] ADPrinters, int numOfThreads)
         {
             Object[] ADRObj = runProcessor(ADPrinters, numOfThreads, "Printers");
@@ -1448,6 +1486,8 @@ namespace ADRecon
                     return new ComputerRecordProcessor();
                 case "ComputerSPNs":
                     return new ComputerSPNRecordProcessor();
+                case "GPOs":
+                    return new GPORecordProcessor();
                 case "Printers":
                     return new PrinterRecordProcessor();
                 case "LAPS":
@@ -2103,6 +2143,31 @@ namespace ADRecon
                         }
                     }
                     return SPNList.ToArray();
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("{0} Exception caught.", e);
+                    return new PSObject[] { };
+                }
+            }
+        }
+
+        class GPORecordProcessor : IRecordProcessor
+        {
+            public PSObject[] processRecord(Object record)
+            {
+                try
+                {
+                    SearchResult AdGPO = (SearchResult) record;
+
+                    PSObject GPOObj = new PSObject();
+                    GPOObj.Members.Add(new PSNoteProperty("DisplayName", CleanString(Convert.ToString(AdGPO.Properties["displayname"][0]))));
+                    GPOObj.Members.Add(new PSNoteProperty("GUID", CleanString(Convert.ToString(AdGPO.Properties["name"][0]))));
+                    GPOObj.Members.Add(new PSNoteProperty("whenCreated", AdGPO.Properties["whenCreated"][0]));
+                    GPOObj.Members.Add(new PSNoteProperty("whenChanged", AdGPO.Properties["whenChanged"][0]));
+                    GPOObj.Members.Add(new PSNoteProperty("DistinguishedName", CleanString(Convert.ToString(AdGPO.Properties["distinguishedname"][0]))));
+                    GPOObj.Members.Add(new PSNoteProperty("FilePath", AdGPO.Properties["gpcfilesyspath"][0]));
+                    return new PSObject[] { GPOObj };
                 }
                 catch (Exception e)
                 {
@@ -7427,6 +7492,10 @@ Function Get-ADRGPO
     [int]
     The PageSize to set for the LDAP searcher object. Default 200.
 
+.PARAMETER Threads
+    [int]
+    The number of threads to use during processing of objects. Default 10.
+
 .OUTPUTS
     PSObject.
 #>
@@ -7438,14 +7507,17 @@ Function Get-ADRGPO
         [DirectoryServices.DirectoryEntry] $objDomain,
 
         [Parameter(Mandatory = $true)]
-        [int] $PageSize
+        [int] $PageSize,
+
+        [Parameter(Mandatory = $false)]
+        [int] $Threads = 10
     )
 
     If ($Protocol -eq 'ADWS')
     {
         Try
         {
-            $ADDomainGPOs = Get-ADObject -LDAPFilter '(objectCategory=groupPolicyContainer)' -Properties DisplayName,DistinguishedName,Name,gPCFileSysPath,whenCreated,whenChanged
+            $ADGPOs = Get-ADObject -LDAPFilter '(objectCategory=groupPolicyContainer)' -Properties DisplayName,DistinguishedName,Name,gPCFileSysPath,whenCreated,whenChanged
         }
         Catch
         {
@@ -7454,22 +7526,11 @@ Function Get-ADRGPO
             Return $null
         }
 
-        If ($ADDomainGPOs)
+        If ($ADGPOs)
         {
-            Write-Verbose "[*] Total GPOs: $([ADRecon.ADWSClass]::ObjectCount($ADDomainGPOs))"
-            $ADDomainGPOObj = @()
-            $ADDomainGPOs | ForEach-Object {
-                # Create the object for each instance.
-                $Obj = New-Object PSObject
-                $Obj | Add-Member -MemberType NoteProperty -Name "DisplayName" -Value $([ADRecon.ADWSClass]::CleanString($_.DisplayName))
-                $Obj | Add-Member -MemberType NoteProperty -Name "Name" -Value $([ADRecon.ADWSClass]::CleanString($_.Name))
-                $Obj | Add-Member -MemberType NoteProperty -Name "whenCreated" -Value $_.whenCreated
-                $Obj | Add-Member -MemberType NoteProperty -Name "whenChanged" -Value $_.whenChanged
-                $Obj | Add-Member -MemberType NoteProperty -Name "DistinguishedName" -Value $([ADRecon.ADWSClass]::CleanString($_.DistinguishedName))
-                $Obj | Add-Member -MemberType NoteProperty -Name "FilePath" -Value $_.gPCFileSysPath
-                $ADDomainGPOObj += $Obj
-            }
-            Remove-Variable ADDomainGPOs
+            Write-Verbose "[*] Total GPOs: $([ADRecon.ADWSClass]::ObjectCount($ADGPOs))"
+            $GPOsObj = [ADRecon.ADWSClass]::GPOParser($ADGPOs, $Threads)
+            Remove-Variable ADGPOs
         }
     }
 
@@ -7482,7 +7543,7 @@ Function Get-ADRGPO
 
         Try
         {
-            $ADDomainGPOs = $ObjSearcher.FindAll()
+            $ADGPOs = $ObjSearcher.FindAll()
         }
         Catch
         {
@@ -7492,28 +7553,17 @@ Function Get-ADRGPO
         }
         $ObjSearcher.dispose()
 
-        If ($ADDomainGPOs)
+        If ($ADGPOs)
         {
-            Write-Verbose "[*] Total GPOs: $([ADRecon.LDAPClass]::ObjectCount($ADDomainGPOs))"
-            $ADDomainGPOObj = @()
-            $ADDomainGPOs | ForEach-Object {
-                # Create the object for each instance.
-                $Obj = New-Object PSObject
-                $Obj | Add-Member -MemberType NoteProperty -Name "DisplayName" -Value $([ADRecon.LDAPClass]::CleanString($_.Properties.displayname))
-                $Obj | Add-Member -MemberType NoteProperty -Name "Name" -Value $([ADRecon.LDAPClass]::CleanString($_.Properties.name))
-                $Obj | Add-Member -MemberType NoteProperty -Name "whenCreated" -Value ([DateTime] $($_.Properties.whencreated))
-                $Obj | Add-Member -MemberType NoteProperty -Name "whenChanged" -Value ([DateTime] $($_.Properties.whenchanged))
-                $Obj | Add-Member -MemberType NoteProperty -Name "DistinguishedName" -Value $([ADRecon.LDAPClass]::CleanString($_.Properties.distinguishedname))
-                $Obj | Add-Member -MemberType NoteProperty -Name "FilePath" -Value ([string] $($_.Properties.gpcfilesyspath))
-                $ADDomainGPOObj += $Obj
-            }
-            Remove-Variable ADDomainGPOs
+            Write-Verbose "[*] Total GPOs: $([ADRecon.LDAPClass]::ObjectCount($ADGPOs))"
+            $GPOsObj = [ADRecon.LDAPClass]::GPOParser($ADGPOs, $Threads)
+            Remove-Variable ADGPOs
         }
     }
 
-    If ($ADDomainGPOObj)
+    If ($GPOsObj)
     {
-        Return $ADDomainGPOObj
+        Return $GPOsObj
     }
     Else
     {
@@ -8171,6 +8221,10 @@ Function Get-ADRPrinter
     [int]
     The PageSize to set for the LDAP searcher object. Default 200.
 
+.PARAMETER Threads
+    [int]
+    The number of threads to use during processing of objects. Default 10.
+
 .OUTPUTS
     PSObject.
 #>
@@ -8183,7 +8237,10 @@ Function Get-ADRPrinter
         [DirectoryServices.DirectoryEntry] $objDomain,
 
         [Parameter(Mandatory = $true)]
-        [int] $PageSize
+        [int] $PageSize,
+
+        [Parameter(Mandatory = $false)]
+        [int] $Threads = 10
     )
 
     If ($Protocol -eq 'ADWS')
@@ -8493,6 +8550,10 @@ Function Get-ADRLAPSCheck
     [int]
     The PageSize to set for the LDAP searcher object. Default 200.
 
+.PARAMETER Threads
+    [int]
+    The number of threads to use during processing of objects. Default 10.
+
 .OUTPUTS
     PSObject.
 #>
@@ -8504,7 +8565,10 @@ Function Get-ADRLAPSCheck
         [DirectoryServices.DirectoryEntry] $objDomain,
 
         [Parameter(Mandatory = $true)]
-        [int] $PageSize
+        [int] $PageSize,
+
+        [Parameter(Mandatory = $false)]
+        [int] $Threads = 10
     )
 
     If ($Protocol -eq 'ADWS')
@@ -10239,7 +10303,7 @@ Function Invoke-ADRecon
     If ($ADRGPOs)
     {
         Write-Output "[-] GPOs"
-        $ADRObject = Get-ADRGPO -Protocol $Protocol -objDomain $objDomain -PageSize $PageSize
+        $ADRObject = Get-ADRGPO -Protocol $Protocol -objDomain $objDomain -PageSize $PageSize -Threads $Threads
         If ($ADRObject)
         {
             Export-ADR -ADRObj $ADRObject -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "GPOs"
@@ -10256,7 +10320,7 @@ Function Invoke-ADRecon
     If ($ADRPrinters)
     {
         Write-Output "[-] Printers"
-        $ADRObject = Get-ADRPrinter -Protocol $Protocol -objDomain $objDomain -PageSize $PageSize
+        $ADRObject = Get-ADRPrinter -Protocol $Protocol -objDomain $objDomain -PageSize $PageSize -Threads $Threads
         If ($ADRObject)
         {
             Export-ADR -ADRObj $ADRObject -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "Printers"
@@ -10289,7 +10353,7 @@ Function Invoke-ADRecon
     If ($ADRLAPS)
     {
         Write-Output "[-] LAPS - Needs Privileged Account"
-        $ADRObject = Get-ADRLAPSCheck -Protocol $Protocol -objDomain $objDomain -PageSize $PageSize
+        $ADRObject = Get-ADRLAPSCheck -Protocol $Protocol -objDomain $objDomain -PageSize $PageSize -Threads $Threads
         If ($ADRObject)
         {
             Export-ADR -ADRObj $ADRObject -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "LAPS"

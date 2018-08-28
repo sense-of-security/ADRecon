@@ -1,3 +1,0 @@
-Name,Username,Service,Host,Password Last Set,Description
-"User","user","http","DC1.sos.labs:80","18/03/2018 5:24:26 PM","Member of Administrators"
-"krbtgt","krbtgt","kadmin","changepw","16/03/2018 5:22:29 PM","Key Distribution Center Service Account"
