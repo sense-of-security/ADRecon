@@ -1,0 +1,10 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Objects>
+  <Object>
+    <Property Name="Site">Default-First-Site-Name</Property>
+    <Property Name="Name">192.168.9.0/24</Property>
+    <Property Name="Description">VLAN 9</Property>
+    <Property Name="whenCreated">27/03/2018 10:21:42 PM</Property>
+    <Property Name="whenChanged">8/08/2018 6:34:07 PM</Property>
+  </Object>
+</Objects>

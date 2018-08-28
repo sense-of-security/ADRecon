@@ -1,0 +1,233 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Objects>
+  <Object>
+    <Property>
+      <Property Name="Group Name">Denied RODC Password Replication Group</Property>
+      <Property Name="Member UserName">-</Property>
+      <Property Name="Member Name">Read-only Domain Controllers</Property>
+      <Property Name="AccountType">group</Property>
+    </Property>
+    <Property>
+      <Property Name="Group Name">Group Policy Creator Owners</Property>
+      <Property Name="Member UserName">Administrator</Property>
+      <Property Name="Member Name">Administrator</Property>
+      <Property Name="AccountType">user</Property>
+    </Property>
+    <Property>
+      <Property Name="Group Name">Domain Admins</Property>
+      <Property Name="Member UserName">Administrator</Property>
+      <Property Name="Member Name">Administrator</Property>
+      <Property Name="AccountType">user</Property>
+    </Property>
+    <Property>
+      <Property Name="Group Name">Enterprise Admins</Property>
+      <Property Name="Member UserName">Administrator</Property>
+      <Property Name="Member Name">Administrator</Property>
+      <Property Name="AccountType">user</Property>
+    </Property>
+    <Property>
+      <Property Name="Group Name">Schema Admins</Property>
+      <Property Name="Member UserName">Administrator</Property>
+      <Property Name="Member Name">Administrator</Property>
+      <Property Name="AccountType">user</Property>
+    </Property>
+    <Property>
+      <Property Name="Group Name">Administrators</Property>
+      <Property Name="Member UserName">Administrator</Property>
+      <Property Name="Member Name">Administrator</Property>
+      <Property Name="AccountType">user</Property>
+    </Property>
+    <Property>
+      <Property Name="Group Name">Guests</Property>
+      <Property Name="Member UserName">Guest</Property>
+      <Property Name="Member Name">Guest</Property>
+      <Property Name="AccountType">user</Property>
+    </Property>
+    <Property>
+      <Property Name="Group Name">System Managed Accounts Group</Property>
+      <Property Name="Member UserName">DefaultAccount</Property>
+      <Property Name="Member Name">DefaultAccount</Property>
+      <Property Name="AccountType">user</Property>
+    </Property>
+    <Property>
+      <Property Name="Group Name">Denied RODC Password Replication Group</Property>
+      <Property Name="Member UserName">krbtgt</Property>
+      <Property Name="Member Name">krbtgt</Property>
+      <Property Name="AccountType">user</Property>
+    </Property>
+    <Property>
+      <Property Name="Group Name">Denied RODC Password Replication Group</Property>
+      <Property Name="Member UserName">-</Property>
+      <Property Name="Member Name">Domain Controllers</Property>
+      <Property Name="AccountType">group</Property>
+    </Property>
+    <Property>
+      <Property Name="Group Name">Denied RODC Password Replication Group</Property>
+      <Property Name="Member UserName">-</Property>
+      <Property Name="Member Name">Schema Admins</Property>
+      <Property Name="AccountType">group</Property>
+    </Property>
+    <Property>
+      <Property Name="Group Name">Denied RODC Password Replication Group</Property>
+      <Property Name="Member UserName">-</Property>
+      <Property Name="Member Name">Enterprise Admins</Property>
+      <Property Name="AccountType">group</Property>
+    </Property>
+    <Property>
+      <Property Name="Group Name">Administrators</Property>
+      <Property Name="Member UserName">-</Property>
+      <Property Name="Member Name">Enterprise Admins</Property>
+      <Property Name="AccountType">group</Property>
+    </Property>
+    <Property>
+      <Property Name="Group Name">Denied RODC Password Replication Group</Property>
+      <Property Name="Member UserName">-</Property>
+      <Property Name="Member Name">Cert Publishers</Property>
+      <Property Name="AccountType">group</Property>
+    </Property>
+    <Property>
+      <Property Name="Group Name">Denied RODC Password Replication Group</Property>
+      <Property Name="Member UserName">-</Property>
+      <Property Name="Member Name">Domain Admins</Property>
+      <Property Name="AccountType">group</Property>
+    </Property>
+    <Property>
+      <Property Name="Group Name">Administrators</Property>
+      <Property Name="Member UserName">-</Property>
+      <Property Name="Member Name">Domain Admins</Property>
+      <Property Name="AccountType">group</Property>
+    </Property>
+    <Property>
+      <Property Name="Group Name">Users</Property>
+      <Property Name="Member UserName">-</Property>
+      <Property Name="Member Name">Domain Users</Property>
+      <Property Name="AccountType">group</Property>
+    </Property>
+    <Property>
+      <Property Name="Group Name">Guests</Property>
+      <Property Name="Member UserName">-</Property>
+      <Property Name="Member Name">Domain Guests</Property>
+      <Property Name="AccountType">group</Property>
+    </Property>
+    <Property>
+      <Property Name="Group Name">Denied RODC Password Replication Group</Property>
+      <Property Name="Member UserName">-</Property>
+      <Property Name="Member Name">Group Policy Creator Owners</Property>
+      <Property Name="AccountType">group</Property>
+    </Property>
+    <Property>
+      <Property Name="Group Name">Workstation Admins</Property>
+      <Property Name="Member UserName">user</Property>
+      <Property Name="Member Name">User</Property>
+      <Property Name="AccountType">user</Property>
+    </Property>
+    <Property>
+      <Property Name="Group Name">Administrators</Property>
+      <Property Name="Member UserName">user</Property>
+      <Property Name="Member Name">User</Property>
+      <Property Name="AccountType">user</Property>
+    </Property>
+    <Property>
+      <Property Name="Group Name">Administrators</Property>
+      <Property Name="Member UserName">dcadmin</Property>
+      <Property Name="Member Name">DC Admin</Property>
+      <Property Name="AccountType">user</Property>
+    </Property>
+    <Property>
+      <Property Name="Group Name">Backup Operators</Property>
+      <Property Name="Member UserName">bo</Property>
+      <Property Name="Member Name">B O</Property>
+      <Property Name="AccountType">user</Property>
+    </Property>
+    <Property>
+      <Property Name="Group Name">Cert Publishers</Property>
+      <Property Name="Member UserName">cp</Property>
+      <Property Name="Member Name">C P</Property>
+      <Property Name="AccountType">user</Property>
+    </Property>
+    <Property>
+      <Property Name="Group Name">Cryptographic Operators</Property>
+      <Property Name="Member UserName">co</Property>
+      <Property Name="Member Name">C O</Property>
+      <Property Name="AccountType">user</Property>
+    </Property>
+    <Property>
+      <Property Name="Group Name">DnsAdmins</Property>
+      <Property Name="Member UserName">backdoor</Property>
+      <Property Name="Member Name">Back Door</Property>
+      <Property Name="AccountType">user</Property>
+    </Property>
+    <Property>
+      <Property Name="Group Name">Enterprise Key Admins</Property>
+      <Property Name="Member UserName">backdoor</Property>
+      <Property Name="Member Name">Back Door</Property>
+      <Property Name="AccountType">user</Property>
+    </Property>
+    <Property>
+      <Property Name="Group Name">Incoming Forest Trust Builders</Property>
+      <Property Name="Member UserName">backdoor</Property>
+      <Property Name="Member Name">Back Door</Property>
+      <Property Name="AccountType">user</Property>
+    </Property>
+    <Property>
+      <Property Name="Group Name">Account Operators</Property>
+      <Property Name="Member UserName">backdoor</Property>
+      <Property Name="Member Name">Back Door</Property>
+      <Property Name="AccountType">user</Property>
+    </Property>
+    <Property>
+      <Property Name="Group Name">Server Operators</Property>
+      <Property Name="Member UserName">backdoor</Property>
+      <Property Name="Member Name">Back Door</Property>
+      <Property Name="AccountType">user</Property>
+    </Property>
+    <Property>
+      <Property Name="Group Name">Cert Publishers</Property>
+      <Property Name="Member UserName">backdoor</Property>
+      <Property Name="Member Name">Back Door</Property>
+      <Property Name="AccountType">user</Property>
+    </Property>
+    <Property>
+      <Property Name="Group Name">Enterprise Admins</Property>
+      <Property Name="Member UserName">backdoor</Property>
+      <Property Name="Member Name">Back Door</Property>
+      <Property Name="AccountType">user</Property>
+    </Property>
+    <Property>
+      <Property Name="Group Name">Schema Admins</Property>
+      <Property Name="Member UserName">backdoor</Property>
+      <Property Name="Member Name">Back Door</Property>
+      <Property Name="AccountType">user</Property>
+    </Property>
+    <Property>
+      <Property Name="Group Name">Cryptographic Operators</Property>
+      <Property Name="Member UserName">backdoor</Property>
+      <Property Name="Member Name">Back Door</Property>
+      <Property Name="AccountType">user</Property>
+    </Property>
+    <Property>
+      <Property Name="Group Name">Network Configuration Operators</Property>
+      <Property Name="Member UserName">backdoor</Property>
+      <Property Name="Member Name">Back Door</Property>
+      <Property Name="AccountType">user</Property>
+    </Property>
+    <Property>
+      <Property Name="Group Name">Backup Operators</Property>
+      <Property Name="Member UserName">backdoor</Property>
+      <Property Name="Member Name">Back Door</Property>
+      <Property Name="AccountType">user</Property>
+    </Property>
+    <Property>
+      <Property Name="Group Name">Print Operators</Property>
+      <Property Name="Member UserName">backdoor</Property>
+      <Property Name="Member Name">Back Door</Property>
+      <Property Name="AccountType">user</Property>
+    </Property>
+    <Property>
+      <Property Name="Group Name">Administrators</Property>
+      <Property Name="Member UserName">backdoor</Property>
+      <Property Name="Member Name">Back Door</Property>
+      <Property Name="AccountType">user</Property>
+    </Property>
+  </Object>
+</Objects>

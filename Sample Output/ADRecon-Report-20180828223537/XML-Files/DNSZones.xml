@@ -1,0 +1,50 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Objects>
+  <Object>
+    <Property>
+      <Property Name="Name">RootDNSServers</Property>
+      <Property Name="RecordCount">14</Property>
+      <Property Name="USNCreated">12497</Property>
+      <Property Name="USNChanged">12499</Property>
+      <Property Name="whenCreated">16/03/2018 5:23:09 PM</Property>
+      <Property Name="whenChanged">16/03/2018 5:23:09 PM</Property>
+      <Property Name="DistinguishedName">DC=RootDNSServers,CN=MicrosoftDNS,CN=System,DC=sos,DC=labs</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">sos.labs</Property>
+      <Property Name="RecordCount">26</Property>
+      <Property Name="USNCreated">12674</Property>
+      <Property Name="USNChanged">12707</Property>
+      <Property Name="whenCreated">16/03/2018 5:31:17 PM</Property>
+      <Property Name="whenChanged">16/03/2018 5:31:17 PM</Property>
+      <Property Name="DistinguishedName">DC=sos.labs,CN=MicrosoftDNS,DC=DomainDnsZones,DC=sos,DC=labs</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">RootDNSServers</Property>
+      <Property Name="RecordCount">14</Property>
+      <Property Name="USNCreated">12708</Property>
+      <Property Name="USNChanged">16393</Property>
+      <Property Name="whenCreated">16/03/2018 5:31:17 PM</Property>
+      <Property Name="whenChanged">18/03/2018 5:10:34 PM</Property>
+      <Property Name="DistinguishedName">DC=RootDNSServers,CN=MicrosoftDNS,DC=DomainDnsZones,DC=sos,DC=labs</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">_msdcs.sos.labs</Property>
+      <Property Name="RecordCount">11</Property>
+      <Property Name="USNCreated">12637</Property>
+      <Property Name="USNChanged">12668</Property>
+      <Property Name="whenCreated">16/03/2018 5:31:17 PM</Property>
+      <Property Name="whenChanged">16/03/2018 5:31:17 PM</Property>
+      <Property Name="DistinguishedName">DC=_msdcs.sos.labs,CN=MicrosoftDNS,DC=ForestDnsZones,DC=sos,DC=labs</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">..TrustAnchors</Property>
+      <Property Name="RecordCount">1</Property>
+      <Property Name="USNCreated">376932</Property>
+      <Property Name="USNChanged">376938</Property>
+      <Property Name="whenCreated">19/07/2018 11:50:11 AM</Property>
+      <Property Name="whenChanged">19/07/2018 11:50:11 AM</Property>
+      <Property Name="DistinguishedName">DC=..TrustAnchors,CN=MicrosoftDNS,DC=ForestDnsZones,DC=sos,DC=labs</Property>
+    </Property>
+  </Object>
+</Objects>

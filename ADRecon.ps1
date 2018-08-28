@@ -1142,6 +1142,7 @@ namespace ADRecon
             {
                 try
                 {
+                    PSObject AdGPO = (PSObject) record;
 
                     PSObject GPOObj = new PSObject();
                     GPOObj.Members.Add(new PSNoteProperty("DisplayName", CleanString(Convert.ToString(AdGPO.Members["DisplayName"].Value))));

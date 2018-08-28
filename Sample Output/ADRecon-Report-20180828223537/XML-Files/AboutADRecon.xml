@@ -1,0 +1,29 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Objects>
+  <Object>
+    <Property>
+      <Property Name="Category">Date</Property>
+      <Property Name="Value">28/08/2018 10:35:37 PM</Property>
+    </Property>
+    <Property>
+      <Property Name="Category">ADRecon</Property>
+      <Property Name="Value">https://github.com/sense-of-security/ADRecon</Property>
+    </Property>
+    <Property>
+      <Property Name="Category">RSAT Version</Property>
+      <Property Name="Value">v1.0</Property>
+    </Property>
+    <Property>
+      <Property Name="Category">Ran as user</Property>
+      <Property Name="Value">administrator</Property>
+    </Property>
+    <Property>
+      <Property Name="Category">Ran on computer</Property>
+      <Property Name="Value">sos.labs\DC1 - Primary Domain Controller</Property>
+    </Property>
+    <Property>
+      <Property Name="Category">Execution Time (mins)</Property>
+      <Property Name="Value">0.17</Property>
+    </Property>
+  </Object>
+</Objects>

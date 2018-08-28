@@ -1,0 +1,12 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Objects>
+  <Object>
+    <Property Name="Source Domain">sos.labs</Property>
+    <Property Name="Target Domain">pim.sos.labs</Property>
+    <Property Name="Trust Direction">Outbound</Property>
+    <Property Name="Trust Type">Uplevel</Property>
+    <Property Name="Attributes">Forest Transitive,Treat as External,PIM Trust</Property>
+    <Property Name="whenCreated">19/07/2018 1:45:34 PM</Property>
+    <Property Name="whenChanged">19/07/2018 1:58:43 PM</Property>
+  </Object>
+</Objects>

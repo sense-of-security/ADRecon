@@ -1,0 +1,179 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Objects>
+  <Object>
+    <Property>
+      <Property Name="Name">DC1</Property>
+      <Property Name="DNSHostName">DC1.sos.labs</Property>
+      <Property Name="Enabled">True</Property>
+      <Property Name="IPv4Address">192.168.9.10</Property>
+      <Property Name="Operating System">Windows Server 2016 Datacenter Evaluation 10.0 (14393)</Property>
+      <Property Name="Logon Age (days)">0</Property>
+      <Property Name="Password Age (days)">26</Property>
+      <Property Name="Dormant (&gt; 90 days)">False</Property>
+      <Property Name="Password Age (&gt; 30 days)">False</Property>
+      <Property Name="Delegation Type" />
+      <Property Name="Delegation Protocol" />
+      <Property Name="Delegation Services" />
+      <Property Name="UserName">DC1$</Property>
+      <Property Name="Primary Group ID">516</Property>
+      <Property Name="SID">S-1-5-21-2872888145-3513486857-3924934394-1000</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description" />
+      <Property Name="Last Logon Date">28/08/2018 10:32:49 PM</Property>
+      <Property Name="Password LastSet">2/08/2018 4:24:06 PM</Property>
+      <Property Name="whenCreated">16/03/2018 5:22:29 PM</Property>
+      <Property Name="whenChanged">28/08/2018 10:32:49 PM</Property>
+      <Property Name="Distinguished Name">CN=DC1,OU=Domain Controllers,DC=sos,DC=labs</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">WIN7X86</Property>
+      <Property Name="DNSHostName">WIN7X86.sos.labs</Property>
+      <Property Name="Enabled">True</Property>
+      <Property Name="IPv4Address">192.168.9.101</Property>
+      <Property Name="Operating System">Windows 7 Professional N Service Pack 1 6.1 (7601)</Property>
+      <Property Name="Logon Age (days)">20</Property>
+      <Property Name="Password Age (days)">20</Property>
+      <Property Name="Dormant (&gt; 90 days)">False</Property>
+      <Property Name="Password Age (&gt; 30 days)">False</Property>
+      <Property Name="Delegation Type" />
+      <Property Name="Delegation Protocol" />
+      <Property Name="Delegation Services" />
+      <Property Name="UserName">WIN7X86$</Property>
+      <Property Name="Primary Group ID">515</Property>
+      <Property Name="SID">S-1-5-21-2872888145-3513486857-3924934394-1116</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description" />
+      <Property Name="Last Logon Date">8/08/2018 6:11:10 PM</Property>
+      <Property Name="Password LastSet">8/08/2018 6:11:10 PM</Property>
+      <Property Name="whenCreated">18/03/2018 5:32:30 PM</Property>
+      <Property Name="whenChanged">8/08/2018 6:11:12 PM</Property>
+      <Property Name="Distinguished Name">CN=WIN7X86,OU=Workstations,DC=sos,DC=labs</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">WIN7X64-OFFICE</Property>
+      <Property Name="DNSHostName">WIN7X64-OFFICE.sos.labs</Property>
+      <Property Name="Enabled">True</Property>
+      <Property Name="IPv4Address">192.168.9.103</Property>
+      <Property Name="Operating System">Windows 7 Professional N Service Pack 1 6.1 (7601)</Property>
+      <Property Name="Logon Age (days)">12</Property>
+      <Property Name="Password Age (days)">42</Property>
+      <Property Name="Dormant (&gt; 90 days)">False</Property>
+      <Property Name="Password Age (&gt; 30 days)">True</Property>
+      <Property Name="Delegation Type" />
+      <Property Name="Delegation Protocol" />
+      <Property Name="Delegation Services" />
+      <Property Name="UserName">WIN7X64-OFFICE$</Property>
+      <Property Name="Primary Group ID">515</Property>
+      <Property Name="SID">S-1-5-21-2872888145-3513486857-3924934394-1117</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description" />
+      <Property Name="Last Logon Date">16/08/2018 11:05:48 AM</Property>
+      <Property Name="Password LastSet">17/07/2018 2:29:22 PM</Property>
+      <Property Name="whenCreated">18/03/2018 5:56:38 PM</Property>
+      <Property Name="whenChanged">16/08/2018 11:05:48 AM</Property>
+      <Property Name="Distinguished Name">CN=WIN7X64-OFFICE,OU=Workstations,DC=sos,DC=labs</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">WIN8-1X64</Property>
+      <Property Name="DNSHostName">Win8-1x64.sos.labs</Property>
+      <Property Name="Enabled">True</Property>
+      <Property Name="IPv4Address">192.168.9.103</Property>
+      <Property Name="Operating System">Windows 8.1 Pro 6.3 (9600)</Property>
+      <Property Name="Logon Age (days)">163</Property>
+      <Property Name="Password Age (days)">163</Property>
+      <Property Name="Dormant (&gt; 90 days)">True</Property>
+      <Property Name="Password Age (&gt; 30 days)">True</Property>
+      <Property Name="Delegation Type">Constrained</Property>
+      <Property Name="Delegation Protocol">Kerberos</Property>
+      <Property Name="Delegation Services">http/DC1.sos.labs/sos.labs,http/DC1.sos.labs,http/DC1,http/DC1.sos.labs/sos,http/DC1/sos</Property>
+      <Property Name="UserName">WIN8-1X64$</Property>
+      <Property Name="Primary Group ID">515</Property>
+      <Property Name="SID">S-1-5-21-2872888145-3513486857-3924934394-1118</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Constrained Delegation, Kerberos</Property>
+      <Property Name="Last Logon Date">18/03/2018 6:08:05 PM</Property>
+      <Property Name="Password LastSet">18/03/2018 6:08:05 PM</Property>
+      <Property Name="whenCreated">18/03/2018 6:08:05 PM</Property>
+      <Property Name="whenChanged">8/08/2018 6:56:45 PM</Property>
+      <Property Name="Distinguished Name">CN=WIN8-1X64,OU=Workstations,DC=sos,DC=labs</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">WIN10X64</Property>
+      <Property Name="DNSHostName">Win10x64.sos.labs</Property>
+      <Property Name="Enabled">True</Property>
+      <Property Name="IPv4Address">192.168.9.104</Property>
+      <Property Name="Operating System">Windows 10 Enterprise Evaluation 10.0 (16299)</Property>
+      <Property Name="Logon Age (days)">152</Property>
+      <Property Name="Password Age (days)">152</Property>
+      <Property Name="Dormant (&gt; 90 days)">True</Property>
+      <Property Name="Password Age (&gt; 30 days)">True</Property>
+      <Property Name="Delegation Type">Constrained</Property>
+      <Property Name="Delegation Protocol">Any</Property>
+      <Property Name="Delegation Services">www/DC1.sos.labs/sos.labs,www/DC1.sos.labs,www/DC1,www/DC1.sos.labs/sos,www/DC1/sos,cifs/Win8-1x64.sos.labs,cifs/WIN8-1X64</Property>
+      <Property Name="UserName">WIN10X64$</Property>
+      <Property Name="Primary Group ID">515</Property>
+      <Property Name="SID">S-1-5-21-2872888145-3513486857-3924934394-1125</Property>
+      <Property Name="SIDHistory">S-1-5-21-2872888145-3513486857-3924934394-1000,S-1-5-21-2872888145-3513486857-3924934394-1126</Property>
+      <Property Name="Description">Constrained Delegation, Any and SIDHistory</Property>
+      <Property Name="Last Logon Date">28/03/2018 11:29:04 PM</Property>
+      <Property Name="Password LastSet">28/03/2018 11:29:03 PM</Property>
+      <Property Name="whenCreated">28/03/2018 11:29:03 PM</Property>
+      <Property Name="whenChanged">8/08/2018 6:58:21 PM</Property>
+      <Property Name="Distinguished Name">CN=WIN10X64,OU=Workstations,DC=sos,DC=labs</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">WIN10</Property>
+      <Property Name="DNSHostName">Win10.sos.labs</Property>
+      <Property Name="Enabled">True</Property>
+      <Property Name="IPv4Address">192.168.9.101</Property>
+      <Property Name="Operating System">Windows 10 Pro 10.0 (10240)</Property>
+      <Property Name="Logon Age (days)">144</Property>
+      <Property Name="Password Age (days)">144</Property>
+      <Property Name="Dormant (&gt; 90 days)">True</Property>
+      <Property Name="Password Age (&gt; 30 days)">True</Property>
+      <Property Name="Delegation Type">Unconstrained</Property>
+      <Property Name="Delegation Protocol">Kerberos</Property>
+      <Property Name="Delegation Services">Any</Property>
+      <Property Name="UserName">WIN10$</Property>
+      <Property Name="Primary Group ID">515</Property>
+      <Property Name="SID">S-1-5-21-2872888145-3513486857-3924934394-1126</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Unconstrained Delegation</Property>
+      <Property Name="Last Logon Date">5/04/2018 11:53:48 PM</Property>
+      <Property Name="Password LastSet">5/04/2018 11:53:48 PM</Property>
+      <Property Name="whenCreated">5/04/2018 11:53:48 PM</Property>
+      <Property Name="whenChanged">8/08/2018 6:59:20 PM</Property>
+      <Property Name="Distinguished Name">CN=WIN10,OU=Workstations,DC=sos,DC=labs</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">WEV</Property>
+      <Property Name="DNSHostName">WEV.sos.labs</Property>
+      <Property Name="Enabled">True</Property>
+      <Property Name="IPv4Address">192.168.9.102</Property>
+      <Property Name="Operating System">Windows Server 2016 Standard Evaluation 10.0 (14393)</Property>
+      <Property Name="Logon Age (days)">19</Property>
+      <Property Name="Password Age (days)">16</Property>
+      <Property Name="Dormant (&gt; 90 days)">False</Property>
+      <Property Name="Password Age (&gt; 30 days)">False</Property>
+      <Property Name="Delegation Type" />
+      <Property Name="Delegation Protocol" />
+      <Property Name="Delegation Services" />
+      <Property Name="UserName">WEV$</Property>
+      <Property Name="Primary Group ID">515</Property>
+      <Property Name="SID">S-1-5-21-2872888145-3513486857-3924934394-1128</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description" />
+      <Property Name="Last Logon Date">9/08/2018 7:20:14 AM</Property>
+      <Property Name="Password LastSet">12/08/2018 5:14:22 AM</Property>
+      <Property Name="whenCreated">11/07/2018 7:49:58 PM</Property>
+      <Property Name="whenChanged">12/08/2018 5:14:22 AM</Property>
+      <Property Name="Distinguished Name">CN=WEV,CN=Computers,DC=sos,DC=labs</Property>
+    </Property>
+  </Object>
+</Objects>

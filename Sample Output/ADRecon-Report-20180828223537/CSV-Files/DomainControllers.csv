@@ -1,0 +1,2 @@
+"Domain","Site","Name","IPv4Address","Operating System","Hostname","Infra","Naming","Schema","RID","PDC","SMB Port Open","SMB1(NT LM 0.12)","SMB2(0x0202)","SMB2(0x0210)","SMB3(0x0300)","SMB3(0x0302)","SMB3(0x0311)","SMB Signing"
+"sos.labs","Default-First-Site-Name","DC1","192.168.9.10","Windows Server 2016 Datacenter Evaluation 10.0 (14393)","DC1.sos.labs","True","True","True","True","True","True","True","True","True","True","True","False","True"

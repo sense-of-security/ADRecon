@@ -1,0 +1,63 @@
+PS C:\ADRecon> .\ADRecon.ps1 -OutputType All -Verbose
+[*] ADRecon v1.0 by Prashant Mahajan (@prashant3535) from Sense of Security.
+[*] Running on sos.labs\DC1 - Primary Domain Controller
+[*] Commencing - 08/28/2018 22:35:37
+[-] Domain
+[-] Forest
+[-] Trusts
+VERBOSE: [*] Total Trusts: 1
+[-] Sites
+VERBOSE: [*] Total Sites: 1
+[-] Subnets
+VERBOSE: [*] Total Subnets: 1
+[-] Default Password Policy
+[-] Fine Grained Password Policy - May need a Privileged Account
+[-] Domain Controllers
+VERBOSE: [*] Total Domain Controllers: 1
+[-] Users - May take some time
+VERBOSE: [*] Total Users: 19
+[-] User SPNs
+VERBOSE: [*] Total UserSPNs: 2
+[-] PasswordAttributes - Experimental
+[-] Groups - May take some time
+VERBOSE: [*] Total Groups: 56
+[-] Group Memberships - May take some time
+VERBOSE: [*] Total GroupMember Objects: 25
+[-] OrganizationalUnits (OUs)
+VERBOSE: [*] Total OUs: 4
+[-] ACLs - May take some time
+VERBOSE: [*] Enumerating schemaIDs
+VERBOSE: [*] Enumerating Active Directory Rights
+VERBOSE: [*] Enumerating OU Objects
+VERBOSE: [*] Enumerating Container Objects
+VERBOSE: [*] Enumerating GPO Objects
+VERBOSE: [*] Total Objects: 19
+[-] GPOs
+VERBOSE: [*] Total GPOs: 7
+[-] DNS Zones and Records
+VERBOSE: [*] Total DNS Zones: 5
+VERBOSE: [*] Total DNS Records: 66
+[-] Printers
+[-] Computers - May take some time
+VERBOSE: [*] Total Computers: 7
+[-] Computer SPNs
+VERBOSE: [*] Total ComputerSPNs: 7
+[-] LAPS - Needs Privileged Account
+VERBOSE: [*] Total LAPS Objects: 7
+[-] BitLocker Recovery Keys - Needs Privileged Account
+VERBOSE: [*] Total BitLocker Recovery Keys: 6
+[-] GPOReport - May take some time
+VERBOSE: [*] GPOReport XML
+VERBOSE: [*] GPOReport HTML
+[*] Total Execution Time (mins): 0.17
+[*] Output Directory: C:\ADRecon\ADRecon-Report-20180828223537
+WARNING: [Get-ADRExcelComObj] Excel does not appear to be installed. Skipping generation of ADRecon-Report.xlsx. Use the
+-GenExcel parameter to generate the ADRecon-Report.xslx on a host with Microsoft Excel installed.
+VERBOSE: [EXCEPTION] Retrieving the COM class factory for component with CLSID {00000000-0000-0000-0000-000000000000} failed due
+ to the following error: 80040154 Class not registered (Exception from HRESULT: 0x80040154 (REGDB_E_CLASSNOTREG)).
+
+# On a different machine with Excel installed:
+PS C:\ADRecon> .\ADRecon.ps1 -GenExcel .\ADRecon-Report-20180828223537\
+[*] ADRecon v1.0 by Prashant Mahajan (@prashant3535) from Sense of Security.
+[*] Generating ADRecon-Report.xlsx
+[+] Excelsheet Saved to: C:\ADRecon\ADRecon-Report-20180828223537\sos.labs-ADRecon-Report.xlsx

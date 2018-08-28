@@ -1,0 +1,6 @@
+"Name","RecordCount","USNCreated","USNChanged","whenCreated","whenChanged","DistinguishedName"
+"RootDNSServers","14","12497","12499","16/03/2018 5:23:09 PM","16/03/2018 5:23:09 PM","DC=RootDNSServers,CN=MicrosoftDNS,CN=System,DC=sos,DC=labs"
+"sos.labs","26","12674","12707","16/03/2018 5:31:17 PM","16/03/2018 5:31:17 PM","DC=sos.labs,CN=MicrosoftDNS,DC=DomainDnsZones,DC=sos,DC=labs"
+"RootDNSServers","14","12708","16393","16/03/2018 5:31:17 PM","18/03/2018 5:10:34 PM","DC=RootDNSServers,CN=MicrosoftDNS,DC=DomainDnsZones,DC=sos,DC=labs"
+"_msdcs.sos.labs","11","12637","12668","16/03/2018 5:31:17 PM","16/03/2018 5:31:17 PM","DC=_msdcs.sos.labs,CN=MicrosoftDNS,DC=ForestDnsZones,DC=sos,DC=labs"
+"..TrustAnchors","1","376932","376938","19/07/2018 11:50:11 AM","19/07/2018 11:50:11 AM","DC=..TrustAnchors,CN=MicrosoftDNS,DC=ForestDnsZones,DC=sos,DC=labs"

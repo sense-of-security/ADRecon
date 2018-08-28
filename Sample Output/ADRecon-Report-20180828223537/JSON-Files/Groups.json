@@ -1,0 +1,901 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Objects>
+  <Object>
+    <Property>
+      <Property Name="Name">Administrators</Property>
+      <Property Name="AdminCount">1</Property>
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">DomainLocal</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-32-544</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Administrators have complete and unrestricted access to the computer/domain</Property>
+      <Property Name="whenCreated">16/03/2018 5:21:13 PM</Property>
+      <Property Name="whenChanged">21/03/2018 4:47:52 PM</Property>
+      <Property Name="DistinguishedName">CN=Administrators,CN=Builtin,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Builtin/Administrators</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">Users</Property>
+      <Property Name="AdminCount" />
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">DomainLocal</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-32-545</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Users are prevented from making accidental or intentional system-wide changes and can run most applications</Property>
+      <Property Name="whenCreated">16/03/2018 5:21:13 PM</Property>
+      <Property Name="whenChanged">16/03/2018 5:22:29 PM</Property>
+      <Property Name="DistinguishedName">CN=Users,CN=Builtin,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Builtin/Users</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">Guests</Property>
+      <Property Name="AdminCount" />
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">DomainLocal</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-32-546</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Guests have the same access as members of the Users group by default, except for the Guest account which is further restricted</Property>
+      <Property Name="whenCreated">16/03/2018 5:21:13 PM</Property>
+      <Property Name="whenChanged">16/03/2018 5:22:29 PM</Property>
+      <Property Name="DistinguishedName">CN=Guests,CN=Builtin,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Builtin/Guests</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">Print Operators</Property>
+      <Property Name="AdminCount">1</Property>
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">DomainLocal</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-32-550</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Members can administer printers installed on domain controllers</Property>
+      <Property Name="whenCreated">16/03/2018 5:21:13 PM</Property>
+      <Property Name="whenChanged">21/03/2018 4:47:52 PM</Property>
+      <Property Name="DistinguishedName">CN=Print Operators,CN=Builtin,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Builtin/Print Operators</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">Backup Operators</Property>
+      <Property Name="AdminCount">1</Property>
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">DomainLocal</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-32-551</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Backup Operators can override security restrictions for the sole purpose of backing up or restoring files</Property>
+      <Property Name="whenCreated">16/03/2018 5:21:13 PM</Property>
+      <Property Name="whenChanged">21/03/2018 4:47:52 PM</Property>
+      <Property Name="DistinguishedName">CN=Backup Operators,CN=Builtin,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Builtin/Backup Operators</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">Replicator</Property>
+      <Property Name="AdminCount">1</Property>
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">DomainLocal</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-32-552</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Supports file replication in a domain</Property>
+      <Property Name="whenCreated">16/03/2018 5:21:13 PM</Property>
+      <Property Name="whenChanged">16/03/2018 5:37:40 PM</Property>
+      <Property Name="DistinguishedName">CN=Replicator,CN=Builtin,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Builtin/Replicator</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">Remote Desktop Users</Property>
+      <Property Name="AdminCount" />
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">DomainLocal</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-32-555</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Members in this group are granted the right to logon remotely</Property>
+      <Property Name="whenCreated">16/03/2018 5:21:13 PM</Property>
+      <Property Name="whenChanged">16/03/2018 5:21:13 PM</Property>
+      <Property Name="DistinguishedName">CN=Remote Desktop Users,CN=Builtin,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Builtin/Remote Desktop Users</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">Network Configuration Operators</Property>
+      <Property Name="AdminCount" />
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">DomainLocal</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-32-556</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Members in this group can have some administrative privileges to manage configuration of networking features</Property>
+      <Property Name="whenCreated">16/03/2018 5:21:13 PM</Property>
+      <Property Name="whenChanged">21/03/2018 4:47:52 PM</Property>
+      <Property Name="DistinguishedName">CN=Network Configuration Operators,CN=Builtin,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Builtin/Network Configuration Operators</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">Performance Monitor Users</Property>
+      <Property Name="AdminCount" />
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">DomainLocal</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-32-558</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Members of this group can access performance counter data locally and remotely</Property>
+      <Property Name="whenCreated">16/03/2018 5:21:13 PM</Property>
+      <Property Name="whenChanged">16/03/2018 5:21:13 PM</Property>
+      <Property Name="DistinguishedName">CN=Performance Monitor Users,CN=Builtin,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Builtin/Performance Monitor Users</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">Performance Log Users</Property>
+      <Property Name="AdminCount" />
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">DomainLocal</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-32-559</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Members of this group may schedule logging of performance counters, enable trace providers, and collect event traces both locally and via remote access to this computer</Property>
+      <Property Name="whenCreated">16/03/2018 5:21:13 PM</Property>
+      <Property Name="whenChanged">16/03/2018 5:21:13 PM</Property>
+      <Property Name="DistinguishedName">CN=Performance Log Users,CN=Builtin,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Builtin/Performance Log Users</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">Distributed COM Users</Property>
+      <Property Name="AdminCount" />
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">DomainLocal</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-32-562</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Members are allowed to launch, activate and use Distributed COM objects on this machine.</Property>
+      <Property Name="whenCreated">16/03/2018 5:21:13 PM</Property>
+      <Property Name="whenChanged">16/03/2018 5:21:13 PM</Property>
+      <Property Name="DistinguishedName">CN=Distributed COM Users,CN=Builtin,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Builtin/Distributed COM Users</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">IIS_IUSRS</Property>
+      <Property Name="AdminCount" />
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">DomainLocal</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-32-568</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Built-in group used by Internet Information Services.</Property>
+      <Property Name="whenCreated">16/03/2018 5:21:13 PM</Property>
+      <Property Name="whenChanged">16/03/2018 5:21:13 PM</Property>
+      <Property Name="DistinguishedName">CN=IIS_IUSRS,CN=Builtin,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Builtin/IIS_IUSRS</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">Cryptographic Operators</Property>
+      <Property Name="AdminCount" />
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">DomainLocal</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-32-569</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Members are authorized to perform cryptographic operations.</Property>
+      <Property Name="whenCreated">16/03/2018 5:21:13 PM</Property>
+      <Property Name="whenChanged">21/03/2018 4:47:52 PM</Property>
+      <Property Name="DistinguishedName">CN=Cryptographic Operators,CN=Builtin,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Builtin/Cryptographic Operators</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">Event Log Readers</Property>
+      <Property Name="AdminCount" />
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">DomainLocal</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-32-573</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Members of this group can read event logs from local machine</Property>
+      <Property Name="whenCreated">16/03/2018 5:21:13 PM</Property>
+      <Property Name="whenChanged">13/07/2018 2:23:59 PM</Property>
+      <Property Name="DistinguishedName">CN=Event Log Readers,CN=Builtin,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Builtin/Event Log Readers</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">Certificate Service DCOM Access</Property>
+      <Property Name="AdminCount" />
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">DomainLocal</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-32-574</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Members of this group are allowed to connect to Certification Authorities in the enterprise</Property>
+      <Property Name="whenCreated">16/03/2018 5:21:13 PM</Property>
+      <Property Name="whenChanged">16/03/2018 5:21:13 PM</Property>
+      <Property Name="DistinguishedName">CN=Certificate Service DCOM Access,CN=Builtin,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Builtin/Certificate Service DCOM Access</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">RDS Remote Access Servers</Property>
+      <Property Name="AdminCount" />
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">DomainLocal</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-32-575</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Servers in this group enable users of RemoteApp programs and personal virtual desktops access to these resources. In Internet-facing deployments, these servers are typically deployed in an edge network. This group needs to be populated on servers running RD Connection Broker. RD Gateway servers and RD Web Access servers used in the deployment need to be in this group.</Property>
+      <Property Name="whenCreated">16/03/2018 5:21:13 PM</Property>
+      <Property Name="whenChanged">16/03/2018 5:21:13 PM</Property>
+      <Property Name="DistinguishedName">CN=RDS Remote Access Servers,CN=Builtin,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Builtin/RDS Remote Access Servers</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">RDS Endpoint Servers</Property>
+      <Property Name="AdminCount" />
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">DomainLocal</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-32-576</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Servers in this group run virtual machines and host sessions where users RemoteApp programs and personal virtual desktops run. This group needs to be populated on servers running RD Connection Broker. RD Session Host servers and RD Virtualization Host servers used in the deployment need to be in this group.</Property>
+      <Property Name="whenCreated">16/03/2018 5:21:13 PM</Property>
+      <Property Name="whenChanged">16/03/2018 5:21:13 PM</Property>
+      <Property Name="DistinguishedName">CN=RDS Endpoint Servers,CN=Builtin,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Builtin/RDS Endpoint Servers</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">RDS Management Servers</Property>
+      <Property Name="AdminCount" />
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">DomainLocal</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-32-577</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Servers in this group can perform routine administrative actions on servers running Remote Desktop Services. This group needs to be populated on all servers in a Remote Desktop Services deployment. The servers running the RDS Central Management service must be included in this group.</Property>
+      <Property Name="whenCreated">16/03/2018 5:21:13 PM</Property>
+      <Property Name="whenChanged">16/03/2018 5:21:13 PM</Property>
+      <Property Name="DistinguishedName">CN=RDS Management Servers,CN=Builtin,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Builtin/RDS Management Servers</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">Hyper-V Administrators</Property>
+      <Property Name="AdminCount" />
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">DomainLocal</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-32-578</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Members of this group have complete and unrestricted access to all features of Hyper-V.</Property>
+      <Property Name="whenCreated">16/03/2018 5:21:13 PM</Property>
+      <Property Name="whenChanged">16/03/2018 5:21:13 PM</Property>
+      <Property Name="DistinguishedName">CN=Hyper-V Administrators,CN=Builtin,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Builtin/Hyper-V Administrators</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">Access Control Assistance Operators</Property>
+      <Property Name="AdminCount" />
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">DomainLocal</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-32-579</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Members of this group can remotely query authorization attributes and permissions for resources on this computer.</Property>
+      <Property Name="whenCreated">16/03/2018 5:21:13 PM</Property>
+      <Property Name="whenChanged">16/03/2018 5:21:13 PM</Property>
+      <Property Name="DistinguishedName">CN=Access Control Assistance Operators,CN=Builtin,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Builtin/Access Control Assistance Operators</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">Remote Management Users</Property>
+      <Property Name="AdminCount" />
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">DomainLocal</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-32-580</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Members of this group can access WMI resources over management protocols (such as WS-Management via the Windows Remote Management service). This applies only to WMI namespaces that grant access to the user.</Property>
+      <Property Name="whenCreated">16/03/2018 5:21:13 PM</Property>
+      <Property Name="whenChanged">16/03/2018 5:21:13 PM</Property>
+      <Property Name="DistinguishedName">CN=Remote Management Users,CN=Builtin,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Builtin/Remote Management Users</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">System Managed Accounts Group</Property>
+      <Property Name="AdminCount" />
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">DomainLocal</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-32-581</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Members of this group are managed by the system.</Property>
+      <Property Name="whenCreated">16/03/2018 5:21:13 PM</Property>
+      <Property Name="whenChanged">16/03/2018 5:21:13 PM</Property>
+      <Property Name="DistinguishedName">CN=System Managed Accounts Group,CN=Builtin,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Builtin/System Managed Accounts Group</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">Storage Replica Administrators</Property>
+      <Property Name="AdminCount" />
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">DomainLocal</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-32-582</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Members of this group have complete and unrestricted access to all features of Storage Replica.</Property>
+      <Property Name="whenCreated">16/03/2018 5:21:13 PM</Property>
+      <Property Name="whenChanged">16/03/2018 5:21:13 PM</Property>
+      <Property Name="DistinguishedName">CN=Storage Replica Administrators,CN=Builtin,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Builtin/Storage Replica Administrators</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">Domain Computers</Property>
+      <Property Name="AdminCount" />
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">Global</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-21-2872888145-3513486857-3924934394-515</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">All workstations and servers joined to the domain</Property>
+      <Property Name="whenCreated">16/03/2018 5:22:29 PM</Property>
+      <Property Name="whenChanged">16/03/2018 5:22:29 PM</Property>
+      <Property Name="DistinguishedName">CN=Domain Computers,CN=Users,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Users/Domain Computers</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">Domain Controllers</Property>
+      <Property Name="AdminCount">1</Property>
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">Global</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-21-2872888145-3513486857-3924934394-516</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">All domain controllers in the domain</Property>
+      <Property Name="whenCreated">16/03/2018 5:22:29 PM</Property>
+      <Property Name="whenChanged">16/03/2018 5:37:40 PM</Property>
+      <Property Name="DistinguishedName">CN=Domain Controllers,CN=Users,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Users/Domain Controllers</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">Schema Admins</Property>
+      <Property Name="AdminCount">1</Property>
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">Universal</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-21-2872888145-3513486857-3924934394-518</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Designated administrators of the schema</Property>
+      <Property Name="whenCreated">16/03/2018 5:22:29 PM</Property>
+      <Property Name="whenChanged">21/03/2018 4:47:52 PM</Property>
+      <Property Name="DistinguishedName">CN=Schema Admins,CN=Users,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Users/Schema Admins</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">Enterprise Admins</Property>
+      <Property Name="AdminCount">1</Property>
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">Universal</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-21-2872888145-3513486857-3924934394-519</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Designated administrators of the enterprise</Property>
+      <Property Name="whenCreated">16/03/2018 5:22:29 PM</Property>
+      <Property Name="whenChanged">21/03/2018 4:47:52 PM</Property>
+      <Property Name="DistinguishedName">CN=Enterprise Admins,CN=Users,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Users/Enterprise Admins</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">Cert Publishers</Property>
+      <Property Name="AdminCount" />
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">DomainLocal</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-21-2872888145-3513486857-3924934394-517</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Members of this group are permitted to publish certificates to the directory</Property>
+      <Property Name="whenCreated">16/03/2018 5:22:29 PM</Property>
+      <Property Name="whenChanged">21/03/2018 4:47:52 PM</Property>
+      <Property Name="DistinguishedName">CN=Cert Publishers,CN=Users,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Users/Cert Publishers</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">Domain Admins</Property>
+      <Property Name="AdminCount">1</Property>
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">Global</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-21-2872888145-3513486857-3924934394-512</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Designated administrators of the domain</Property>
+      <Property Name="whenCreated">16/03/2018 5:22:29 PM</Property>
+      <Property Name="whenChanged">21/03/2018 4:47:58 PM</Property>
+      <Property Name="DistinguishedName">CN=Domain Admins,CN=Users,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Users/Domain Admins</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">Domain Users</Property>
+      <Property Name="AdminCount" />
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">Global</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-21-2872888145-3513486857-3924934394-513</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">All domain users</Property>
+      <Property Name="whenCreated">16/03/2018 5:22:29 PM</Property>
+      <Property Name="whenChanged">21/03/2018 4:47:58 PM</Property>
+      <Property Name="DistinguishedName">CN=Domain Users,CN=Users,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Users/Domain Users</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">Domain Guests</Property>
+      <Property Name="AdminCount" />
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">Global</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-21-2872888145-3513486857-3924934394-514</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">All domain guests</Property>
+      <Property Name="whenCreated">16/03/2018 5:22:29 PM</Property>
+      <Property Name="whenChanged">16/03/2018 5:22:29 PM</Property>
+      <Property Name="DistinguishedName">CN=Domain Guests,CN=Users,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Users/Domain Guests</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">Group Policy Creator Owners</Property>
+      <Property Name="AdminCount" />
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">Global</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-21-2872888145-3513486857-3924934394-520</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Members in this group can modify group policy for the domain</Property>
+      <Property Name="whenCreated">16/03/2018 5:22:29 PM</Property>
+      <Property Name="whenChanged">16/03/2018 5:22:29 PM</Property>
+      <Property Name="DistinguishedName">CN=Group Policy Creator Owners,CN=Users,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Users/Group Policy Creator Owners</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">RAS and IAS Servers</Property>
+      <Property Name="AdminCount" />
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">DomainLocal</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-21-2872888145-3513486857-3924934394-553</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Servers in this group can access remote access properties of users</Property>
+      <Property Name="whenCreated">16/03/2018 5:22:29 PM</Property>
+      <Property Name="whenChanged">16/03/2018 5:22:29 PM</Property>
+      <Property Name="DistinguishedName">CN=RAS and IAS Servers,CN=Users,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Users/RAS and IAS Servers</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">Server Operators</Property>
+      <Property Name="AdminCount">1</Property>
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">DomainLocal</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-32-549</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Members can administer domain servers</Property>
+      <Property Name="whenCreated">16/03/2018 5:22:29 PM</Property>
+      <Property Name="whenChanged">21/03/2018 4:47:52 PM</Property>
+      <Property Name="DistinguishedName">CN=Server Operators,CN=Builtin,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Builtin/Server Operators</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">Account Operators</Property>
+      <Property Name="AdminCount">1</Property>
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">DomainLocal</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-32-548</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Members can administer domain user and group accounts</Property>
+      <Property Name="whenCreated">16/03/2018 5:22:29 PM</Property>
+      <Property Name="whenChanged">21/03/2018 4:47:52 PM</Property>
+      <Property Name="DistinguishedName">CN=Account Operators,CN=Builtin,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Builtin/Account Operators</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">Pre-Windows 2000 Compatible Access</Property>
+      <Property Name="AdminCount" />
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">DomainLocal</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-32-554</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">A backward compatibility group which allows read access on all users and groups in the domain</Property>
+      <Property Name="whenCreated">16/03/2018 5:22:29 PM</Property>
+      <Property Name="whenChanged">16/03/2018 5:22:29 PM</Property>
+      <Property Name="DistinguishedName">CN=Pre-Windows 2000 Compatible Access,CN=Builtin,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Builtin/Pre-Windows 2000 Compatible Access</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">Incoming Forest Trust Builders</Property>
+      <Property Name="AdminCount" />
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">DomainLocal</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-32-557</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Members of this group can create incoming, one-way trusts to this forest</Property>
+      <Property Name="whenCreated">16/03/2018 5:22:29 PM</Property>
+      <Property Name="whenChanged">21/03/2018 4:47:52 PM</Property>
+      <Property Name="DistinguishedName">CN=Incoming Forest Trust Builders,CN=Builtin,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Builtin/Incoming Forest Trust Builders</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">Windows Authorization Access Group</Property>
+      <Property Name="AdminCount" />
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">DomainLocal</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-32-560</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Members of this group have access to the computed tokenGroupsGlobalAndUniversal attribute on User objects</Property>
+      <Property Name="whenCreated">16/03/2018 5:22:29 PM</Property>
+      <Property Name="whenChanged">16/03/2018 5:22:29 PM</Property>
+      <Property Name="DistinguishedName">CN=Windows Authorization Access Group,CN=Builtin,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Builtin/Windows Authorization Access Group</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">Terminal Server License Servers</Property>
+      <Property Name="AdminCount" />
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">DomainLocal</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-32-561</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Members of this group can update user accounts in Active Directory with information about license issuance, for the purpose of tracking and reporting TS Per User CAL usage</Property>
+      <Property Name="whenCreated">16/03/2018 5:22:29 PM</Property>
+      <Property Name="whenChanged">16/03/2018 5:22:29 PM</Property>
+      <Property Name="DistinguishedName">CN=Terminal Server License Servers,CN=Builtin,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Builtin/Terminal Server License Servers</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">Allowed RODC Password Replication Group</Property>
+      <Property Name="AdminCount" />
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">DomainLocal</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-21-2872888145-3513486857-3924934394-571</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Members in this group can have their passwords replicated to all read-only domain controllers in the domain</Property>
+      <Property Name="whenCreated">16/03/2018 5:22:29 PM</Property>
+      <Property Name="whenChanged">16/03/2018 5:22:29 PM</Property>
+      <Property Name="DistinguishedName">CN=Allowed RODC Password Replication Group,CN=Users,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Users/Allowed RODC Password Replication Group</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">Denied RODC Password Replication Group</Property>
+      <Property Name="AdminCount" />
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">DomainLocal</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-21-2872888145-3513486857-3924934394-572</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Members in this group cannot have their passwords replicated to any read-only domain controllers in the domain</Property>
+      <Property Name="whenCreated">16/03/2018 5:22:29 PM</Property>
+      <Property Name="whenChanged">16/03/2018 5:22:29 PM</Property>
+      <Property Name="DistinguishedName">CN=Denied RODC Password Replication Group,CN=Users,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Users/Denied RODC Password Replication Group</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">Read-only Domain Controllers</Property>
+      <Property Name="AdminCount">1</Property>
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">Global</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-21-2872888145-3513486857-3924934394-521</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Members of this group are Read-Only Domain Controllers in the domain</Property>
+      <Property Name="whenCreated">16/03/2018 5:22:29 PM</Property>
+      <Property Name="whenChanged">16/03/2018 5:37:40 PM</Property>
+      <Property Name="DistinguishedName">CN=Read-only Domain Controllers,CN=Users,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Users/Read-only Domain Controllers</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">Enterprise Read-only Domain Controllers</Property>
+      <Property Name="AdminCount" />
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">Universal</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-21-2872888145-3513486857-3924934394-498</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Members of this group are Read-Only Domain Controllers in the enterprise</Property>
+      <Property Name="whenCreated">16/03/2018 5:22:29 PM</Property>
+      <Property Name="whenChanged">16/03/2018 5:22:29 PM</Property>
+      <Property Name="DistinguishedName">CN=Enterprise Read-only Domain Controllers,CN=Users,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Users/Enterprise Read-only Domain Controllers</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">Cloneable Domain Controllers</Property>
+      <Property Name="AdminCount" />
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">Global</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-21-2872888145-3513486857-3924934394-522</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Members of this group that are domain controllers may be cloned.</Property>
+      <Property Name="whenCreated">16/03/2018 5:22:29 PM</Property>
+      <Property Name="whenChanged">16/03/2018 5:22:29 PM</Property>
+      <Property Name="DistinguishedName">CN=Cloneable Domain Controllers,CN=Users,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Users/Cloneable Domain Controllers</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">Protected Users</Property>
+      <Property Name="AdminCount" />
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">Global</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-21-2872888145-3513486857-3924934394-525</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Members of this group are afforded additional protections against authentication security threats. See http://go.microsoft.com/fwlink/?LinkId=298939 for more information.</Property>
+      <Property Name="whenCreated">16/03/2018 5:22:29 PM</Property>
+      <Property Name="whenChanged">16/03/2018 5:22:29 PM</Property>
+      <Property Name="DistinguishedName">CN=Protected Users,CN=Users,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Users/Protected Users</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">Key Admins</Property>
+      <Property Name="AdminCount" />
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">Global</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-21-2872888145-3513486857-3924934394-526</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Members of this group can perform administrative actions on key objects within the domain.</Property>
+      <Property Name="whenCreated">16/03/2018 5:22:29 PM</Property>
+      <Property Name="whenChanged">16/03/2018 5:22:29 PM</Property>
+      <Property Name="DistinguishedName">CN=Key Admins,CN=Users,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Users/Key Admins</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">Enterprise Key Admins</Property>
+      <Property Name="AdminCount" />
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">Universal</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-21-2872888145-3513486857-3924934394-527</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Members of this group can perform administrative actions on key objects within the forest.</Property>
+      <Property Name="whenCreated">16/03/2018 5:22:29 PM</Property>
+      <Property Name="whenChanged">21/03/2018 4:47:52 PM</Property>
+      <Property Name="DistinguishedName">CN=Enterprise Key Admins,CN=Users,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Users/Enterprise Key Admins</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">DnsAdmins</Property>
+      <Property Name="AdminCount" />
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">DomainLocal</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-21-2872888145-3513486857-3924934394-1101</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">DNS Administrators Group</Property>
+      <Property Name="whenCreated">16/03/2018 5:23:09 PM</Property>
+      <Property Name="whenChanged">21/03/2018 4:47:52 PM</Property>
+      <Property Name="DistinguishedName">CN=DnsAdmins,CN=Users,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Users/DnsAdmins</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">DnsUpdateProxy</Property>
+      <Property Name="AdminCount" />
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">Global</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-21-2872888145-3513486857-3924934394-1102</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">DNS clients who are permitted to perform dynamic updates on behalf of some other clients (such as DHCP servers).</Property>
+      <Property Name="whenCreated">16/03/2018 5:23:09 PM</Property>
+      <Property Name="whenChanged">16/03/2018 5:23:09 PM</Property>
+      <Property Name="DistinguishedName">CN=DnsUpdateProxy,CN=Users,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Users/DnsUpdateProxy</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">DHCP Users</Property>
+      <Property Name="AdminCount" />
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">DomainLocal</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-21-2872888145-3513486857-3924934394-1106</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Members who have view-only access to the DHCP service</Property>
+      <Property Name="whenCreated">18/03/2018 5:15:31 PM</Property>
+      <Property Name="whenChanged">18/03/2018 5:15:31 PM</Property>
+      <Property Name="DistinguishedName">CN=DHCP Users,CN=Users,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Users/DHCP Users</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">DHCP Administrators</Property>
+      <Property Name="AdminCount" />
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">DomainLocal</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-21-2872888145-3513486857-3924934394-1107</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Members who have administrative access to the DHCP Service</Property>
+      <Property Name="whenCreated">18/03/2018 5:15:31 PM</Property>
+      <Property Name="whenChanged">18/03/2018 5:15:31 PM</Property>
+      <Property Name="DistinguishedName">CN=DHCP Administrators,CN=Users,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Users/DHCP Administrators</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">Workstation Admins</Property>
+      <Property Name="AdminCount" />
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">Global</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-21-2872888145-3513486857-3924934394-1119</Property>
+      <Property Name="SIDHistory">S-1-5-21-2872888145-3513486857-3924934394-512</Property>
+      <Property Name="Description">
+      </Property>
+      <Property Name="whenCreated">21/03/2018 4:37:54 PM</Property>
+      <Property Name="whenChanged">17/07/2018 1:10:33 PM</Property>
+      <Property Name="DistinguishedName">CN=Workstation Admins,OU=Lab Users,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Lab Users/Workstation Admins</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">Microsoft Advanced Threat Analytics Administrators</Property>
+      <Property Name="AdminCount" />
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">DomainLocal</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-21-2872888145-3513486857-3924934394-1129</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Microsoft Advanced Threat Analytics Administrators</Property>
+      <Property Name="whenCreated">11/07/2018 8:17:26 PM</Property>
+      <Property Name="whenChanged">11/07/2018 8:17:26 PM</Property>
+      <Property Name="DistinguishedName">CN=Microsoft Advanced Threat Analytics Administrators,CN=Users,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Users/Microsoft Advanced Threat Analytics Administrators</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">Microsoft Advanced Threat Analytics Users</Property>
+      <Property Name="AdminCount" />
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">DomainLocal</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-21-2872888145-3513486857-3924934394-1130</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Microsoft Advanced Threat Analytics Users</Property>
+      <Property Name="whenCreated">11/07/2018 8:17:26 PM</Property>
+      <Property Name="whenChanged">11/07/2018 8:17:26 PM</Property>
+      <Property Name="DistinguishedName">CN=Microsoft Advanced Threat Analytics Users,CN=Users,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Users/Microsoft Advanced Threat Analytics Users</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">Microsoft Advanced Threat Analytics Viewers</Property>
+      <Property Name="AdminCount" />
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">DomainLocal</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-21-2872888145-3513486857-3924934394-1131</Property>
+      <Property Name="SIDHistory">
+      </Property>
+      <Property Name="Description">Microsoft Advanced Threat Analytics Viewers</Property>
+      <Property Name="whenCreated">11/07/2018 8:17:26 PM</Property>
+      <Property Name="whenChanged">11/07/2018 8:17:26 PM</Property>
+      <Property Name="DistinguishedName">CN=Microsoft Advanced Threat Analytics Viewers,CN=Users,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Users/Microsoft Advanced Threat Analytics Viewers</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">Test</Property>
+      <Property Name="AdminCount" />
+      <Property Name="GroupCategory">Security</Property>
+      <Property Name="GroupScope">Global</Property>
+      <Property Name="ManagedBy">
+      </Property>
+      <Property Name="SID">S-1-5-21-2872888145-3513486857-3924934394-1132</Property>
+      <Property Name="SIDHistory">S-1-5-21-2872888145-3513486857-3924934394-512,S-1-5-21-2872888145-3513486857-3924934394-1119</Property>
+      <Property Name="Description">
+      </Property>
+      <Property Name="whenCreated">17/07/2018 1:10:56 PM</Property>
+      <Property Name="whenChanged">17/07/2018 1:11:24 PM</Property>
+      <Property Name="DistinguishedName">CN=Test,OU=Lab Users,DC=sos,DC=labs</Property>
+      <Property Name="CanonicalName">sos.labs/Lab Users/Test</Property>
+    </Property>
+  </Object>
+</Objects>

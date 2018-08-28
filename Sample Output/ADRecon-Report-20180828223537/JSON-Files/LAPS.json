@@ -1,0 +1,54 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Objects>
+  <Object>
+    <Property>
+      <Property Name="Hostname">DC1.sos.labs</Property>
+      <Property Name="Stored">False</Property>
+      <Property Name="Readable">False</Property>
+      <Property Name="Password" />
+      <Property Name="Expiration" />
+    </Property>
+    <Property>
+      <Property Name="Hostname">WIN7X86.sos.labs</Property>
+      <Property Name="Stored">True</Property>
+      <Property Name="Readable">True</Property>
+      <Property Name="Password">0vYW%+.{@%lk]6</Property>
+      <Property Name="Expiration">7/09/2018 6:11:26 PM</Property>
+    </Property>
+    <Property>
+      <Property Name="Hostname">WIN7X64-OFFICE.sos.labs</Property>
+      <Property Name="Stored">True</Property>
+      <Property Name="Readable">True</Property>
+      <Property Name="Password">R-w;v22)#fKx.+</Property>
+      <Property Name="Expiration">11/09/2018 5:00:59 AM</Property>
+    </Property>
+    <Property>
+      <Property Name="Hostname">Win8-1x64.sos.labs</Property>
+      <Property Name="Stored">True</Property>
+      <Property Name="Readable">True</Property>
+      <Property Name="Password">PwWl2[d7;5@k%n</Property>
+      <Property Name="Expiration">17/04/2018 5:33:44 PM</Property>
+    </Property>
+    <Property>
+      <Property Name="Hostname">Win10x64.sos.labs</Property>
+      <Property Name="Stored">False</Property>
+      <Property Name="Readable">False</Property>
+      <Property Name="Password" />
+      <Property Name="Expiration" />
+    </Property>
+    <Property>
+      <Property Name="Hostname">Win10.sos.labs</Property>
+      <Property Name="Stored">True</Property>
+      <Property Name="Readable">True</Property>
+      <Property Name="Password">+FqSJLwb3X&amp;vA$</Property>
+      <Property Name="Expiration">5/05/2018 11:56:42 PM</Property>
+    </Property>
+    <Property>
+      <Property Name="Hostname">WEV.sos.labs</Property>
+      <Property Name="Stored">False</Property>
+      <Property Name="Readable">False</Property>
+      <Property Name="Password" />
+      <Property Name="Expiration" />
+    </Property>
+  </Object>
+</Objects>

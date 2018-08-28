@@ -1,0 +1,69 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Objects>
+  <Object>
+    <Property>
+      <Property Name="Category">Name</Property>
+      <Property Name="Value">sos.labs</Property>
+    </Property>
+    <Property>
+      <Property Name="Category">Functional Level</Property>
+      <Property Name="Value">Windows2016Forest</Property>
+    </Property>
+    <Property>
+      <Property Name="Category">Domain Naming Master</Property>
+      <Property Name="Value">DC1.sos.labs</Property>
+    </Property>
+    <Property>
+      <Property Name="Category">Schema Master</Property>
+      <Property Name="Value">DC1.sos.labs</Property>
+    </Property>
+    <Property>
+      <Property Name="Category">RootDomain</Property>
+      <Property Name="Value">sos.labs</Property>
+    </Property>
+    <Property>
+      <Property Name="Category">Domain Count</Property>
+      <Property Name="Value">1</Property>
+    </Property>
+    <Property>
+      <Property Name="Category">Site Count</Property>
+      <Property Name="Value">1</Property>
+    </Property>
+    <Property>
+      <Property Name="Category">Global Catalog Count</Property>
+      <Property Name="Value">1</Property>
+    </Property>
+    <Property>
+      <Property Name="Category">Domain</Property>
+      <Property Name="Value">sos.labs</Property>
+    </Property>
+    <Property>
+      <Property Name="Category">Site</Property>
+      <Property Name="Value">Default-First-Site-Name</Property>
+    </Property>
+    <Property>
+      <Property Name="Category">GlobalCatalog</Property>
+      <Property Name="Value">DC1.sos.labs</Property>
+    </Property>
+    <Property>
+      <Property Name="Category">Tombstone Lifetime</Property>
+      <Property Name="Value">180</Property>
+    </Property>
+    <Property>
+      <Property Name="Category">Recycle Bin (2008 R2 onwards)</Property>
+      <Property Name="Value">Enabled</Property>
+    </Property>
+    <Property>
+      <Property Name="Category">Enabled Scope</Property>
+      <Property Name="Value">CN=Partitions,CN=Configuration,DC=sos,DC=labs</Property>
+    </Property>
+    <Property>
+      <Property Name="Category">Enabled Scope</Property>
+      <Property Name="Value">CN=NTDS Settings,CN=DC1,CN=Servers,CN=Default-First-Site-Name,CN=Sites,CN=Configuration,DC=sos,DC=labs</Property>
+    </Property>
+    <Property>
+      <Property Name="Category">Privileged Access Management (2016 onwards)</Property>
+      <Property Name="Value">Disabled</Property>
+    </Property>
+  </Object>
+</Objects>

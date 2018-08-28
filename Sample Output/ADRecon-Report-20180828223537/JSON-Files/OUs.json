@@ -1,0 +1,45 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Objects>
+  <Object>
+    <Property>
+      <Property Name="Name">Domain Controllers</Property>
+      <Property Name="Depth">1</Property>
+      <Property Name="Description">Default container for domain controllers</Property>
+      <Property Name="whenCreated">16/03/2018 5:21:12 PM</Property>
+      <Property Name="whenChanged">13/07/2018 2:23:46 PM</Property>
+      <Property Name="DistinguishedName">OU=Domain Controllers,DC=sos,DC=labs</Property>
+      <Property Name="gPLink">[LDAP://cn={80C12234-9939-4F9B-BB17-7D50FDA95D92},cn=policies,cn=system,DC=sos,DC=labs;2][LDAP://cn={5621D5FA-603B-44BB-8719-FAA5F26E8CE3},cn=policies,cn=system,DC=sos,DC=labs;2][LDAP://cn={F5017D73-D6EA-464A-8F2E-8C5E5DCE8B6C},cn=policies,cn=system,DC=sos,DC=labs;2][LDAP://CN={6AC1786C-016F-11D2-945F-00C04fB984F9},CN=Policies,CN=System,DC=sos,DC=labs;0]</Property>
+      <Property Name="gPOptions" />
+    </Property>
+    <Property>
+      <Property Name="Name">Lab Users</Property>
+      <Property Name="Depth">1</Property>
+      <Property Name="Description" />
+      <Property Name="whenCreated">16/03/2018 5:30:52 PM</Property>
+      <Property Name="whenChanged">16/03/2018 5:30:52 PM</Property>
+      <Property Name="DistinguishedName">OU=Lab Users,DC=sos,DC=labs</Property>
+      <Property Name="gPLink" />
+      <Property Name="gPOptions" />
+    </Property>
+    <Property>
+      <Property Name="Name">Priv Accounts</Property>
+      <Property Name="Depth">1</Property>
+      <Property Name="Description" />
+      <Property Name="whenCreated">16/03/2018 6:05:19 PM</Property>
+      <Property Name="whenChanged">16/03/2018 6:05:19 PM</Property>
+      <Property Name="DistinguishedName">OU=Priv Accounts,DC=sos,DC=labs</Property>
+      <Property Name="gPLink" />
+      <Property Name="gPOptions" />
+    </Property>
+    <Property>
+      <Property Name="Name">Workstations</Property>
+      <Property Name="Depth">1</Property>
+      <Property Name="Description" />
+      <Property Name="whenCreated">18/03/2018 5:35:07 PM</Property>
+      <Property Name="whenChanged">18/03/2018 6:02:05 PM</Property>
+      <Property Name="DistinguishedName">OU=Workstations,DC=sos,DC=labs</Property>
+      <Property Name="gPLink">[LDAP://cn={36DDC97F-78D7-4A68-8EE9-E101EF56B324},cn=policies,cn=system,DC=sos,DC=labs;0][LDAP://cn={F3768285-65F2-4483-9050-0ED8E69A2ECB},cn=policies,cn=system,DC=sos,DC=labs;0]</Property>
+      <Property Name="gPOptions" />
+    </Property>
+  </Object>
+</Objects>

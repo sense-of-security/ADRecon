@@ -1,0 +1,71 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Objects>
+  <Object>
+    <Property>
+      <Property Name="Distinguished Name">CN=WIN8-1X64,OU=Workstations,DC=sos,DC=labs</Property>
+      <Property Name="Name">2018-03-18T19:46:22+10:00{413D07B0-6C7D-43ED-B405-1D666F370BB7}</Property>
+      <Property Name="whenCreated">18/03/2018 7:46:47 PM</Property>
+      <Property Name="Recovery Key ID">413d07b0-6c7d-43ed-b405-1d666f370bb7</Property>
+      <Property Name="Recovery Key">239195-501215-066341-543554-510950-371679-230593-311905</Property>
+      <Property Name="Volume GUID">e88a533d-2d9e-4845-ad86-c7097b3351eb</Property>
+      <Property Name="msTPM-OwnerInformation" />
+      <Property Name="msTPM-TpmInformationForComputer" />
+      <Property Name="TPM Owner Password" />
+    </Property>
+    <Property>
+      <Property Name="Distinguished Name">CN=WIN10X64,OU=Workstations,DC=sos,DC=labs</Property>
+      <Property Name="Name">2018-03-28T23:41:52+10:00{17108E05-5937-4742-B74C-3780AF11B37E}</Property>
+      <Property Name="whenCreated">28/03/2018 11:42:35 PM</Property>
+      <Property Name="Recovery Key ID">17108e05-5937-4742-b74c-3780af11b37e</Property>
+      <Property Name="Recovery Key">078606-491865-384142-393976-674399-265100-698159-623777</Property>
+      <Property Name="Volume GUID">2337a5e8-f5b7-461a-909c-c02219cea0a7</Property>
+      <Property Name="msTPM-OwnerInformation" />
+      <Property Name="msTPM-TpmInformationForComputer" />
+      <Property Name="TPM Owner Password" />
+    </Property>
+    <Property>
+      <Property Name="Distinguished Name">CN=WIN10X64,OU=Workstations,DC=sos,DC=labs</Property>
+      <Property Name="Name">2018-03-29T00:43:59+10:00{66DF7187-B5F6-4E55-9A65-385B5EBAF7DC}</Property>
+      <Property Name="whenCreated">29/03/2018 12:44:30 AM</Property>
+      <Property Name="Recovery Key ID">66df7187-b5f6-4e55-9a65-385b5ebaf7dc</Property>
+      <Property Name="Recovery Key">370183-324632-694177-176407-626626-439406-512292-284669</Property>
+      <Property Name="Volume GUID">d654a6c9-a008-4513-a738-95def119f12d</Property>
+      <Property Name="msTPM-OwnerInformation" />
+      <Property Name="msTPM-TpmInformationForComputer" />
+      <Property Name="TPM Owner Password" />
+    </Property>
+    <Property>
+      <Property Name="Distinguished Name">CN=WIN10X64,OU=Workstations,DC=sos,DC=labs</Property>
+      <Property Name="Name">2018-03-29T01:14:40+10:00{BDED6E14-8121-483F-993D-773AF95D8059}</Property>
+      <Property Name="whenCreated">29/03/2018 1:14:51 AM</Property>
+      <Property Name="Recovery Key ID">bded6e14-8121-483f-993d-773af95d8059</Property>
+      <Property Name="Recovery Key">159709-504581-653972-294778-041602-005434-502095-400169</Property>
+      <Property Name="Volume GUID">2f34a2b4-e5e3-480a-8bce-92ecf2fa385a</Property>
+      <Property Name="msTPM-OwnerInformation" />
+      <Property Name="msTPM-TpmInformationForComputer" />
+      <Property Name="TPM Owner Password" />
+    </Property>
+    <Property>
+      <Property Name="Distinguished Name">CN=WIN10X64,OU=Workstations,DC=sos,DC=labs</Property>
+      <Property Name="Name">2018-03-29T05:58:25+10:00{7545BE4D-3C13-4883-94DA-C3337C12C870}</Property>
+      <Property Name="whenCreated">29/03/2018 5:58:46 AM</Property>
+      <Property Name="Recovery Key ID">7545be4d-3c13-4883-94da-c3337c12c870</Property>
+      <Property Name="Recovery Key">383306-280027-536470-106579-627638-483054-616330-197527</Property>
+      <Property Name="Volume GUID">1785aaf3-2cab-4905-a61c-1b858c15f066</Property>
+      <Property Name="msTPM-OwnerInformation" />
+      <Property Name="msTPM-TpmInformationForComputer" />
+      <Property Name="TPM Owner Password" />
+    </Property>
+    <Property>
+      <Property Name="Distinguished Name">CN=WIN10,OU=Workstations,DC=sos,DC=labs</Property>
+      <Property Name="Name">2018-04-05T23:59:32+10:00{37935B06-26D6-4AA5-9D40-01CD1F9C63D8}</Property>
+      <Property Name="whenCreated">5/04/2018 11:59:41 PM</Property>
+      <Property Name="Recovery Key ID">37935b06-26d6-4aa5-9d40-01cd1f9c63d8</Property>
+      <Property Name="Recovery Key">237160-134134-502502-416757-050402-448415-142186-666446</Property>
+      <Property Name="Volume GUID">7c406713-7d62-4abe-9ccf-38ecdc53bc3d</Property>
+      <Property Name="msTPM-OwnerInformation" />
+      <Property Name="msTPM-TpmInformationForComputer" />
+      <Property Name="TPM Owner Password" />
+    </Property>
+  </Object>
+</Objects>

@@ -1,0 +1,25 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Objects>
+  <Object>
+    <Property>
+      <Property Name="Name">krbtgt</Property>
+      <Property Name="Username">krbtgt</Property>
+      <Property Name="Enabled">False</Property>
+      <Property Name="Service">kadmin</Property>
+      <Property Name="Host">changepw</Property>
+      <Property Name="Password Last Set">16/03/2018 5:22:29 PM</Property>
+      <Property Name="Description">Key Distribution Center Service Account</Property>
+      <Property Name="Memberof" />
+    </Property>
+    <Property>
+      <Property Name="Name">User</Property>
+      <Property Name="Username">user</Property>
+      <Property Name="Enabled">True</Property>
+      <Property Name="Service">http</Property>
+      <Property Name="Host">DC1.sos.labs:80</Property>
+      <Property Name="Password Last Set">31/05/2018 12:53:57 PM</Property>
+      <Property Name="Description">Member of Administrators</Property>
+      <Property Name="Memberof">Workstation Admins,Administrators</Property>
+    </Property>
+  </Object>
+</Objects>

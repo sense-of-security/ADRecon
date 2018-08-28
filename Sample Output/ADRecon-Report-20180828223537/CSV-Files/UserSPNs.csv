@@ -1,0 +1,3 @@
+"Name","Username","Enabled","Service","Host","Password Last Set","Description","Memberof"
+"krbtgt","krbtgt","False","kadmin","changepw","16/03/2018 5:22:29 PM","Key Distribution Center Service Account",
+"User","user","True","http","DC1.sos.labs:80","31/05/2018 12:53:57 PM","Member of Administrators","Workstation Admins,Administrators"

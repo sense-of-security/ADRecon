@@ -1,0 +1,37 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Objects>
+  <Object>
+    <Property>
+      <Property Name="Category">Name</Property>
+      <Property Name="Value">sos.labs</Property>
+    </Property>
+    <Property>
+      <Property Name="Category">NetBIOS</Property>
+      <Property Name="Value">sos</Property>
+    </Property>
+    <Property>
+      <Property Name="Category">Functional Level</Property>
+      <Property Name="Value">Windows2016Domain</Property>
+    </Property>
+    <Property>
+      <Property Name="Category">DomainSID</Property>
+      <Property Name="Value">S-1-5-21-2872888145-3513486857-3924934394</Property>
+    </Property>
+    <Property>
+      <Property Name="Category">Domain Controller</Property>
+      <Property Name="Value">DC1.sos.labs</Property>
+    </Property>
+    <Property>
+      <Property Name="Category">Creation Date</Property>
+      <Property Name="Value">16/03/2018 5:20:58 PM</Property>
+    </Property>
+    <Property>
+      <Property Name="Category">RIDs Issued</Property>
+      <Property Name="Value">1600</Property>
+    </Property>
+    <Property>
+      <Property Name="Category">RIDs Remaining</Property>
+      <Property Name="Value">1073740223</Property>
+    </Property>
+  </Object>
+</Objects>

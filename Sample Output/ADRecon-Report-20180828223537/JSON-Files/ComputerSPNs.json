@@ -1,0 +1,115 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Objects>
+  <Object>
+    <Property>
+      <Property Name="Name">DC1</Property>
+      <Property Name="Service">Dfsr-12F9A27C-BF97-4787-9364-D31B6C55EB04</Property>
+      <Property Name="Host">DC1.sos.labs</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">DC1</Property>
+      <Property Name="Service">ldap</Property>
+      <Property Name="Host">DC1.sos.labs,DC1,4d55de11-5a60-4d67-9523-0607a687be7e._msdcs.sos.labs</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">DC1</Property>
+      <Property Name="Service">DNS</Property>
+      <Property Name="Host">DC1.sos.labs</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">DC1</Property>
+      <Property Name="Service">GC</Property>
+      <Property Name="Host">DC1.sos.labs</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">DC1</Property>
+      <Property Name="Service">RestrictedKrbHost</Property>
+      <Property Name="Host">DC1.sos.labs,DC1</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">DC1</Property>
+      <Property Name="Service">RPC</Property>
+      <Property Name="Host">4d55de11-5a60-4d67-9523-0607a687be7e._msdcs.sos.labs</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">DC1</Property>
+      <Property Name="Service">HOST</Property>
+      <Property Name="Host">DC1,DC1.sos.labs</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">DC1</Property>
+      <Property Name="Service">E3514235-4B06-11D1-AB04-00C04FC2DCD2</Property>
+      <Property Name="Host">4d55de11-5a60-4d67-9523-0607a687be7e</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">WIN7X86</Property>
+      <Property Name="Service">RestrictedKrbHost</Property>
+      <Property Name="Host">WIN7X86,WIN7X86.sos.labs</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">WIN7X86</Property>
+      <Property Name="Service">HOST</Property>
+      <Property Name="Host">WIN7X86,WIN7X86.sos.labs</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">WIN7X64-OFFICE</Property>
+      <Property Name="Service">TERMSRV</Property>
+      <Property Name="Host">WIN7X64-OFFICE,Win7x64-Office.sos.labs</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">WIN7X64-OFFICE</Property>
+      <Property Name="Service">RestrictedKrbHost</Property>
+      <Property Name="Host">WIN7X64-OFFICE,WIN7X64-OFFICE.sos.labs</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">WIN7X64-OFFICE</Property>
+      <Property Name="Service">HOST</Property>
+      <Property Name="Host">WIN7X64-OFFICE,WIN7X64-OFFICE.sos.labs</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">WIN8-1X64</Property>
+      <Property Name="Service">RestrictedKrbHost</Property>
+      <Property Name="Host">WIN8-1X64,Win8-1x64.sos.labs</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">WIN8-1X64</Property>
+      <Property Name="Service">HOST</Property>
+      <Property Name="Host">WIN8-1X64,Win8-1x64.sos.labs</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">WIN10X64</Property>
+      <Property Name="Service">RestrictedKrbHost</Property>
+      <Property Name="Host">WIN10X64,Win10x64.sos.labs</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">WIN10X64</Property>
+      <Property Name="Service">HOST</Property>
+      <Property Name="Host">WIN10X64,Win10x64.sos.labs</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">WIN10</Property>
+      <Property Name="Service">RestrictedKrbHost</Property>
+      <Property Name="Host">WIN10,Win10.sos.labs</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">WIN10</Property>
+      <Property Name="Service">HOST</Property>
+      <Property Name="Host">WIN10,Win10.sos.labs</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">WEV</Property>
+      <Property Name="Service">WSMAN</Property>
+      <Property Name="Host">WEV,WEV.sos.labs</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">WEV</Property>
+      <Property Name="Service">RestrictedKrbHost</Property>
+      <Property Name="Host">WEV,WEV.sos.labs</Property>
+    </Property>
+    <Property>
+      <Property Name="Name">WEV</Property>
+      <Property Name="Service">HOST</Property>
+      <Property Name="Host">WEV,WEV.sos.labs</Property>
+    </Property>
+  </Object>
+</Objects>

@@ -1,0 +1,61 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Objects>
+  <Object>
+    <Property>
+      <Property Name="DisplayName">Default Domain Policy</Property>
+      <Property Name="Name">{31B2F340-016D-11D2-945F-00C04FB984F9}</Property>
+      <Property Name="whenCreated">16/03/2018 5:21:12 PM</Property>
+      <Property Name="whenChanged">16/03/2018 5:30:52 PM</Property>
+      <Property Name="DistinguishedName">CN={31B2F340-016D-11D2-945F-00C04FB984F9},CN=Policies,CN=System,DC=sos,DC=labs</Property>
+      <Property Name="FilePath">\\sos.labs\sysvol\sos.labs\Policies\{31B2F340-016D-11D2-945F-00C04FB984F9}</Property>
+    </Property>
+    <Property>
+      <Property Name="DisplayName">Default Domain Controllers Policy</Property>
+      <Property Name="Name">{6AC1786C-016F-11D2-945F-00C04fB984F9}</Property>
+      <Property Name="whenCreated">16/03/2018 5:21:12 PM</Property>
+      <Property Name="whenChanged">13/07/2018 2:38:17 PM</Property>
+      <Property Name="DistinguishedName">CN={6AC1786C-016F-11D2-945F-00C04fB984F9},CN=Policies,CN=System,DC=sos,DC=labs</Property>
+      <Property Name="FilePath">\\sos.labs\sysvol\sos.labs\Policies\{6AC1786C-016F-11D2-945F-00C04fB984F9}</Property>
+    </Property>
+    <Property>
+      <Property Name="DisplayName">LAPS</Property>
+      <Property Name="Name">{F3768285-65F2-4483-9050-0ED8E69A2ECB}</Property>
+      <Property Name="whenCreated">18/03/2018 5:37:07 PM</Property>
+      <Property Name="whenChanged">18/03/2018 5:48:08 PM</Property>
+      <Property Name="DistinguishedName">CN={F3768285-65F2-4483-9050-0ED8E69A2ECB},CN=Policies,CN=System,DC=sos,DC=labs</Property>
+      <Property Name="FilePath">\\sos.labs\SysVol\sos.labs\Policies\{F3768285-65F2-4483-9050-0ED8E69A2ECB}</Property>
+    </Property>
+    <Property>
+      <Property Name="DisplayName">BitLocker</Property>
+      <Property Name="Name">{36DDC97F-78D7-4A68-8EE9-E101EF56B324}</Property>
+      <Property Name="whenCreated">18/03/2018 6:02:05 PM</Property>
+      <Property Name="whenChanged">29/03/2018 1:47:40 AM</Property>
+      <Property Name="DistinguishedName">CN={36DDC97F-78D7-4A68-8EE9-E101EF56B324},CN=Policies,CN=System,DC=sos,DC=labs</Property>
+      <Property Name="FilePath">\\sos.labs\SysVol\sos.labs\Policies\{36DDC97F-78D7-4A68-8EE9-E101EF56B324}</Property>
+    </Property>
+    <Property>
+      <Property Name="DisplayName">Windows Event Forwarding Server</Property>
+      <Property Name="Name">{F5017D73-D6EA-464A-8F2E-8C5E5DCE8B6C}</Property>
+      <Property Name="whenCreated">11/07/2018 6:34:21 PM</Property>
+      <Property Name="whenChanged">11/07/2018 10:16:13 PM</Property>
+      <Property Name="DistinguishedName">CN={F5017D73-D6EA-464A-8F2E-8C5E5DCE8B6C},CN=Policies,CN=System,DC=sos,DC=labs</Property>
+      <Property Name="FilePath">\\sos.labs\sysvol\sos.labs\Policies\{F5017D73-D6EA-464A-8F2E-8C5E5DCE8B6C}</Property>
+    </Property>
+    <Property>
+      <Property Name="DisplayName">Custom Event Channel Permissions</Property>
+      <Property Name="Name">{5621D5FA-603B-44BB-8719-FAA5F26E8CE3}</Property>
+      <Property Name="whenCreated">11/07/2018 6:37:32 PM</Property>
+      <Property Name="whenChanged">11/07/2018 6:37:32 PM</Property>
+      <Property Name="DistinguishedName">CN={5621D5FA-603B-44BB-8719-FAA5F26E8CE3},CN=Policies,CN=System,DC=sos,DC=labs</Property>
+      <Property Name="FilePath">\\sos.labs\sysvol\sos.labs\Policies\{5621D5FA-603B-44BB-8719-FAA5F26E8CE3}</Property>
+    </Property>
+    <Property>
+      <Property Name="DisplayName">Domain Controllers Enhanced Auditing Policy</Property>
+      <Property Name="Name">{80C12234-9939-4F9B-BB17-7D50FDA95D92}</Property>
+      <Property Name="whenCreated">13/07/2018 2:23:42 PM</Property>
+      <Property Name="whenChanged">13/07/2018 2:23:43 PM</Property>
+      <Property Name="DistinguishedName">CN={80C12234-9939-4F9B-BB17-7D50FDA95D92},CN=Policies,CN=System,DC=sos,DC=labs</Property>
+      <Property Name="FilePath">\\sos.labs\sysvol\sos.labs\Policies\{80C12234-9939-4F9B-BB17-7D50FDA95D92}</Property>
+    </Property>
+  </Object>
+</Objects>
