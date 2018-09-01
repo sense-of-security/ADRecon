@@ -4156,7 +4156,7 @@ Function Export-ADRJSON
 
     Try
     {
-        (ConvertTo-JSON -InputObject $ADRObj).Save($ADFileName)
+        ConvertTo-JSON -InputObject $ADRObj | Out-File -FilePath $ADFileName
     }
     Catch
     {
@@ -4313,7 +4313,7 @@ Function Export-ADR
         'JSON'
         {
             $ADFileName  = -join($ADROutputDir,'\','JSON-Files','\',$ADRModuleName,'.json')
-            Export-ADRXML -ADRObj $ADRObj -ADFileName $ADFileName
+            Export-ADRJSON -ADRObj $ADRObj -ADFileName $ADFileName
         }
         'HTML'
         {
