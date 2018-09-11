@@ -3047,6 +3047,14 @@ Function Get-ADRExcelPivotTable
 .PARAMETER PivotValues
     [array]
     Row/Column names from Source Sheet to use for Values.
+
+.PARAMETER PivotPercentage
+    [array]
+    Row/Column names from Source Sheet to use for Percentage.
+
+.PARAMETER PivotLocation
+    [array]
+    Location of the Pivot Table in Row/Column.
 #>
     param (
         [Parameter(Mandatory = $true)]
@@ -3055,7 +3063,7 @@ Function Get-ADRExcelPivotTable
         [Parameter(Mandatory = $true)]
         [string] $PivotTableName,
 
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory = $false)]
         [array] $PivotRows,
 
         [Parameter(Mandatory = $false)]
@@ -3065,7 +3073,13 @@ Function Get-ADRExcelPivotTable
         [array] $PivotFilters,
 
         [Parameter(Mandatory = $false)]
-        [array] $PivotValues
+        [array] $PivotValues,
+
+        [Parameter(Mandatory = $false)]
+        [array] $PivotPercentage,
+
+        [Parameter(Mandatory = $false)]
+        [string] $PivotLocation = "R1C1"
     )
 
     $excel.ScreenUpdating = $false
@@ -3082,7 +3096,7 @@ Function Get-ADRExcelPivotTable
     # xlDatabase = 1 # this just means local sheet data
     # xlPivotTableVersion12 = 3 # Excel 2007
     $PivotCaches = $workbook.PivotCaches().Create([Microsoft.Office.Interop.Excel.XlPivotTableSourceType]::xlDatabase, $SrcWorksheet.UsedRange, [Microsoft.Office.Interop.Excel.XlPivotTableVersionList]::xlPivotTableVersion12)
-    $PivotTable = $PivotCaches.CreatePivotTable("R1C1",$PivotTableName)
+    $PivotTable = $PivotCaches.CreatePivotTable($PivotLocation,$PivotTableName)
     # $workbook.ShowPivotTableFieldList = $true
 
     If ($PivotRows)
@@ -3118,6 +3132,17 @@ Function Get-ADRExcelPivotTable
         {
             $PivotField = $PivotTable.PivotFields($Val)
             $PivotField.Orientation = [Microsoft.Office.Interop.Excel.XlPivotFieldOrientation]::xlDataField
+        }
+    }
+
+    If ($PivotPercentage)
+    {
+        ForEach ($Val in $PivotPercentage)
+        {
+            $PivotField = $PivotTable.PivotFields($Val)
+            $PivotField.Orientation = [Microsoft.Office.Interop.Excel.XlPivotFieldOrientation]::xlDataField
+            $PivotField.Calculation = [Microsoft.Office.Interop.Excel.XlPivotFieldCalculation]::xlPercentOfTotal
+            $PivotTable.ShowValuesRow = $false
         }
     }
 
@@ -3187,43 +3212,26 @@ Function Get-ADRExcelAttributeStats
     $MergeCells.MergeCells = $true
     Remove-Variable MergeCells
 
-    $row++
+    Get-ADRExcelPivotTable -SrcSheetName $SrcSheetName -PivotTableName "User Status" -PivotRows @("Enabled") -PivotValues @("UserName") -PivotPercentage @("UserName") -PivotLocation "R2C1"
+
+    $row = 2
     "Type","Count","Percentage" | ForEach-Object {
         $worksheet.Cells.Item($row, $column) = $_
         $worksheet.Cells.Item($row, $column).Font.Bold = $True
         $column++
     }
 
-    $ExcelColumn = ($SrcWorksheet.Columns.Find("Enabled"))
-    $EnabledColAddress = "$($ExcelColumn.Address($false,$false).Substring(0,$ExcelColumn.Address($false,$false).Length-1)):$($ExcelColumn.Address($false,$false).Substring(0,$ExcelColumn.Address($false,$false).Length-1))"
-
-    $row++
+    $row = 3
     $column = 1
-    $worksheet.Cells.Item($row, $column) = "Enabled"
-    $worksheet.Cells.Item($row, $column+1).Formula = '=COUNTIF(' + $SrcWorksheet.Name + '!' + $EnabledColAddress + ',"TRUE")'
-    $worksheet.Cells.Item($row, $column+2).Formula = '=B3/B5'
-
-    $row++
-    $worksheet.Cells.Item($row, $column) = "Disabled"
-    $worksheet.Cells.Item($row, $column+1).Formula = '=COUNTIF(' + $SrcWorksheet.Name + '!' + $EnabledColAddress + ',"FALSE")'
-    $worksheet.Cells.Item($row, $column+2).Formula = '=B4/B5'
-
-    $ExcelColumn = ($SrcWorksheet.Columns.Find("UserName"))
-    $ColAddress = "$($ExcelColumn.Address($false,$false).Substring(0,$ExcelColumn.Address($false,$false).Length-1)):$($ExcelColumn.Address($false,$false).Substring(0,$ExcelColumn.Address($false,$false).Length-1))"
-    $row++
-    $worksheet.Cells.Item($row, $column) = "Total"
-    $worksheet.Cells.Item($row, $column+1).Formula = '=COUNTA(' + $SrcWorksheet.Name + '!' + $ColAddress +')-1' # Username Column
-    $worksheet.Cells.Item($row, $column+2).Formula = '=SUM(C3:C4)'
-
-    # http://www.excelhowto.com/macros/formatting-a-range-of-cells-in-excel-vba/
-    $rng = "C" + $($column+2) + ":C" + $($column+4)
-    $worksheet.Range("$rng").NumberFormat = "0.00%"
-
-    If ( [int]($worksheet.Cells.Item($row, $column+1).Text) -ne ( [int]($worksheet.Cells.Item($row-1, $column+1).Text) + [int]($worksheet.Cells.Item($row-2, $column+1).Text) ) )
+    For($row = 3; $row -le 6; $row++)
     {
-        $worksheet.Cells.Item($row, $column+1).Interior.ColorIndex = 3
-        $worksheet.Cells.Item($row, $column+1).font.ColorIndex = 2
-        Write-Warning "Enabled + Disabled != Total, Try running ADRecon as another user."
+        $temptext = [string] $worksheet.Cells.Item($row, $column).Text
+        switch ($temptext.ToUpper())
+        {
+            "TRUE" { $worksheet.Cells.Item($row, $column) = "Enabled" }
+            "FALSE" { $worksheet.Cells.Item($row, $column) = "Disabled" }
+            "GRAND TOTAL" { $worksheet.Cells.Item($row, $column) = "Total" }
+        }
     }
 
     $row = 1
@@ -3242,6 +3250,9 @@ Function Get-ADRExcelAttributeStats
         $worksheet.Cells.Item($row, $column).Font.Bold = $True
         $column++
     }
+
+    $ExcelColumn = ($SrcWorksheet.Columns.Find("Enabled"))
+    $EnabledColAddress = "$($ExcelColumn.Address($false,$false).Substring(0,$ExcelColumn.Address($false,$false).Length-1)):$($ExcelColumn.Address($false,$false).Substring(0,$ExcelColumn.Address($false,$false).Length-1))"
 
     $column = 6
     $i = 2
@@ -3264,10 +3275,9 @@ Function Get-ADRExcelAttributeStats
             $worksheet.Cells.Item($row, $column).Formula = '=' + $SrcWorksheet.Name + '!' + $ExcelColumn.Address($false,$false)
         }
         $worksheet.Cells.Item($row, $column+1).Formula = '=COUNTIFS(' + $SrcWorksheet.Name + '!' + $EnabledColAddress + ',"TRUE",' + $SrcWorksheet.Name + '!' + $ColAddress + ',' + $ObjAttributes[$_] + ')'
-        $worksheet.Cells.Item($row, $column+2).Formula = "=G$i/B3"
+        $worksheet.Cells.Item($row, $column+2).Formula = '=IFERROR(G' + $i + '/VLOOKUP("Enabled",A3:B6,2,FALSE),0)'
         $worksheet.Cells.Item($row, $column+3).Formula = '=COUNTIFS(' + $SrcWorksheet.Name + '!' + $EnabledColAddress + ',"FALSE",' + $SrcWorksheet.Name + '!' + $ColAddress + ',' + $ObjAttributes[$_] + ')'
-        # Check for divide by 0.
-        $worksheet.Cells.Item($row, $column+4).Formula = "=IF(B4<>0,I$i/B4,0)"
+        $worksheet.Cells.Item($row, $column+4).Formula = '=IFERROR(I' + $i + '/VLOOKUP("Disabled",A3:B6,2,FALSE),0)'
         If ($_ -eq "SIDHistory")
         {
             $worksheet.Cells.Item($row, $column+5).Formula = '=COUNTIF(' + $SrcWorksheet.Name + '!' + $ColAddress + ',' + $ObjAttributes[$_] + ')-1'
@@ -3276,7 +3286,7 @@ Function Get-ADRExcelAttributeStats
         {
             $worksheet.Cells.Item($row, $column+5).Formula = '=COUNTIF(' + $SrcWorksheet.Name + '!' + $ColAddress + ',' + $ObjAttributes[$_] + ')'
         }
-        $worksheet.Cells.Item($row, $column+6).Formula = "=K$i/B5"
+        $worksheet.Cells.Item($row, $column+6).Formula = '=IFERROR(K' + $i + '/VLOOKUP("Total",A3:B6,2,FALSE),0)'
     }
 
     # http://www.excelhowto.com/macros/formatting-a-range-of-cells-in-excel-vba/
