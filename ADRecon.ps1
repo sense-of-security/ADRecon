@@ -3387,6 +3387,8 @@ Function Get-ADRExcelChart
         Remove-Variable start
     }
     $chart.SetSourceData($ChartData)
+    # https://docs.microsoft.com/en-us/dotnet/api/microsoft.office.interop.excel.chartclass.plotby?redirectedfrom=MSDN&view=excel-pia#Microsoft_Office_Interop_Excel_ChartClass_PlotBy
+    $chart.PlotBy = [Microsoft.Office.Interop.Excel.XlRowCol]::xlColumns
     $chart.seriesCollection(1).Select() | Out-Null
     $chart.SeriesCollection(1).ApplyDataLabels() | out-Null
     # modify the chart title
