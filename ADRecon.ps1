@@ -382,6 +382,12 @@ namespace ADRecon
             return ADRObj;
         }
 
+        public static Object[] OUParser(Object[] AdOUs, int numOfThreads)
+        {
+            Object[] ADRObj = runProcessor(AdOUs, numOfThreads, "OUs");
+            return ADRObj;
+        }
+
         public static Object[] GPOParser(Object[] AdGPOs, int numOfThreads)
         {
             Object[] ADRObj = runProcessor(AdGPOs, numOfThreads, "GPOs");
@@ -463,6 +469,8 @@ namespace ADRecon
                     return new GroupRecordDictionaryProcessor();
                 case "GroupMembers":
                     return new GroupMemberRecordProcessor();
+                case "OUs":
+                    return new OURecordProcessor();
                 case "GPOs":
                     return new GPORecordProcessor();
                 case "Printers":
@@ -1029,6 +1037,30 @@ namespace ADRecon
             }
         }
 
+        class OURecordProcessor : IRecordProcessor
+        {
+            public PSObject[] processRecord(Object record)
+            {
+                try
+                {
+                    PSObject AdOU = (PSObject) record;
+                    PSObject OUObj = new PSObject();
+                    OUObj.Members.Add(new PSNoteProperty("Name", AdOU.Members["Name"].Value));
+                    OUObj.Members.Add(new PSNoteProperty("Depth", ((Convert.ToString(AdOU.Members["DistinguishedName"].Value).Split(new string[] { "OU=" }, StringSplitOptions.None)).Length -1)));
+                    OUObj.Members.Add(new PSNoteProperty("Description", AdOU.Members["Description"].Value));
+                    OUObj.Members.Add(new PSNoteProperty("whenCreated", AdOU.Members["whenCreated"].Value));
+                    OUObj.Members.Add(new PSNoteProperty("whenChanged", AdOU.Members["whenChanged"].Value));
+                    OUObj.Members.Add(new PSNoteProperty("DistinguishedName", AdOU.Members["DistinguishedName"].Value));
+                    return new PSObject[] { OUObj };
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("{0} Exception caught.", e);
+                    return new PSObject[] { };
+                }
+            }
+        }
+
         class GPORecordProcessor : IRecordProcessor
         {
             public PSObject[] processRecord(Object record)
@@ -1473,6 +1505,12 @@ namespace ADRecon
             runProcessor(AdGroups, numOfThreads, "GroupsDictionary");
             LDAPClass.DomainSID = DomainSID;
             Object[] ADRObj = runProcessor(AdGroupMembers, numOfThreads, "GroupMembers");
+            return ADRObj;
+        }
+
+        public static Object[] OUParser(Object[] AdOUs, int numOfThreads)
+        {
+            Object[] ADRObj = runProcessor(AdOUs, numOfThreads, "OUs");
             return ADRObj;
         }
 
@@ -2113,6 +2151,31 @@ namespace ADRecon
                         // TO DO
                     }
                     return GroupsList.ToArray();
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("{0} Exception caught.", e);
+                    return new PSObject[] { };
+                }
+            }
+        }
+
+        class OURecordProcessor : IRecordProcessor
+        {
+            public PSObject[] processRecord(Object record)
+            {
+                try
+                {
+                    SearchResult AdOU = (SearchResult) record;
+
+                    PSObject OUObj = new PSObject();
+                    OUObj.Members.Add(new PSNoteProperty("Name", AdOU.Properties["name"][0]));
+                    OUObj.Members.Add(new PSNoteProperty("Depth", ((Convert.ToString(AdOU.Properties["distinguishedname"][0]).Split(new string[] { "OU=" }, StringSplitOptions.None)).Length -1)));
+                    OUObj.Members.Add(new PSNoteProperty("Description", (AdOU.Properties["description"].Count != 0 ? AdOU.Properties["description"][0] : "")));
+                    OUObj.Members.Add(new PSNoteProperty("whenCreated", AdOU.Properties["whencreated"][0]));
+                    OUObj.Members.Add(new PSNoteProperty("whenChanged", AdOU.Properties["whenchanged"][0]));
+                    OUObj.Members.Add(new PSNoteProperty("DistinguishedName", AdOU.Properties["distinguishedname"][0]));
+                    return new PSObject[] { OUObj };
                 }
                 catch (Exception e)
                 {
@@ -6915,6 +6978,10 @@ Function Get-ADROU
     [int]
     The PageSize to set for the LDAP searcher object. Default 200.
 
+.PARAMETER Threads
+    [int]
+    The number of threads to use during processing of objects. Default 10.
+
 .OUTPUTS
     PSObject.
 #>
@@ -6926,14 +6993,17 @@ Function Get-ADROU
         [DirectoryServices.DirectoryEntry] $objDomain,
 
         [Parameter(Mandatory = $true)]
-        [int] $PageSize
+        [int] $PageSize,
+
+        [Parameter(Mandatory = $false)]
+        [int] $Threads = 10
     )
 
     If ($Protocol -eq 'ADWS')
     {
         Try
         {
-            $ADOUs = Get-ADOrganizationalUnit -Filter * -Properties DistinguishedName,Description,Name,gPLink,gPOptions,whenCreated,whenChanged
+            $ADOUs = @( Get-ADOrganizationalUnit -Filter * -Properties DistinguishedName,Description,Name,whenCreated,whenChanged )
         }
         Catch
         {
@@ -6945,20 +7015,7 @@ Function Get-ADROU
         If ($ADOUs)
         {
             Write-Verbose "[*] Total OUs: $([ADRecon.ADWSClass]::ObjectCount($ADOUs))"
-            $OUObj = @()
-            $ADOUs | ForEach-Object {
-                # Create the object for each instance.
-                $Obj = New-Object PSObject
-                $Obj | Add-Member -MemberType NoteProperty -Name "Name" -Value $_.Name
-                $Obj | Add-Member -MemberType NoteProperty -Name "Depth" -Value $(($_.DistinguishedName -split 'OU=').Count -1)
-                $Obj | Add-Member -MemberType NoteProperty -Name "Description" -Value $_.Description
-                $Obj | Add-Member -MemberType NoteProperty -Name "whenCreated" -Value $_.whenCreated
-                $Obj | Add-Member -MemberType NoteProperty -Name "whenChanged" -Value $_.whenChanged
-                $Obj | Add-Member -MemberType NoteProperty -Name "DistinguishedName" -Value $_.DistinguishedName
-                $Obj | Add-Member -MemberType NoteProperty -Name "gPLink" -Value $_.gPLink
-                $Obj | Add-Member -MemberType NoteProperty -Name "gPOptions" -Value $_.gPOptions
-                $OUObj += $Obj
-            }
+            $OUObj = [ADRecon.ADWSClass]::OUParser($ADOUs, $Threads)
             Remove-Variable ADOUs
         }
     }
@@ -6967,8 +7024,8 @@ Function Get-ADROU
     {
         $objSearcher = New-Object System.DirectoryServices.DirectorySearcher $objDomain
         $ObjSearcher.PageSize = $PageSize
-        $ObjSearcher.Filter = "(objectCategory=organizationalunit)"
-        $ObjSearcher.PropertiesToLoad.AddRange(("distinguishedname","description","name","gplink","gpoptions","whencreated","whenchanged"))
+        $ObjSearcher.Filter = "(objectclass=organizationalunit)"
+        $ObjSearcher.PropertiesToLoad.AddRange(("distinguishedname","description","name","whencreated","whenchanged"))
         $ObjSearcher.SearchScope = "Subtree"
 
         Try
@@ -6986,20 +7043,7 @@ Function Get-ADROU
         If ($ADOUs)
         {
             Write-Verbose "[*] Total OUs: $([ADRecon.LDAPClass]::ObjectCount($ADOUs))"
-            $OUObj = @()
-            $ADOUs | ForEach-Object {
-                # Create the object for each instance.
-                $Obj = New-Object PSObject
-                $Obj | Add-Member -MemberType NoteProperty -Name "Name" -Value ([string] $($_.Properties.name))
-                $Obj | Add-Member -MemberType NoteProperty -Name "Depth" -Value $(($_.Properties.distinguishedname -split 'OU=').Count -1)
-                $Obj | Add-Member -MemberType NoteProperty -Name "Description" -Value ([string] $($_.Properties.description))
-                $Obj | Add-Member -MemberType NoteProperty -Name "whenCreated" -Value ([DateTime] $($_.Properties.whencreated))
-                $Obj | Add-Member -MemberType NoteProperty -Name "whenChanged" -Value ([DateTime] $($_.Properties.whenchanged))
-                $Obj | Add-Member -MemberType NoteProperty -Name "DistinguishedName" -Value ([string] $($_.Properties.distinguishedname))
-                $Obj | Add-Member -MemberType NoteProperty -Name "gPLink" -Value ([string] $($_.Properties.gplink))
-                $Obj | Add-Member -MemberType NoteProperty -Name "gPOptions" -Value ([string] $($_.Properties.gpoptions))
-                $OUObj += $Obj
-            }
+            $OUObj = [ADRecon.LDAPClass]::OUParser($ADOUs, $Threads)
             Remove-Variable ADOUs
         }
     }
