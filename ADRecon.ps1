@@ -282,6 +282,8 @@ namespace ADRecon
         private static DateTime Date1;
         private static int PassMaxAge;
         private static int DormantTimeSpan;
+        private static Dictionary<String, String> AdGroupDictionary = new Dictionary<String, String>();
+        private static String DomainSID;
         private static readonly HashSet<string> Groups = new HashSet<string> ( new String[] {"268435456", "268435457", "536870912", "536870913"} );
         private static readonly HashSet<string> Users = new HashSet<string> ( new String[] { "805306368" } );
         private static readonly HashSet<string> Computers = new HashSet<string> ( new String[] { "805306369" }) ;
@@ -334,7 +336,7 @@ namespace ADRecon
             {"\"", "'"}
         };
 
-        public static String CleanString(String StringtoClean)
+        public static String CleanString(Object StringtoClean)
         {
             // Remove extra spaces and new lines
             String CleanedString = String.Join(" ", ((Convert.ToString(StringtoClean)).Split((string[]) null, StringSplitOptions.RemoveEmptyEntries)));
@@ -372,9 +374,23 @@ namespace ADRecon
             return ADRObj;
         }
 
-        public static Object[] GroupMemberParser(Object[] AdGroupMembers, int numOfThreads)
-        {
+        public static Object[] GroupMemberParser(Object[] AdGroups, Object[] AdGroupMembers, String DomainSID, int numOfThreads)
+        {            
+            runProcessor(AdGroups, numOfThreads, "GroupsDictionary");
+            ADWSClass.DomainSID = DomainSID;
             Object[] ADRObj = runProcessor(AdGroupMembers, numOfThreads, "GroupMembers");
+            return ADRObj;
+        }
+
+        public static Object[] GPOParser(Object[] AdGPOs, int numOfThreads)
+        {
+            Object[] ADRObj = runProcessor(AdGPOs, numOfThreads, "GPOs");
+            return ADRObj;
+        }
+
+        public static Object[] PrinterParser(Object[] ADPrinters, int numOfThreads)
+        {
+            Object[] ADRObj = runProcessor(ADPrinters, numOfThreads, "Printers");
             return ADRObj;
         }
 
@@ -391,18 +407,6 @@ namespace ADRecon
         public static Object[] ComputerSPNParser(Object[] AdComputers, int numOfThreads)
         {
             Object[] ADRObj = runProcessor(AdComputers, numOfThreads, "ComputerSPNs");
-            return ADRObj;
-        }
-
-        public static Object[] GPOParser(Object[] AdGPOs, int numOfThreads)
-        {
-            Object[] ADRObj = runProcessor(AdGPOs, numOfThreads, "GPOs");
-            return ADRObj;
-        }
-
-        public static Object[] PrinterParser(Object[] ADPrinters, int numOfThreads)
-        {
-            Object[] ADRObj = runProcessor(ADPrinters, numOfThreads, "Printers");
             return ADRObj;
         }
 
@@ -455,16 +459,18 @@ namespace ADRecon
                     return new UserSPNRecordProcessor();
                 case "Groups":
                     return new GroupRecordProcessor();
+                case "GroupsDictionary":
+                    return new GroupRecordDictionaryProcessor();
                 case "GroupMembers":
                     return new GroupMemberRecordProcessor();
-                case "Computers":
-                    return new ComputerRecordProcessor();
-                case "ComputerSPNs":
-                    return new ComputerSPNRecordProcessor();
                 case "GPOs":
                     return new GPORecordProcessor();
                 case "Printers":
                     return new PrinterRecordProcessor();
+                case "Computers":
+                    return new ComputerRecordProcessor();
+                case "ComputerSPNs":
+                    return new ComputerSPNRecordProcessor();
                 case "LAPS":
                     return new LAPSRecordProcessor();
             }
@@ -651,7 +657,7 @@ namespace ADRecon
 
                     PSObject UserObj = new PSObject();
                     UserObj.Members.Add(new PSNoteProperty("UserName", AdUser.Members["SamAccountName"].Value));
-                    UserObj.Members.Add(new PSNoteProperty("Name", CleanString(Convert.ToString(AdUser.Members["Name"].Value))));
+                    UserObj.Members.Add(new PSNoteProperty("Name", CleanString(AdUser.Members["Name"].Value)));
                     UserObj.Members.Add(new PSNoteProperty("Enabled", Enabled));
                     UserObj.Members.Add(new PSNoteProperty("Must Change Password at Logon", MustChangePasswordatLogon));
                     UserObj.Members.Add(new PSNoteProperty("Cannot Change Password", AdUser.Members["CannotChangePassword"].Value));
@@ -680,18 +686,18 @@ namespace ADRecon
                     UserObj.Members.Add(new PSNoteProperty("Primary GroupID", AdUser.Members["primaryGroupID"].Value));
                     UserObj.Members.Add(new PSNoteProperty("SID", AdUser.Members["SID"].Value));
                     UserObj.Members.Add(new PSNoteProperty("SIDHistory", SIDHistory));
-                    UserObj.Members.Add(new PSNoteProperty("Description", CleanString(Convert.ToString(AdUser.Members["Description"].Value))));
+                    UserObj.Members.Add(new PSNoteProperty("Description", CleanString(AdUser.Members["Description"].Value)));
                     UserObj.Members.Add(new PSNoteProperty("Last Logon Date", LastLogonDate));
                     UserObj.Members.Add(new PSNoteProperty("Password LastSet", PasswordLastSet));
                     UserObj.Members.Add(new PSNoteProperty("Account Expiration Date", AccountExpires));
                     UserObj.Members.Add(new PSNoteProperty("Account Expiration (days)", AccountExpirationNumofDays));
-                    UserObj.Members.Add(new PSNoteProperty("Email", AdUser.Members["mail"].Value));
+                    UserObj.Members.Add(new PSNoteProperty("Email", CleanString(AdUser.Members["mail"].Value)));
                     UserObj.Members.Add(new PSNoteProperty("HomeDirectory", AdUser.Members["homeDirectory"].Value));
                     UserObj.Members.Add(new PSNoteProperty("ProfilePath", AdUser.Members["profilePath"].Value));
                     UserObj.Members.Add(new PSNoteProperty("ScriptPath", AdUser.Members["ScriptPath"].Value));
                     UserObj.Members.Add(new PSNoteProperty("whenCreated", AdUser.Members["whenCreated"].Value));
                     UserObj.Members.Add(new PSNoteProperty("whenChanged", AdUser.Members["whenChanged"].Value));
-                    UserObj.Members.Add(new PSNoteProperty("DistinguishedName", CleanString(Convert.ToString(AdUser.Members["DistinguishedName"].Value))));
+                    UserObj.Members.Add(new PSNoteProperty("DistinguishedName", CleanString(AdUser.Members["DistinguishedName"].Value)));
                     UserObj.Members.Add(new PSNoteProperty("CanonicalName", AdUser.Members["CanonicalName"].Value));
                     return new PSObject[] { UserObj };
                 }
@@ -739,6 +745,8 @@ namespace ADRecon
                     {
                         Memberof = ((Convert.ToString(MemberOfAttribute.Value)).Split(',')[0]).Split('=')[1];
                     }
+                    String Description = CleanString(AdUser.Members["Description"].Value);
+                    String PrimaryGroupID = Convert.ToString(AdUser.Members["primaryGroupID"].Value);
                     if (SPNs.Value is System.String[])
                     {
                         foreach (String SPN in (System.String[])SPNs.Value)
@@ -751,7 +759,8 @@ namespace ADRecon
                             UserSPNObj.Members.Add(new PSNoteProperty("Service", SPNArray[0]));
                             UserSPNObj.Members.Add(new PSNoteProperty("Host", SPNArray[1]));
                             UserSPNObj.Members.Add(new PSNoteProperty("Password Last Set", PasswordLastSet));
-                            UserSPNObj.Members.Add(new PSNoteProperty("Description", AdUser.Members["Description"].Value));
+                            UserSPNObj.Members.Add(new PSNoteProperty("Description", Description));
+                            UserSPNObj.Members.Add(new PSNoteProperty("Primary GroupID", PrimaryGroupID));
                             UserSPNObj.Members.Add(new PSNoteProperty("Memberof", Memberof));
                             SPNList.Add( UserSPNObj );
                         }
@@ -766,7 +775,8 @@ namespace ADRecon
                         UserSPNObj.Members.Add(new PSNoteProperty("Service", SPNArray[0]));
                         UserSPNObj.Members.Add(new PSNoteProperty("Host", SPNArray[1]));
                         UserSPNObj.Members.Add(new PSNoteProperty("Password Last Set", PasswordLastSet));
-                        UserSPNObj.Members.Add(new PSNoteProperty("Description", AdUser.Members["Description"].Value));
+                        UserSPNObj.Members.Add(new PSNoteProperty("Description", Description));
+                        UserSPNObj.Members.Add(new PSNoteProperty("Primary GroupID", PrimaryGroupID));
                         UserSPNObj.Members.Add(new PSNoteProperty("Memberof", Memberof));
                         SPNList.Add( UserSPNObj );
                     }
@@ -818,12 +828,31 @@ namespace ADRecon
                     GroupObj.Members.Add(new PSNoteProperty("ManagedBy", ManagedBy));
                     GroupObj.Members.Add(new PSNoteProperty("SID", AdGroup.Members["sid"].Value));
                     GroupObj.Members.Add(new PSNoteProperty("SIDHistory", SIDHistory));
-                    GroupObj.Members.Add(new PSNoteProperty("Description", CleanString(Convert.ToString(AdGroup.Members["Description"].Value))));
+                    GroupObj.Members.Add(new PSNoteProperty("Description", CleanString(AdGroup.Members["Description"].Value)));
                     GroupObj.Members.Add(new PSNoteProperty("whenCreated", AdGroup.Members["whenCreated"].Value));
                     GroupObj.Members.Add(new PSNoteProperty("whenChanged", AdGroup.Members["whenChanged"].Value));
-                    GroupObj.Members.Add(new PSNoteProperty("DistinguishedName", CleanString(Convert.ToString(AdGroup.Members["DistinguishedName"].Value))));
+                    GroupObj.Members.Add(new PSNoteProperty("DistinguishedName", CleanString(AdGroup.Members["DistinguishedName"].Value)));
                     GroupObj.Members.Add(new PSNoteProperty("CanonicalName", AdGroup.Members["CanonicalName"].Value));
                     return new PSObject[] { GroupObj };
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("{0} Exception caught.", e);
+                    return new PSObject[] { };
+                }
+            }
+        }
+
+
+        class GroupRecordDictionaryProcessor : IRecordProcessor
+        {
+            public PSObject[] processRecord(Object record)
+            {
+                try
+                {
+                    PSObject AdGroup = (PSObject) record;
+                    ADWSClass.AdGroupDictionary.Add((Convert.ToString(AdGroup.Properties["SID"].Value)), (Convert.ToString(AdGroup.Members["SamAccountName"].Value)));
+                    return new PSObject[] { };
                 }
                 catch (Exception e)
                 {
@@ -853,7 +882,7 @@ namespace ADRecon
                         AccountType = "group";
                         MemberName = ((Convert.ToString(AdGroup.Members["DistinguishedName"].Value)).Split(',')[0]).Split('=')[1];
                         Microsoft.ActiveDirectory.Management.ADPropertyValueCollection MemberGroups = (Microsoft.ActiveDirectory.Management.ADPropertyValueCollection)AdGroup.Members["memberof"].Value;
-                        if (AdGroup.Members["memberof"].Value != null)
+                        if (MemberGroups.Value != null)
                         {
                             if (MemberGroups.Value is System.String[])
                             {
@@ -885,8 +914,28 @@ namespace ADRecon
                         AccountType = "user";
                         MemberName = ((Convert.ToString(AdGroup.Members["DistinguishedName"].Value)).Split(',')[0]).Split('=')[1];
                         MemberUserName = Convert.ToString(AdGroup.Members["sAMAccountName"].Value);
+                        String PrimaryGroupID = Convert.ToString(AdGroup.Members["primaryGroupID"].Value);
+                        try
+                        {
+                            GroupName = ADWSClass.AdGroupDictionary[ADWSClass.DomainSID + "-" + PrimaryGroupID];
+                        }
+                        catch //(Exception e)
+                        {
+                            //Console.WriteLine("{0} Exception caught.", e);
+                            GroupName = PrimaryGroupID;
+                        }
+
+                        {
+                            PSObject GroupMemberObj = new PSObject();
+                            GroupMemberObj.Members.Add(new PSNoteProperty("Group Name", GroupName));
+                            GroupMemberObj.Members.Add(new PSNoteProperty("Member UserName", MemberUserName));
+                            GroupMemberObj.Members.Add(new PSNoteProperty("Member Name", MemberName));
+                            GroupMemberObj.Members.Add(new PSNoteProperty("AccountType", AccountType));
+                            GroupsList.Add( GroupMemberObj );
+                        }
+
                         Microsoft.ActiveDirectory.Management.ADPropertyValueCollection MemberGroups = (Microsoft.ActiveDirectory.Management.ADPropertyValueCollection)AdGroup.Members["memberof"].Value;
-                        if (AdGroup.Members["memberof"].Value != null)
+                        if (MemberGroups.Value != null)
                         {
                             if (MemberGroups.Value is System.String[])
                             {
@@ -918,8 +967,28 @@ namespace ADRecon
                         AccountType = "computer";
                         MemberName = ((Convert.ToString(AdGroup.Members["DistinguishedName"].Value)).Split(',')[0]).Split('=')[1];
                         MemberUserName = Convert.ToString(AdGroup.Members["sAMAccountName"].Value);
+                        String PrimaryGroupID = Convert.ToString(AdGroup.Members["primaryGroupID"].Value);
+                        try
+                        {
+                            GroupName = ADWSClass.AdGroupDictionary[ADWSClass.DomainSID + "-" + PrimaryGroupID];
+                        }
+                        catch //(Exception e)
+                        {
+                            //Console.WriteLine("{0} Exception caught.", e);
+                            GroupName = PrimaryGroupID;
+                        }
+
+                        {
+                            PSObject GroupMemberObj = new PSObject();
+                            GroupMemberObj.Members.Add(new PSNoteProperty("Group Name", GroupName));
+                            GroupMemberObj.Members.Add(new PSNoteProperty("Member UserName", MemberUserName));
+                            GroupMemberObj.Members.Add(new PSNoteProperty("Member Name", MemberName));
+                            GroupMemberObj.Members.Add(new PSNoteProperty("AccountType", AccountType));
+                            GroupsList.Add( GroupMemberObj );
+                        }
+
                         Microsoft.ActiveDirectory.Management.ADPropertyValueCollection MemberGroups = (Microsoft.ActiveDirectory.Management.ADPropertyValueCollection)AdGroup.Members["memberof"].Value;
-                        if (AdGroup.Members["memberof"].Value != null)
+                        if (MemberGroups.Value != null)
                         {
                             if (MemberGroups.Value is System.String[])
                             {
@@ -951,6 +1020,59 @@ namespace ADRecon
                         // TO DO
                     }
                     return GroupsList.ToArray();
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("{0} Exception caught.", e);
+                    return new PSObject[] { };
+                }
+            }
+        }
+
+        class GPORecordProcessor : IRecordProcessor
+        {
+            public PSObject[] processRecord(Object record)
+            {
+                try
+                {
+                    PSObject AdGPO = (PSObject) record;
+
+                    PSObject GPOObj = new PSObject();
+                    GPOObj.Members.Add(new PSNoteProperty("DisplayName", CleanString(AdGPO.Members["DisplayName"].Value)));
+                    GPOObj.Members.Add(new PSNoteProperty("GUID", CleanString(AdGPO.Members["Name"].Value)));
+                    GPOObj.Members.Add(new PSNoteProperty("whenCreated", AdGPO.Members["whenCreated"].Value));
+                    GPOObj.Members.Add(new PSNoteProperty("whenChanged", AdGPO.Members["whenChanged"].Value));
+                    GPOObj.Members.Add(new PSNoteProperty("DistinguishedName", CleanString(AdGPO.Members["DistinguishedName"].Value)));
+                    GPOObj.Members.Add(new PSNoteProperty("FilePath", AdGPO.Members["gPCFileSysPath"].Value));
+                    return new PSObject[] { GPOObj };
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("{0} Exception caught.", e);
+                    return new PSObject[] { };
+                }
+            }
+        }
+
+        class PrinterRecordProcessor : IRecordProcessor
+        {
+            public PSObject[] processRecord(Object record)
+            {
+                try
+                {
+                    PSObject AdPrinter = (PSObject) record;
+
+                    PSObject PrinterObj = new PSObject();
+                    PrinterObj.Members.Add(new PSNoteProperty("Name", AdPrinter.Members["Name"].Value));
+                    PrinterObj.Members.Add(new PSNoteProperty("ServerName", AdPrinter.Members["serverName"].Value));
+                    PrinterObj.Members.Add(new PSNoteProperty("ShareName", ((Microsoft.ActiveDirectory.Management.ADPropertyValueCollection) (AdPrinter.Members["printShareName"].Value)).Value));
+                    PrinterObj.Members.Add(new PSNoteProperty("DriverName", AdPrinter.Members["driverName"].Value));
+                    PrinterObj.Members.Add(new PSNoteProperty("DriverVersion", AdPrinter.Members["driverVersion"].Value));
+                    PrinterObj.Members.Add(new PSNoteProperty("PortName", ((Microsoft.ActiveDirectory.Management.ADPropertyValueCollection) (AdPrinter.Members["portName"].Value)).Value));
+                    PrinterObj.Members.Add(new PSNoteProperty("URL", ((Microsoft.ActiveDirectory.Management.ADPropertyValueCollection) (AdPrinter.Members["url"].Value)).Value));
+                    PrinterObj.Members.Add(new PSNoteProperty("whenCreated", AdPrinter.Members["whenCreated"].Value));
+                    PrinterObj.Members.Add(new PSNoteProperty("whenChanged", AdPrinter.Members["whenChanged"].Value));
+                    return new PSObject[] { PrinterObj };
                 }
                 catch (Exception e)
                 {
@@ -1135,59 +1257,6 @@ namespace ADRecon
             }
         }
 
-        class GPORecordProcessor : IRecordProcessor
-        {
-            public PSObject[] processRecord(Object record)
-            {
-                try
-                {
-                    PSObject AdGPO = (PSObject) record;
-
-                    PSObject GPOObj = new PSObject();
-                    GPOObj.Members.Add(new PSNoteProperty("DisplayName", CleanString(Convert.ToString(AdGPO.Members["DisplayName"].Value))));
-                    GPOObj.Members.Add(new PSNoteProperty("GUID", CleanString(Convert.ToString(AdGPO.Members["Name"].Value))));
-                    GPOObj.Members.Add(new PSNoteProperty("whenCreated", AdGPO.Members["whenCreated"].Value));
-                    GPOObj.Members.Add(new PSNoteProperty("whenChanged", AdGPO.Members["whenChanged"].Value));
-                    GPOObj.Members.Add(new PSNoteProperty("DistinguishedName", CleanString(Convert.ToString(AdGPO.Members["DistinguishedName"].Value))));
-                    GPOObj.Members.Add(new PSNoteProperty("FilePath", AdGPO.Members["gPCFileSysPath"].Value));
-                    return new PSObject[] { GPOObj };
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine("{0} Exception caught.", e);
-                    return new PSObject[] { };
-                }
-            }
-        }
-
-        class PrinterRecordProcessor : IRecordProcessor
-        {
-            public PSObject[] processRecord(Object record)
-            {
-                try
-                {
-                    PSObject AdPrinter = (PSObject) record;
-
-                    PSObject PrinterObj = new PSObject();
-                    PrinterObj.Members.Add(new PSNoteProperty("Name", AdPrinter.Members["Name"].Value));
-                    PrinterObj.Members.Add(new PSNoteProperty("ServerName", AdPrinter.Members["serverName"].Value));
-                    PrinterObj.Members.Add(new PSNoteProperty("ShareName", ((Microsoft.ActiveDirectory.Management.ADPropertyValueCollection) (AdPrinter.Members["printShareName"].Value)).Value));
-                    PrinterObj.Members.Add(new PSNoteProperty("DriverName", AdPrinter.Members["driverName"].Value));
-                    PrinterObj.Members.Add(new PSNoteProperty("DriverVersion", AdPrinter.Members["driverVersion"].Value));
-                    PrinterObj.Members.Add(new PSNoteProperty("PortName", ((Microsoft.ActiveDirectory.Management.ADPropertyValueCollection) (AdPrinter.Members["portName"].Value)).Value));
-                    PrinterObj.Members.Add(new PSNoteProperty("URL", ((Microsoft.ActiveDirectory.Management.ADPropertyValueCollection) (AdPrinter.Members["url"].Value)).Value));
-                    PrinterObj.Members.Add(new PSNoteProperty("whenCreated", AdPrinter.Members["whenCreated"].Value));
-                    PrinterObj.Members.Add(new PSNoteProperty("whenChanged", AdPrinter.Members["whenChanged"].Value));
-                    return new PSObject[] { PrinterObj };
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine("{0} Exception caught.", e);
-                    return new PSObject[] { };
-                }
-            }
-        }
-
         class LAPSRecordProcessor : IRecordProcessor
         {
             public PSObject[] processRecord(Object record)
@@ -1282,6 +1351,8 @@ namespace ADRecon
         private static DateTime Date1;
         private static int PassMaxAge;
         private static int DormantTimeSpan;
+        private static Dictionary<String, String> AdGroupDictionary = new Dictionary<String, String>();
+        private static String DomainSID;
         private static readonly HashSet<string> Groups = new HashSet<string> ( new String[] {"268435456", "268435457", "536870912", "536870913"} );
         private static readonly HashSet<string> Users = new HashSet<string> ( new String[] { "805306368" } );
         private static readonly HashSet<string> Computers = new HashSet<string> ( new String[] { "805306369" }) ;
@@ -1345,7 +1416,7 @@ namespace ADRecon
             {"\"", "'"}
         };
 
-        public static String CleanString(String StringtoClean)
+        public static String CleanString(Object StringtoClean)
         {
             // Remove extra spaces and new lines
             String CleanedString = String.Join(" ", ((Convert.ToString(StringtoClean)).Split((string[]) null, StringSplitOptions.RemoveEmptyEntries)));
@@ -1397,9 +1468,23 @@ namespace ADRecon
             return ADRObj;
         }
 
-        public static Object[] GroupMemberParser(Object[] AdGroupMembers, int numOfThreads)
+        public static Object[] GroupMemberParser(Object[] AdGroups, Object[] AdGroupMembers, String DomainSID, int numOfThreads)
         {
+            runProcessor(AdGroups, numOfThreads, "GroupsDictionary");
+            LDAPClass.DomainSID = DomainSID;
             Object[] ADRObj = runProcessor(AdGroupMembers, numOfThreads, "GroupMembers");
+            return ADRObj;
+        }
+
+        public static Object[] GPOParser(Object[] AdGPOs, int numOfThreads)
+        {
+            Object[] ADRObj = runProcessor(AdGPOs, numOfThreads, "GPOs");
+            return ADRObj;
+        }
+
+        public static Object[] PrinterParser(Object[] ADPrinters, int numOfThreads)
+        {
+            Object[] ADRObj = runProcessor(ADPrinters, numOfThreads, "Printers");
             return ADRObj;
         }
 
@@ -1416,18 +1501,6 @@ namespace ADRecon
         public static Object[] ComputerSPNParser(Object[] AdComputers, int numOfThreads)
         {
             Object[] ADRObj = runProcessor(AdComputers, numOfThreads, "ComputerSPNs");
-            return ADRObj;
-        }
-
-        public static Object[] GPOParser(Object[] AdGPOs, int numOfThreads)
-        {
-            Object[] ADRObj = runProcessor(AdGPOs, numOfThreads, "GPOs");
-            return ADRObj;
-        }
-
-        public static Object[] PrinterParser(Object[] ADPrinters, int numOfThreads)
-        {
-            Object[] ADRObj = runProcessor(ADPrinters, numOfThreads, "Printers");
             return ADRObj;
         }
 
@@ -1480,16 +1553,20 @@ namespace ADRecon
                     return new UserSPNRecordProcessor();
                 case "Groups":
                     return new GroupRecordProcessor();
+                case "GroupsDictionary":
+                    return new GroupRecordDictionaryProcessor();
                 case "GroupMembers":
                     return new GroupMemberRecordProcessor();
-                case "Computers":
-                    return new ComputerRecordProcessor();
-                case "ComputerSPNs":
-                    return new ComputerSPNRecordProcessor();
+                case "OUs":
+                    return new OURecordProcessor();
                 case "GPOs":
                     return new GPORecordProcessor();
                 case "Printers":
                     return new PrinterRecordProcessor();
+                case "Computers":
+                    return new ComputerRecordProcessor();
+                case "ComputerSPNs":
+                    return new ComputerSPNRecordProcessor();
                 case "LAPS":
                     return new LAPSRecordProcessor();
             }
@@ -1729,7 +1806,7 @@ namespace ADRecon
 
                     PSObject UserObj = new PSObject();
                     UserObj.Members.Add(new PSNoteProperty("UserName", (AdUser.Properties["samaccountname"].Count != 0 ? AdUser.Properties["samaccountname"][0] : "")));
-                    UserObj.Members.Add(new PSNoteProperty("Name", (AdUser.Properties["name"].Count != 0 ? CleanString(Convert.ToString(AdUser.Properties["name"][0])) : "")));
+                    UserObj.Members.Add(new PSNoteProperty("Name", (AdUser.Properties["name"].Count != 0 ? CleanString(AdUser.Properties["name"][0]) : "")));
                     UserObj.Members.Add(new PSNoteProperty("Enabled", Enabled));
                     UserObj.Members.Add(new PSNoteProperty("Must Change Password at Logon", MustChangePasswordatLogon));
                     UserObj.Members.Add(new PSNoteProperty("Cannot Change Password", CannotChangePassword));
@@ -1758,18 +1835,18 @@ namespace ADRecon
                     UserObj.Members.Add(new PSNoteProperty("Primary GroupID", (AdUser.Properties["primarygroupid"].Count != 0 ? AdUser.Properties["primarygroupid"][0] : "")));
                     UserObj.Members.Add(new PSNoteProperty("SID", Convert.ToString(new SecurityIdentifier((byte[])AdUser.Properties["objectSID"][0], 0))));
                     UserObj.Members.Add(new PSNoteProperty("SIDHistory", SIDHistory));
-                    UserObj.Members.Add(new PSNoteProperty("Description", (AdUser.Properties["Description"].Count != 0 ? CleanString(Convert.ToString(AdUser.Properties["Description"][0])) : "")));
+                    UserObj.Members.Add(new PSNoteProperty("Description", (AdUser.Properties["Description"].Count != 0 ? CleanString(AdUser.Properties["Description"][0]) : "")));
                     UserObj.Members.Add(new PSNoteProperty("Last Logon Date", LastLogonDate));
                     UserObj.Members.Add(new PSNoteProperty("Password LastSet", PasswordLastSet));
                     UserObj.Members.Add(new PSNoteProperty("Account Expiration Date", AccountExpires));
                     UserObj.Members.Add(new PSNoteProperty("Account Expiration (days)", AccountExpirationNumofDays));
-                    UserObj.Members.Add(new PSNoteProperty("Email", (AdUser.Properties["mail"].Count != 0 ? AdUser.Properties["mail"][0] : "")));
+                    UserObj.Members.Add(new PSNoteProperty("Email", (AdUser.Properties["mail"].Count != 0 ? CleanString(AdUser.Properties["mail"][0]) : "")));
                     UserObj.Members.Add(new PSNoteProperty("HomeDirectory", (AdUser.Properties["homedirectory"].Count != 0 ? AdUser.Properties["homedirectory"][0] : "")));
                     UserObj.Members.Add(new PSNoteProperty("ProfilePath", (AdUser.Properties["profilepath"].Count != 0 ? AdUser.Properties["profilepath"][0] : "")));
                     UserObj.Members.Add(new PSNoteProperty("ScriptPath", (AdUser.Properties["scriptpath"].Count != 0 ? AdUser.Properties["scriptpath"][0] : "")));
                     UserObj.Members.Add(new PSNoteProperty("whenCreated", (AdUser.Properties["whencreated"].Count != 0 ? AdUser.Properties["whencreated"][0] : "")));
                     UserObj.Members.Add(new PSNoteProperty("whenChanged", (AdUser.Properties["whenchanged"].Count != 0 ? AdUser.Properties["whenchanged"][0] : "")));
-                    UserObj.Members.Add(new PSNoteProperty("DistinguishedName", (AdUser.Properties["distinguishedname"].Count != 0 ? CleanString(Convert.ToString(AdUser.Properties["distinguishedname"][0])) : "")));
+                    UserObj.Members.Add(new PSNoteProperty("DistinguishedName", (AdUser.Properties["distinguishedname"].Count != 0 ? CleanString(AdUser.Properties["distinguishedname"][0]) : "")));
                     UserObj.Members.Add(new PSNoteProperty("CanonicalName", (AdUser.Properties["canonicalname"].Count != 0 ? AdUser.Properties["canonicalname"][0] : "")));
                     return new PSObject[] { UserObj };
                 }
@@ -1806,7 +1883,8 @@ namespace ADRecon
                         var userFlags = (UACFlags) AdUser.Properties["useraccountcontrol"][0];
                         Enabled = !((userFlags & UACFlags.ACCOUNTDISABLE) == UACFlags.ACCOUNTDISABLE);
                     }
-                    String Description = (AdUser.Properties["Description"].Count != 0 ? Convert.ToString(AdUser.Properties["Description"][0]) : "");
+                    String Description = (AdUser.Properties["Description"].Count != 0 ? CleanString(AdUser.Properties["Description"][0]) : "");
+                    String PrimaryGroupID = (AdUser.Properties["primarygroupid"].Count != 0 ? Convert.ToString(AdUser.Properties["primarygroupid"][0]) : "");
                     if (AdUser.Properties["memberof"].Count != 0)
                     {
                         foreach (String Member in AdUser.Properties["memberof"])
@@ -1826,6 +1904,7 @@ namespace ADRecon
                         UserSPNObj.Members.Add(new PSNoteProperty("Host", SPNArray[1]));
                         UserSPNObj.Members.Add(new PSNoteProperty("Password Last Set", PasswordLastSet));
                         UserSPNObj.Members.Add(new PSNoteProperty("Description", Description));
+                        UserSPNObj.Members.Add(new PSNoteProperty("Primary GroupID", PrimaryGroupID));
                         UserSPNObj.Members.Add(new PSNoteProperty("Memberof", Memberof));
                         SPNList.Add( UserSPNObj );
                     }
@@ -1894,12 +1973,30 @@ namespace ADRecon
                     GroupObj.Members.Add(new PSNoteProperty("ManagedBy", ManagedBy));
                     GroupObj.Members.Add(new PSNoteProperty("SID", Convert.ToString(new SecurityIdentifier((byte[])AdGroup.Properties["objectSID"][0], 0))));
                     GroupObj.Members.Add(new PSNoteProperty("SIDHistory", SIDHistory));
-                    GroupObj.Members.Add(new PSNoteProperty("Description", (AdGroup.Properties["Description"].Count != 0 ? CleanString(Convert.ToString(AdGroup.Properties["Description"][0])) : "")));
+                    GroupObj.Members.Add(new PSNoteProperty("Description", (AdGroup.Properties["Description"].Count != 0 ? CleanString(AdGroup.Properties["Description"][0]) : "")));
                     GroupObj.Members.Add(new PSNoteProperty("whenCreated", AdGroup.Properties["whencreated"][0]));
                     GroupObj.Members.Add(new PSNoteProperty("whenChanged", AdGroup.Properties["whenchanged"][0]));
-                    GroupObj.Members.Add(new PSNoteProperty("DistinguishedName", CleanString(Convert.ToString(AdGroup.Properties["distinguishedname"][0]))));
+                    GroupObj.Members.Add(new PSNoteProperty("DistinguishedName", CleanString(AdGroup.Properties["distinguishedname"][0])));
                     GroupObj.Members.Add(new PSNoteProperty("CanonicalName", AdGroup.Properties["canonicalname"][0]));
                     return new PSObject[] { GroupObj };
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("{0} Exception caught.", e);
+                    return new PSObject[] { };
+                }
+            }
+        }
+
+        class GroupRecordDictionaryProcessor : IRecordProcessor
+        {
+            public PSObject[] processRecord(Object record)
+            {
+                try
+                {
+                    SearchResult AdGroup = (SearchResult) record;
+                    LDAPClass.AdGroupDictionary.Add((Convert.ToString(new SecurityIdentifier((byte[])AdGroup.Properties["objectSID"][0], 0))),(Convert.ToString(AdGroup.Properties["samaccountname"][0])));
+                    return new PSObject[] { };
                 }
                 catch (Exception e)
                 {
@@ -1944,6 +2041,26 @@ namespace ADRecon
                         AccountType = "user";
                         MemberName = ((Convert.ToString(AdGroup.Properties["DistinguishedName"][0])).Split(',')[0]).Split('=')[1];
                         MemberUserName = Convert.ToString(AdGroup.Properties["sAMAccountName"][0]);
+                        String PrimaryGroupID = Convert.ToString(AdGroup.Properties["primaryGroupID"][0]);
+                        try
+                        {
+                            GroupName = LDAPClass.AdGroupDictionary[LDAPClass.DomainSID + "-" + PrimaryGroupID];
+                        }
+                        catch //(Exception e)
+                        {
+                            //Console.WriteLine("{0} Exception caught.", e);
+                            GroupName = PrimaryGroupID;
+                        }
+
+                        {
+                            PSObject GroupMemberObj = new PSObject();
+                            GroupMemberObj.Members.Add(new PSNoteProperty("Group Name", GroupName));
+                            GroupMemberObj.Members.Add(new PSNoteProperty("Member UserName", MemberUserName));
+                            GroupMemberObj.Members.Add(new PSNoteProperty("Member Name", MemberName));
+                            GroupMemberObj.Members.Add(new PSNoteProperty("AccountType", AccountType));
+                            GroupsList.Add( GroupMemberObj );
+                        }
+
                         foreach (String GroupMember in AdGroup.Properties["memberof"])
                         {
                             GroupName = ((Convert.ToString(GroupMember)).Split(',')[0]).Split('=')[1];
@@ -1960,6 +2077,26 @@ namespace ADRecon
                         AccountType = "computer";
                         MemberName = ((Convert.ToString(AdGroup.Properties["DistinguishedName"][0])).Split(',')[0]).Split('=')[1];
                         MemberUserName = Convert.ToString(AdGroup.Properties["sAMAccountName"][0]);
+                        String PrimaryGroupID = Convert.ToString(AdGroup.Properties["primaryGroupID"][0]);
+                        try
+                        {
+                            GroupName = LDAPClass.AdGroupDictionary[LDAPClass.DomainSID + "-" + PrimaryGroupID];
+                        }
+                        catch //(Exception e)
+                        {
+                            //Console.WriteLine("{0} Exception caught.", e);
+                            GroupName = PrimaryGroupID;
+                        }
+
+                        {
+                            PSObject GroupMemberObj = new PSObject();
+                            GroupMemberObj.Members.Add(new PSNoteProperty("Group Name", GroupName));
+                            GroupMemberObj.Members.Add(new PSNoteProperty("Member UserName", MemberUserName));
+                            GroupMemberObj.Members.Add(new PSNoteProperty("Member Name", MemberName));
+                            GroupMemberObj.Members.Add(new PSNoteProperty("AccountType", AccountType));
+                            GroupsList.Add( GroupMemberObj );
+                        }
+
                         foreach (String GroupMember in AdGroup.Properties["memberof"])
                         {
                             GroupName = ((Convert.ToString(GroupMember)).Split(',')[0]).Split('=')[1];
@@ -1976,6 +2113,59 @@ namespace ADRecon
                         // TO DO
                     }
                     return GroupsList.ToArray();
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("{0} Exception caught.", e);
+                    return new PSObject[] { };
+                }
+            }
+        }
+
+        class GPORecordProcessor : IRecordProcessor
+        {
+            public PSObject[] processRecord(Object record)
+            {
+                try
+                {
+                    SearchResult AdGPO = (SearchResult) record;
+
+                    PSObject GPOObj = new PSObject();
+                    GPOObj.Members.Add(new PSNoteProperty("DisplayName", CleanString(AdGPO.Properties["displayname"][0])));
+                    GPOObj.Members.Add(new PSNoteProperty("GUID", CleanString(AdGPO.Properties["name"][0])));
+                    GPOObj.Members.Add(new PSNoteProperty("whenCreated", AdGPO.Properties["whenCreated"][0]));
+                    GPOObj.Members.Add(new PSNoteProperty("whenChanged", AdGPO.Properties["whenChanged"][0]));
+                    GPOObj.Members.Add(new PSNoteProperty("DistinguishedName", CleanString(AdGPO.Properties["distinguishedname"][0])));
+                    GPOObj.Members.Add(new PSNoteProperty("FilePath", AdGPO.Properties["gpcfilesyspath"][0]));
+                    return new PSObject[] { GPOObj };
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("{0} Exception caught.", e);
+                    return new PSObject[] { };
+                }
+            }
+        }
+
+        class PrinterRecordProcessor : IRecordProcessor
+        {
+            public PSObject[] processRecord(Object record)
+            {
+                try
+                {
+                    SearchResult AdPrinter = (SearchResult) record;
+
+                    PSObject PrinterObj = new PSObject();
+                    PrinterObj.Members.Add(new PSNoteProperty("Name", AdPrinter.Properties["Name"][0]));
+                    PrinterObj.Members.Add(new PSNoteProperty("ServerName", AdPrinter.Properties["serverName"][0]));
+                    PrinterObj.Members.Add(new PSNoteProperty("ShareName", AdPrinter.Properties["printShareName"][0]));
+                    PrinterObj.Members.Add(new PSNoteProperty("DriverName", AdPrinter.Properties["driverName"][0]));
+                    PrinterObj.Members.Add(new PSNoteProperty("DriverVersion", AdPrinter.Properties["driverVersion"][0]));
+                    PrinterObj.Members.Add(new PSNoteProperty("PortName", AdPrinter.Properties["portName"][0]));
+                    PrinterObj.Members.Add(new PSNoteProperty("URL", AdPrinter.Properties["url"][0]));
+                    PrinterObj.Members.Add(new PSNoteProperty("whenCreated", AdPrinter.Properties["whenCreated"][0]));
+                    PrinterObj.Members.Add(new PSNoteProperty("whenChanged", AdPrinter.Properties["whenChanged"][0]));
+                    return new PSObject[] { PrinterObj };
                 }
                 catch (Exception e)
                 {
@@ -2143,59 +2333,6 @@ namespace ADRecon
                         }
                     }
                     return SPNList.ToArray();
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine("{0} Exception caught.", e);
-                    return new PSObject[] { };
-                }
-            }
-        }
-
-        class GPORecordProcessor : IRecordProcessor
-        {
-            public PSObject[] processRecord(Object record)
-            {
-                try
-                {
-                    SearchResult AdGPO = (SearchResult) record;
-
-                    PSObject GPOObj = new PSObject();
-                    GPOObj.Members.Add(new PSNoteProperty("DisplayName", CleanString(Convert.ToString(AdGPO.Properties["displayname"][0]))));
-                    GPOObj.Members.Add(new PSNoteProperty("GUID", CleanString(Convert.ToString(AdGPO.Properties["name"][0]))));
-                    GPOObj.Members.Add(new PSNoteProperty("whenCreated", AdGPO.Properties["whenCreated"][0]));
-                    GPOObj.Members.Add(new PSNoteProperty("whenChanged", AdGPO.Properties["whenChanged"][0]));
-                    GPOObj.Members.Add(new PSNoteProperty("DistinguishedName", CleanString(Convert.ToString(AdGPO.Properties["distinguishedname"][0]))));
-                    GPOObj.Members.Add(new PSNoteProperty("FilePath", AdGPO.Properties["gpcfilesyspath"][0]));
-                    return new PSObject[] { GPOObj };
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine("{0} Exception caught.", e);
-                    return new PSObject[] { };
-                }
-            }
-        }
-
-        class PrinterRecordProcessor : IRecordProcessor
-        {
-            public PSObject[] processRecord(Object record)
-            {
-                try
-                {
-                    SearchResult AdPrinter = (SearchResult) record;
-
-                    PSObject PrinterObj = new PSObject();
-                    PrinterObj.Members.Add(new PSNoteProperty("Name", AdPrinter.Properties["Name"][0]));
-                    PrinterObj.Members.Add(new PSNoteProperty("ServerName", AdPrinter.Properties["serverName"][0]));
-                    PrinterObj.Members.Add(new PSNoteProperty("ShareName", AdPrinter.Properties["printShareName"][0]));
-                    PrinterObj.Members.Add(new PSNoteProperty("DriverName", AdPrinter.Properties["driverName"][0]));
-                    PrinterObj.Members.Add(new PSNoteProperty("DriverVersion", AdPrinter.Properties["driverVersion"][0]));
-                    PrinterObj.Members.Add(new PSNoteProperty("PortName", AdPrinter.Properties["portName"][0]));
-                    PrinterObj.Members.Add(new PSNoteProperty("URL", AdPrinter.Properties["url"][0]));
-                    PrinterObj.Members.Add(new PSNoteProperty("whenCreated", AdPrinter.Properties["whenCreated"][0]));
-                    PrinterObj.Members.Add(new PSNoteProperty("whenChanged", AdPrinter.Properties["whenChanged"][0]));
-                    return new PSObject[] { PrinterObj };
                 }
                 catch (Exception e)
                 {
@@ -6278,7 +6415,7 @@ Function Get-ADRUserSPN
     {
         Try
         {
-            $ADUsers = @( Get-ADObject -LDAPFilter "(&(samAccountType=805306368)(servicePrincipalName=*))" -Properties Name,Description,memberOf,sAMAccountName,servicePrincipalName,pwdLastSet,userAccountControl -ResultPageSize $PageSize )
+            $ADUsers = @( Get-ADObject -LDAPFilter "(&(samAccountType=805306368)(servicePrincipalName=*))" -Properties Name,Description,memberOf,sAMAccountName,servicePrincipalName,primaryGroupID,pwdLastSet,userAccountControl -ResultPageSize $PageSize )
         }
         Catch
         {
@@ -6300,7 +6437,7 @@ Function Get-ADRUserSPN
         $objSearcher = New-Object System.DirectoryServices.DirectorySearcher $objDomain
         $ObjSearcher.PageSize = $PageSize
         $ObjSearcher.Filter = "(&(samAccountType=805306368)(servicePrincipalName=*))"
-        $ObjSearcher.PropertiesToLoad.AddRange(("name","description","memberof","samaccountname","serviceprincipalname","pwdlastset","useraccountcontrol"))
+        $ObjSearcher.PropertiesToLoad.AddRange(("name","description","memberof","samaccountname","serviceprincipalname","primarygroupid","pwdlastset","useraccountcontrol"))
         $ObjSearcher.SearchScope = "Subtree"
         Try
         {
@@ -6582,7 +6719,30 @@ Function Get-ADRGroupMember
     {
         Try
         {
-            $ADGroups = @( Get-ADObject -LDAPFilter '(memberof=*)' -Properties DistinguishedName,sAMAccountName,memberof,samaccounttype )
+            $ADDomain = Get-ADDomain
+            $ADDomainSID = $ADDomain.DomainSID.Value
+            Remove-Variable ADDomain
+        }
+        Catch
+        {
+            Write-Warning "[Get-ADRGroupMember] Error getting Domain Context"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+            Return $null
+        }
+
+        Try
+        {
+            $ADGroups = $ADGroups = @( Get-ADGroup -Filter * -ResultPageSize $PageSize -Properties SamAccountName,SID )
+        }
+        Catch
+        {
+            Write-Warning "[Get-ADRGroupMember] Error while enumerating Group Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+        }
+
+        Try
+        {
+            $ADGroupMembers = @( Get-ADObject -LDAPFilter '(|(memberof=*)(primarygroupid=*))' -Properties DistinguishedName,memberof,primaryGroupID,sAMAccountName,samaccounttype )
         }
         Catch
         {
@@ -6591,25 +6751,120 @@ Function Get-ADRGroupMember
             Return $null
         }
 
-        If ($ADGroups)
+        If ( ($ADDomainSID) -and ($ADGroups) -and ($ADGroupMembers) )
         {
-            Write-Verbose "[*] Total GroupMember Objects: $([ADRecon.ADWSClass]::ObjectCount($ADGroups))"
-            $GroupMemberObj = [ADRecon.ADWSClass]::GroupMemberParser($ADGroups, $Threads)
+            Write-Verbose "[*] Total GroupMember Objects: $([ADRecon.ADWSClass]::ObjectCount($ADGroupMembers))"
+            $GroupMemberObj = [ADRecon.ADWSClass]::GroupMemberParser($ADGroups, $ADGroupMembers, $ADDomainSID, $Threads)
             Remove-Variable ADGroups
+            Remove-Variable ADGroupMembers
+            Remove-Variable ADDomainSID
         }
     }
 
     If ($Protocol -eq 'LDAP')
     {
+
+        If ($Credential -ne [Management.Automation.PSCredential]::Empty)
+        {
+            $DomainFQDN = Get-DNtoFQDN($objDomain.distinguishedName)
+            $DomainContext = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext("Domain",$($DomainFQDN),$($Credential.UserName),$($Credential.GetNetworkCredential().password))
+            Try
+            {
+                $ADDomain = [System.DirectoryServices.ActiveDirectory.Domain]::GetDomain($DomainContext)
+            }
+            Catch
+            {
+                Write-Warning "[Get-ADRGroupMember] Error getting Domain Context"
+                Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+                Return $null
+            }
+            Remove-Variable DomainContext
+            Try
+            {
+                $ForestContext = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext("Forest",$($ADDomain.Forest),$($Credential.UserName),$($Credential.GetNetworkCredential().password))
+                $ADForest = [System.DirectoryServices.ActiveDirectory.Forest]::GetForest($ForestContext)
+            }
+            Catch
+            {
+                Write-Warning "[Get-ADRGroupMember] Error getting Forest Context"
+                Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+            }
+            If ($ForestContext)
+            {
+                Remove-Variable ForestContext
+            }
+            If ($ADForest)
+            {
+                $GlobalCatalog = $ADForest.FindGlobalCatalog()
+            }
+            If ($GlobalCatalog)
+            {
+                $DN = "GC://$($GlobalCatalog.IPAddress)/$($objDomain.distinguishedname)"
+                Try
+                {
+                    $ADObject = New-Object -TypeName System.DirectoryServices.DirectoryEntry -ArgumentList ($($DN),$($Credential.UserName),$($Credential.GetNetworkCredential().password))
+                    $ADDomainSID = New-Object System.Security.Principal.SecurityIdentifier($ADObject.objectSid[0], 0)
+                    $ADObject.Dispose()
+                }
+                Catch
+                {
+                    Write-Warning "[Get-ADRGroupMember] Error retrieving Domain SID using the GlobalCatalog $($GlobalCatalog.IPAddress). Using SID from the ObjDomain."
+                    Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+                    $ADDomainSID = New-Object System.Security.Principal.SecurityIdentifier($objDomain.objectSid[0], 0)
+                }
+            }
+            Else
+            {
+                $ADDomainSID = New-Object System.Security.Principal.SecurityIdentifier($objDomain.objectSid[0], 0)
+            }
+        }
+        Else
+        {
+            $ADDomain = [System.DirectoryServices.ActiveDirectory.Domain]::GetCurrentDomain()
+            $ADForest = [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest()
+            Try
+            {
+                $GlobalCatalog = $ADForest.FindGlobalCatalog()
+                $DN = "GC://$($GlobalCatalog)/$($objDomain.distinguishedname)"
+                $ADObject = New-Object -TypeName System.DirectoryServices.DirectoryEntry -ArgumentList ($DN)
+                $ADDomainSID = New-Object System.Security.Principal.SecurityIdentifier($ADObject.objectSid[0], 0)
+                $ADObject.dispose()
+            }
+            Catch
+            {
+                Write-Warning "[Get-ADRGroupMember] Error retrieving Domain SID using the GlobalCatalog $($GlobalCatalog.IPAddress). Using SID from the ObjDomain."
+                Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+                $ADDomainSID = New-Object System.Security.Principal.SecurityIdentifier($objDomain.objectSid[0], 0)
+            }
+        }
+
         $objSearcher = New-Object System.DirectoryServices.DirectorySearcher $objDomain
         $ObjSearcher.PageSize = $PageSize
-        $ObjSearcher.Filter = "(memberof=*)"
-        $ObjSearcher.PropertiesToLoad.AddRange(("samaccountname", "distinguishedname", "dnshostname", "samaccounttype", "memberof"))
+        $ObjSearcher.Filter = "(objectClass=group)"
+        $ObjSearcher.PropertiesToLoad.AddRange(("samaccountname", "objectsid"))
         $ObjSearcher.SearchScope = "Subtree"
 
         Try
         {
             $ADGroups = $ObjSearcher.FindAll()
+        }
+        Catch
+        {
+            Write-Warning "[Get-ADRGroupMember] Error while enumerating Group Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+            Return $null
+        }
+        $ObjSearcher.dispose()
+
+        $objSearcher = New-Object System.DirectoryServices.DirectorySearcher $objDomain
+        $ObjSearcher.PageSize = $PageSize
+        $ObjSearcher.Filter = "(|(memberof=*)(primarygroupid=*))"
+        $ObjSearcher.PropertiesToLoad.AddRange(("distinguishedname", "dnshostname", "primarygroupid", "memberof", "samaccountname", "samaccounttype"))
+        $ObjSearcher.SearchScope = "Subtree"
+
+        Try
+        {
+            $ADGroupMembers = $ObjSearcher.FindAll()
         }
         Catch
         {
@@ -6619,11 +6874,13 @@ Function Get-ADRGroupMember
         }
         $ObjSearcher.dispose()
 
-        If ($ADGroups)
+        If ( ($ADDomainSID) -and ($ADGroups) -and ($ADGroupMembers) )
         {
-            Write-Verbose "[*] Total GroupMember Objects: $([ADRecon.LDAPClass]::ObjectCount($ADGroups))"
-            $GroupMemberObj = [ADRecon.LDAPClass]::GroupMemberParser($ADGroups, $Threads)
+            Write-Verbose "[*] Total GroupMember Objects: $([ADRecon.LDAPClass]::ObjectCount($ADGroupMembers))"
+            $GroupMemberObj = [ADRecon.LDAPClass]::GroupMemberParser($ADGroups, $ADGroupMembers, $ADDomainSID, $Threads)
             Remove-Variable ADGroups
+            Remove-Variable ADGroupMembers
+            Remove-Variable ADDomainSID
         }
     }
 
@@ -7535,7 +7792,7 @@ Function Get-ADRGPO
     {
         Try
         {
-            $ADGPOs = Get-ADObject -LDAPFilter '(objectCategory=groupPolicyContainer)' -Properties DisplayName,DistinguishedName,Name,gPCFileSysPath,whenCreated,whenChanged
+            $ADGPOs = @( Get-ADObject -LDAPFilter '(objectCategory=groupPolicyContainer)' -Properties DisplayName,DistinguishedName,Name,gPCFileSysPath,whenCreated,whenChanged )
         }
         Catch
         {
