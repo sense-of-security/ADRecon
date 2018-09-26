@@ -17,21 +17,22 @@
     - Trusts;
     - Sites;
     - Subnets;
-    - Default Password Policy;
-    - Fine Grained Password Policy (if implemented);
+    - Default and Fine Grained Password Policy (if implemented);
     - Domain Controllers, SMB versions, whether SMB Signing is supported and FSMO roles;
     - Users and their attributes;
     - Service Principal Names (SPNs);
     - Groups and memberships;
     - Organizational Units (OUs);
     - ACLs for the Domain, OUs, Root Containers and GroupPolicy objects;
-    - Group Policy Object details;
+    - Group Policy Object and gPLink details;
     - DNS Zones and Records;
     - Printers;
     - Computers and their attributes;
+    - PasswordAttributes (Experimental);
     - LAPS passwords (if implemented);
-    - BitLocker Recovery Keys (if implemented); and
-    - GPOReport (requires RSAT).
+    - BitLocker Recovery Keys (if implemented);
+    - GPOReport (requires RSAT); and
+    - Kerberoast (not included in the default collection method).
 
     Author     : Prashant Mahajan
     Company    : https://www.senseofsecurity.com.au
@@ -195,8 +196,6 @@
     [-] ACLs - May take some time
     [-] GPOs
     [-] DNS Zones and Records
-    WARNING: [Get-ADRDNSZone] Error while accessing CN=MicrosoftDNS,DC=DomainDnsZones,<Domain DN>. Try running with a Privileged Account.
-    WARNING: [Get-ADRDNSZone] Error while accessing CN=MicrosoftDNS,DC=ForestDnsZones,<Domain DN>. Try running with a Privileged Account.
     [-] Printers
     [-] Computers - May take some time
     [-] Computer SPNs
@@ -3485,7 +3484,6 @@ Function Get-ADRExcelSort
     Get-ADRExcelComObjRelease -ComObjtoRelease $worksheet
     Remove-Variable worksheet
 }
-
 Function Export-ADRExcel
 {
 <#
@@ -3753,6 +3751,7 @@ Function Export-ADRExcel
             # Set Filter to Enabled Accounts only
             $worksheet.UsedRange.Select() | Out-Null
             $excel.Selection.AutoFilter(3,$true) | Out-Null
+            $worksheet.Cells.Item(1,1).Select() | Out-Null
             Get-ADRExcelComObjRelease -ComObjtoRelease $worksheet
             Remove-Variable worksheet
         }
@@ -7926,7 +7925,7 @@ Function Get-ADRDNSZone
 
         Try
         {
-            $ADDNSZones1 = Get-ADObject -LDAPFilter '(objectClass=dnsZone)' -SearchBase "CN=MicrosoftDNS,DC=DomainDnsZones,$((Get-ADDomain).DistinguishedName)" -Properties Name,whenCreated,whenChanged,usncreated,usnchanged,distinguishedname
+            $ADDNSZones1 = Get-ADObject -LDAPFilter '(objectClass=dnsZone)' -SearchBase "DC=DomainDnsZones,$((Get-ADDomain).DistinguishedName)" -Properties Name,whenCreated,whenChanged,usncreated,usnchanged,distinguishedname
         }
         Catch
         {
@@ -7941,11 +7940,11 @@ Function Get-ADRDNSZone
 
         Try
         {
-            $ADDNSZones2 = Get-ADObject -LDAPFilter '(objectClass=dnsZone)' -SearchBase "CN=MicrosoftDNS,DC=ForestDnsZones,$((Get-ADDomain).DistinguishedName)" -Properties Name,whenCreated,whenChanged,usncreated,usnchanged,distinguishedname
+            $ADDNSZones2 = Get-ADObject -LDAPFilter '(objectClass=dnsZone)' -SearchBase "DC=ForestDnsZones,$((Get-ADDomain).DistinguishedName)" -Properties Name,whenCreated,whenChanged,usncreated,usnchanged,distinguishedname
         }
         Catch
         {
-            Write-Warning "[Get-ADRDNSZone] Error while enumerating ForestDnsZones dnsZone Objects"
+            Write-Warning "[Get-ADRDNSZone] Error while enumerating DC=ForestDnsZones,$((Get-ADDomain).DistinguishedName) dnsZone Objects"
             Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
         }
         If ($ADDNSZones2)
@@ -8051,7 +8050,7 @@ Function Get-ADRDNSZone
             Remove-Variable ADDNSZones
         }
 
-        $SearchPath = "CN=MicrosoftDNS,DC=DomainDnsZones"
+        $SearchPath = "DC=DomainDnsZones"
         If ($Credential -ne [Management.Automation.PSCredential]::Empty)
         {
             $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DomainController)/$($SearchPath),$($objDomain.distinguishedName)", $Credential.UserName,$Credential.GetNetworkCredential().Password
@@ -8072,7 +8071,7 @@ Function Get-ADRDNSZone
         }
         Catch
         {
-            Write-Warning "[Get-ADRDNSZone] Error while enumerating $($SearchPath),$($objDomain.distinguishedName) dnsZone Objects. Try running with a Privileged Account."
+            Write-Warning "[Get-ADRDNSZone] Error while enumerating DomainDnsZones dnsZone Objects."
             Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
         }
         $objSearcherPath.dispose()
@@ -8083,7 +8082,7 @@ Function Get-ADRDNSZone
             Remove-Variable ADDNSZones1
         }
 
-        $SearchPath = "CN=MicrosoftDNS,DC=ForestDnsZones"
+        $SearchPath = "DC=ForestDnsZones"
         If ($Credential -ne [Management.Automation.PSCredential]::Empty)
         {
             $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DomainController)/$($SearchPath),$($objDomain.distinguishedName)", $Credential.UserName,$Credential.GetNetworkCredential().Password
@@ -8104,7 +8103,7 @@ Function Get-ADRDNSZone
         }
         Catch
         {
-            Write-Warning "[Get-ADRDNSZone] Error while enumerating $($SearchPath),$($objDomain.distinguishedName) dnsZone Objects. Try running with a Privileged Account."
+            Write-Warning "[Get-ADRDNSZone] Error while enumerating ForestDnsZones dnsZone Objects."
             Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
         }
         $objSearcherPath.dispose()
@@ -8148,7 +8147,7 @@ Function Get-ADRDNSZone
 
                 # Create the object for each instance.
                 $Obj = New-Object PSObject
-                $Obj | Add-Member -MemberType NoteProperty -Name Name -Value $([ADRecon.LDAPClass]::CleanString($_.Properties.name))
+                $Obj | Add-Member -MemberType NoteProperty -Name Name -Value $([ADRecon.LDAPClass]::CleanString($_.Properties.name[0]))
                 If ($DNSNodes)
                 {
                     $Obj | Add-Member -MemberType NoteProperty -Name RecordCount -Value $($DNSNodes | Measure-Object | Select-Object -ExpandProperty Count)

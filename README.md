@@ -13,21 +13,22 @@ The following information is gathered by the tool:
 - Trusts;
 - Sites;
 - Subnets;
-- Default Password Policy;
-- Fine Grained Password Policy (if implemented);
+- Default and Fine Grained Password Policy (if implemented);
 - Domain Controllers, SMB versions, whether SMB Signing is supported and FSMO roles;
 - Users and their attributes;
 - Service Principal Names (SPNs);
 - Groups and memberships;
 - Organizational Units (OUs);
 - ACLs for the Domain, OUs, Root Containers and GroupPolicy objects;
-- Group Policy Object details;
+- GroupPolicy objects and gPLink details;
 - DNS Zones and Records;
 - Printers;
 - Computers and their attributes;
+- PasswordAttributes (Experimental);
 - LAPS passwords (if implemented);
-- BitLocker Recovery Keys (if implemented); and
-- GPOReport (requires RSAT).
+- BitLocker Recovery Keys (if implemented);
+- GPOReport (requires RSAT); and
+- Kerberoast (not included in the default collection method).
 
 ADRecon was presented at: [![Black Hat Arsenal Asia 2018](https://github.com/toolswatch/badges/blob/master/arsenal/asia/2018.svg)](https://www.blackhat.com/asia-18/arsenal.html#adrecon-active-directory-recon) - [Slidedeck](https://www.slideshare.net/prashant3535/adrecon-bh-asia-2018-arsenal-presentation)
 
@@ -84,7 +85,7 @@ PS C:\>.\ADRecon.ps1 -Protocol LDAP -DomainController <IP or FQDN> -Credential <
 To run ADRecon with specific modules on a non-member host with RSAT. (Default OutputType is STDOUT with -Collect parameter)
 
 ```
-PS C:\>.\ADRecon.ps1 -Protocol ADWS -DomainController <IP or FQDN> -Credential <domain\username> -Collect Domian, DomainControllers
+PS C:\>.\ADRecon.ps1 -Protocol ADWS -DomainController <IP or FQDN> -Credential <domain\username> -Collect Domain, DomainControllers
 ```
 
 To generate the ADRecon-Report.xlsx based on ADRecon output (CSV Files).
