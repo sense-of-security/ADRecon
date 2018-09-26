@@ -77,7 +77,7 @@
 
 .PARAMETER Collect
     Which modules to run; Comma separated; e.g Forest,Domain (Default all except Kerberoast)
-    Valid values include: Forest, Domain, Trusts, Sites, Subnets, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, PasswordAttributes, Groups, GroupMembers, OUs, ACLs, GPOs, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker, Kerberoast.
+    Valid values include: Forest, Domain, Trusts, Sites, Subnets, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, PasswordAttributes, Groups, GroupMembers, OUs, ACLs, GPOs, gPLinks, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker, Kerberoast.
 
 .PARAMETER OutputType
     Output Type; Comma seperated; e.g STDOUT,CSV,XML,JSON,HTML,Excel (Default STDOUT with -Collect parameter, else CSV and Excel).
@@ -154,6 +154,7 @@
     [-] OrganizationalUnits (OUs)
     [-] ACLs - May take some time
     [-] GPOs
+    [-] gPLinks - Scope of Management (SOM)
     [-] DNS Zones and Records
     [-] Printers
     [-] Computers - May take some time
@@ -195,6 +196,7 @@
     [-] OrganizationalUnits (OUs)
     [-] ACLs - May take some time
     [-] GPOs
+    [-] gPLinks - Scope of Management (SOM)
     [-] DNS Zones and Records
     [-] Printers
     [-] Computers - May take some time
@@ -213,7 +215,7 @@
 
 .LINK
 
-https://github.com/sense-of-security/ADRecon
+    https://github.com/sense-of-security/ADRecon
 #>
 
 [CmdletBinding()]
@@ -229,14 +231,14 @@ param
     [Parameter(Mandatory = $false, HelpMessage = "Domain Credentials.")]
     [Management.Automation.PSCredential] $Credential = [Management.Automation.PSCredential]::Empty,
 
-    [Parameter(Mandatory = $false, HelpMessage = "Path for ADRecon output folder containing the CSV files to generate the ADRecon-Report-<ddMMMyy>.xlsx. Use it to generate the ADRecon-Report-<ddMMMyy>.xlsx when Microsoft Excel is not installed on the host used to run ADRecon.")]
+    [Parameter(Mandatory = $false, HelpMessage = "Path for ADRecon output folder containing the CSV files to generate the ADRecon-Report.xlsx. Use it to generate the ADRecon-Report.xlsx when Microsoft Excel is not installed on the host used to run ADRecon.")]
     [string] $GenExcel,
 
-    [Parameter(Mandatory = $false, HelpMessage = "Path for ADRecon output folder to save the CSV/XML/JSON/HTML files and the ADRecon-Report-<ddMMMyy>.xlsx. (The folder specified will be created if it doesn't exist)")]
+    [Parameter(Mandatory = $false, HelpMessage = "Path for ADRecon output folder to save the CSV/XML/JSON/HTML files and the ADRecon-Report.xlsx. (The folder specified will be created if it doesn't exist)")]
     [string] $OutputDir,
 
-    [Parameter(Mandatory = $false, HelpMessage = "Which modules to run; Comma separated; e.g Forest,Domain (Default all except Kerberoast) Valid values include: Forest, Domain, Trusts, Sites, Subnets, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, PasswordAttributes, Groups, GroupMembers, OUs, ACLs, GPOs, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker, Kerberoast")]
-    [ValidateSet('Forest', 'Domain', 'Trusts', 'Sites', 'Subnets', 'PasswordPolicy', 'FineGrainedPasswordPolicy', 'DomainControllers', 'Users', 'UserSPNs', 'PasswordAttributes', 'Groups', 'GroupMembers', 'OUs', 'ACLs', 'GPOs', 'GPOReport', 'DNSZones', 'Printers', 'Computers', 'ComputerSPNs', 'LAPS', 'BitLocker', 'Kerberoast', 'Default')]
+    [Parameter(Mandatory = $false, HelpMessage = "Which modules to run; Comma separated; e.g Forest,Domain (Default all except Kerberoast) Valid values include: Forest, Domain, Trusts, Sites, Subnets, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, PasswordAttributes, Groups, GroupMembers, OUs, ACLs, GPOs, gPLinks, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker, Kerberoast")]
+    [ValidateSet('Forest', 'Domain', 'Trusts', 'Sites', 'Subnets', 'PasswordPolicy', 'FineGrainedPasswordPolicy', 'DomainControllers', 'Users', 'UserSPNs', 'PasswordAttributes', 'Groups', 'GroupMembers', 'OUs', 'ACLs', 'GPOs', 'gPLinks', 'GPOReport', 'DNSZones', 'Printers', 'Computers', 'ComputerSPNs', 'LAPS', 'BitLocker', 'Kerberoast', 'Default')]
     [array] $Collect = 'Default',
 
     [Parameter(Mandatory = $false, HelpMessage = "Output type; Comma seperated; e.g STDOUT,CSV,XML,JSON,HTML,Excel (Default STDOUT with -Collect parameter, else CSV and Excel)")]
@@ -284,6 +286,7 @@ namespace ADRecon
         private static int DormantTimeSpan;
         private static Dictionary<String, String> AdGroupDictionary = new Dictionary<String, String>();
         private static String DomainSID;
+        private static Dictionary<String, String> AdGPODictionary = new Dictionary<String, String>();
         private static readonly HashSet<string> Groups = new HashSet<string> ( new String[] {"268435456", "268435457", "536870912", "536870913"} );
         private static readonly HashSet<string> Users = new HashSet<string> ( new String[] { "805306368" } );
         private static readonly HashSet<string> Computers = new HashSet<string> ( new String[] { "805306369" }) ;
@@ -375,7 +378,7 @@ namespace ADRecon
         }
 
         public static Object[] GroupMemberParser(Object[] AdGroups, Object[] AdGroupMembers, String DomainSID, int numOfThreads)
-        {            
+        {
             runProcessor(AdGroups, numOfThreads, "GroupsDictionary");
             ADWSClass.DomainSID = DomainSID;
             Object[] ADRObj = runProcessor(AdGroupMembers, numOfThreads, "GroupMembers");
@@ -391,6 +394,13 @@ namespace ADRecon
         public static Object[] GPOParser(Object[] AdGPOs, int numOfThreads)
         {
             Object[] ADRObj = runProcessor(AdGPOs, numOfThreads, "GPOs");
+            return ADRObj;
+        }
+
+        public static Object[] SOMParser(Object[] AdGPOs, Object[] AdSOMs, int numOfThreads)
+        {
+            runProcessor(AdGPOs, numOfThreads, "GPOsDictionary");
+            Object[] ADRObj = runProcessor(AdSOMs, numOfThreads, "SOMs");
             return ADRObj;
         }
 
@@ -473,6 +483,10 @@ namespace ADRecon
                     return new OURecordProcessor();
                 case "GPOs":
                     return new GPORecordProcessor();
+                case "GPOsDictionary":
+                    return new GPORecordDictionaryProcessor();
+                case "SOMs":
+                    return new SOMRecordProcessor();
                 case "Printers":
                     return new PrinterRecordProcessor();
                 case "Computers":
@@ -1086,6 +1100,112 @@ namespace ADRecon
             }
         }
 
+        class GPORecordDictionaryProcessor : IRecordProcessor
+        {
+            public PSObject[] processRecord(Object record)
+            {
+                try
+                {
+                    PSObject AdGPO = (PSObject) record;
+                    ADWSClass.AdGPODictionary.Add((Convert.ToString(AdGPO.Members["DistinguishedName"].Value).ToUpper()), (Convert.ToString(AdGPO.Members["DisplayName"].Value)));
+                    return new PSObject[] { };
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("{0} Exception caught.", e);
+                    return new PSObject[] { };
+                }
+            }
+        }
+
+        class SOMRecordProcessor : IRecordProcessor
+        {
+            public PSObject[] processRecord(Object record)
+            {
+                try
+                {
+                    PSObject AdSOM = (PSObject) record;
+                    List<PSObject> SOMsList = new List<PSObject>();
+                    int Depth = 0;
+                    bool BlockInheritance = false;
+                    bool? LinkEnabled = null;
+                    bool? Enforced = null;
+                    String gPLink = Convert.ToString(AdSOM.Members["gPLink"].Value);
+                    String GPOName = null;
+
+                    Depth = (Convert.ToString(AdSOM.Members["DistinguishedName"].Value).Split(new string[] { "OU=" }, StringSplitOptions.None)).Length -1;
+                    if (AdSOM.Members["gPOptions"].Value != null && (int) AdSOM.Members["gPOptions"].Value == 1)
+                    {
+                        BlockInheritance = true;
+                    }
+                    var GPLinks = gPLink.Split(']', '[').Where(x => x.StartsWith("LDAP"));
+                    int Order = (GPLinks.ToArray()).Length;
+                    if (Order == 0)
+                    {
+                        PSObject SOMObj = new PSObject();
+                        SOMObj.Members.Add(new PSNoteProperty("Name", AdSOM.Members["Name"].Value));
+                        SOMObj.Members.Add(new PSNoteProperty("Depth", Depth));
+                        SOMObj.Members.Add(new PSNoteProperty("DistinguishedName", AdSOM.Members["DistinguishedName"].Value));
+                        SOMObj.Members.Add(new PSNoteProperty("GPO BlockInheritance", BlockInheritance));
+                        SOMObj.Members.Add(new PSNoteProperty("GPO LinkEnabled", LinkEnabled));
+                        SOMObj.Members.Add(new PSNoteProperty("GPO Enforced", Enforced));
+                        SOMObj.Members.Add(new PSNoteProperty("GPO Name", GPOName));
+                        SOMObj.Members.Add(new PSNoteProperty("GPO Order", null));
+                        SOMObj.Members.Add(new PSNoteProperty("gPLink", gPLink));
+                        SOMObj.Members.Add(new PSNoteProperty("gPOptions", AdSOM.Members["gPOptions"].Value));
+                        SOMsList.Add( SOMObj );
+                    }
+                    foreach (String link in GPLinks)
+                    {
+                        String[] linksplit = link.Split('/', ';');
+                        if (linksplit[3].Equals("0"))
+                        {
+                            LinkEnabled = true;
+                        }
+                        else
+                        {
+                            LinkEnabled = false;
+                        }
+                        if (linksplit[3].Equals("2"))
+                        {
+                            Enforced = true;
+                        }
+                        else
+                        {
+                            Enforced = false;
+                        }
+                        try
+                        {
+                            GPOName = ADWSClass.AdGPODictionary[linksplit[2].ToUpper()];
+                        }
+                        catch
+                        {
+                            GPOName = linksplit[2].Split('=',',')[1];
+                        }
+                        PSObject SOMObj = new PSObject();
+                        SOMObj.Members.Add(new PSNoteProperty("Name", AdSOM.Members["Name"].Value));
+                        SOMObj.Members.Add(new PSNoteProperty("Depth", Depth));
+                        SOMObj.Members.Add(new PSNoteProperty("DistinguishedName", AdSOM.Members["DistinguishedName"].Value));
+                        SOMObj.Members.Add(new PSNoteProperty("GPO BlockInheritance", BlockInheritance));
+                        SOMObj.Members.Add(new PSNoteProperty("GPO LinkEnabled", LinkEnabled));
+                        SOMObj.Members.Add(new PSNoteProperty("GPO Enforced", Enforced));
+                        SOMObj.Members.Add(new PSNoteProperty("GPO Name", GPOName));
+                        SOMObj.Members.Add(new PSNoteProperty("GPO Order", Order));
+                        SOMObj.Members.Add(new PSNoteProperty("gPLink", gPLink));
+                        SOMObj.Members.Add(new PSNoteProperty("gPOptions", AdSOM.Members["gPOptions"].Value));
+                        SOMsList.Add( SOMObj );
+                        Order--;
+                    }
+                    return SOMsList.ToArray();
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("{0} Exception caught.", e);
+                    return new PSObject[] { };
+                }
+            }
+        }
+
         class PrinterRecordProcessor : IRecordProcessor
         {
             public PSObject[] processRecord(Object record)
@@ -1385,6 +1505,7 @@ namespace ADRecon
         private static int DormantTimeSpan;
         private static Dictionary<String, String> AdGroupDictionary = new Dictionary<String, String>();
         private static String DomainSID;
+        private static Dictionary<String, String> AdGPODictionary = new Dictionary<String, String>();
         private static readonly HashSet<string> Groups = new HashSet<string> ( new String[] {"268435456", "268435457", "536870912", "536870913"} );
         private static readonly HashSet<string> Users = new HashSet<string> ( new String[] { "805306368" } );
         private static readonly HashSet<string> Computers = new HashSet<string> ( new String[] { "805306369" }) ;
@@ -1520,6 +1641,13 @@ namespace ADRecon
             return ADRObj;
         }
 
+        public static Object[] SOMParser(Object[] AdGPOs, Object[] AdSOMs, int numOfThreads)
+        {
+            runProcessor(AdGPOs, numOfThreads, "GPOsDictionary");
+            Object[] ADRObj = runProcessor(AdSOMs, numOfThreads, "SOMs");
+            return ADRObj;
+        }
+
         public static Object[] PrinterParser(Object[] ADPrinters, int numOfThreads)
         {
             Object[] ADRObj = runProcessor(ADPrinters, numOfThreads, "Printers");
@@ -1599,6 +1727,10 @@ namespace ADRecon
                     return new OURecordProcessor();
                 case "GPOs":
                     return new GPORecordProcessor();
+                case "GPOsDictionary":
+                    return new GPORecordDictionaryProcessor();
+                case "SOMs":
+                    return new SOMRecordProcessor();
                 case "Printers":
                     return new PrinterRecordProcessor();
                 case "Computers":
@@ -2201,6 +2333,116 @@ namespace ADRecon
                     GPOObj.Members.Add(new PSNoteProperty("DistinguishedName", CleanString(AdGPO.Properties["distinguishedname"][0])));
                     GPOObj.Members.Add(new PSNoteProperty("FilePath", AdGPO.Properties["gpcfilesyspath"][0]));
                     return new PSObject[] { GPOObj };
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("{0} Exception caught.", e);
+                    return new PSObject[] { };
+                }
+            }
+        }
+
+        class GPORecordDictionaryProcessor : IRecordProcessor
+        {
+            public PSObject[] processRecord(Object record)
+            {
+                try
+                {
+                    SearchResult AdGPO = (SearchResult) record;
+                    LDAPClass.AdGPODictionary.Add((Convert.ToString(AdGPO.Properties["distinguishedname"][0]).ToUpper()), (Convert.ToString(AdGPO.Properties["displayname"][0])));
+                    return new PSObject[] { };
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("{0} Exception caught.", e);
+                    return new PSObject[] { };
+                }
+            }
+        }
+
+        class SOMRecordProcessor : IRecordProcessor
+        {
+            public PSObject[] processRecord(Object record)
+            {
+                try
+                {
+                    SearchResult AdSOM = (SearchResult) record;
+
+                    List<PSObject> SOMsList = new List<PSObject>();
+                    int Depth = 0;
+                    bool BlockInheritance = false;
+                    bool? LinkEnabled = null;
+                    bool? Enforced = null;
+                    String gPLink = (AdSOM.Properties["gPLink"].Count != 0 ? Convert.ToString(AdSOM.Properties["gPLink"][0]) : "");
+                    String GPOName = null;
+
+                    Depth = ((Convert.ToString(AdSOM.Properties["distinguishedname"][0]).Split(new string[] { "OU=" }, StringSplitOptions.None)).Length -1);
+                    if (AdSOM.Properties["gPOptions"].Count != 0)
+                    {
+                        if ((int) AdSOM.Properties["gPOptions"][0] == 1)
+                        {
+                            BlockInheritance = true;
+                        }
+                    }
+                    var GPLinks = gPLink.Split(']', '[').Where(x => x.StartsWith("LDAP"));
+                    int Order = (GPLinks.ToArray()).Length;
+                    if (Order == 0)
+                    {
+                        PSObject SOMObj = new PSObject();
+                        SOMObj.Members.Add(new PSNoteProperty("Name", AdSOM.Properties["name"][0]));
+                        SOMObj.Members.Add(new PSNoteProperty("Depth", Depth));
+                        SOMObj.Members.Add(new PSNoteProperty("DistinguishedName", AdSOM.Properties["distinguishedname"][0]));
+                        SOMObj.Members.Add(new PSNoteProperty("GPO BlockInheritance", BlockInheritance));
+                        SOMObj.Members.Add(new PSNoteProperty("GPO LinkEnabled", LinkEnabled));
+                        SOMObj.Members.Add(new PSNoteProperty("GPO Enforced", Enforced));
+                        SOMObj.Members.Add(new PSNoteProperty("GPO Name", GPOName));
+                        SOMObj.Members.Add(new PSNoteProperty("GPO Order", null));
+                        SOMObj.Members.Add(new PSNoteProperty("gPLink", gPLink));
+                        SOMObj.Members.Add(new PSNoteProperty("gPOptions", (AdSOM.Properties["gpoptions"].Count != 0 ? AdSOM.Properties["gpoptions"][0] : "")));
+                        SOMsList.Add( SOMObj );
+                    }
+                    foreach (String link in GPLinks)
+                    {
+                        String[] linksplit = link.Split('/', ';');
+                        if (linksplit[3].Equals("0"))
+                        {
+                            LinkEnabled = true;
+                        }
+                        else
+                        {
+                            LinkEnabled = false;
+                        }
+                        if (linksplit[3].Equals("2"))
+                        {
+                            Enforced = true;
+                        }
+                        else
+                        {
+                            Enforced = false;
+                        }
+                        try
+                        {
+                            GPOName = LDAPClass.AdGPODictionary[linksplit[2].ToUpper()];
+                        }
+                        catch
+                        {
+                            GPOName = linksplit[2].Split('=',',')[1];
+                        }
+                        PSObject SOMObj = new PSObject();
+                        SOMObj.Members.Add(new PSNoteProperty("Name", AdSOM.Properties["name"][0]));
+                        SOMObj.Members.Add(new PSNoteProperty("Depth", Depth));
+                        SOMObj.Members.Add(new PSNoteProperty("DistinguishedName", AdSOM.Properties["distinguishedname"][0]));
+                        SOMObj.Members.Add(new PSNoteProperty("GPO BlockInheritance", BlockInheritance));
+                        SOMObj.Members.Add(new PSNoteProperty("GPO LinkEnabled", LinkEnabled));
+                        SOMObj.Members.Add(new PSNoteProperty("GPO Enforced", Enforced));
+                        SOMObj.Members.Add(new PSNoteProperty("GPO Name", GPOName));
+                        SOMObj.Members.Add(new PSNoteProperty("GPO Order", Order));
+                        SOMObj.Members.Add(new PSNoteProperty("gPLink", gPLink));
+                        SOMObj.Members.Add(new PSNoteProperty("gPOptions", (AdSOM.Properties["gpoptions"].Count != 0 ? AdSOM.Properties["gpoptions"][0] : "")));
+                        SOMsList.Add( SOMObj );
+                        Order--;
+                    }
+                    return SOMsList.ToArray();
                 }
                 catch (Exception e)
                 {
@@ -3684,6 +3926,7 @@ Function Get-ADRExcelSort
     Get-ADRExcelComObjRelease -ComObjtoRelease $worksheet
     Remove-Variable worksheet
 }
+
 Function Export-ADRExcel
 {
 <#
@@ -3695,10 +3938,10 @@ Function Export-ADRExcel
 
 .PARAMETER ExcelPath
     [string]
-    Path for ADRecon output folder containing the CSV files to generate the ADRecon-Report-<ddMMMyy>.xlsx
+    Path for ADRecon output folder containing the CSV files to generate the ADRecon-Report.xlsx
 
 .OUTPUTS
-    Creates the ADRecon-Report-<ddMMMyy>.xlsx report in the folder.
+    Creates the ADRecon-Report.xlsx report in the folder.
 #>
     param(
         [Parameter(Mandatory = $true)]
@@ -3799,7 +4042,15 @@ Function Export-ADRExcel
         $ADFileName = -join($ReportPath,'\','GPOs.csv')
         If (Test-Path $ADFileName)
         {
-            Get-ADRExcelWorkbook -Name "Domain GPOs"
+            Get-ADRExcelWorkbook -Name "GPOs"
+            Get-ADRExcelImport -ADFileName $ADFileName
+            Remove-Variable ADFileName
+        }
+
+        $ADFileName = -join($ReportPath,'\','gPLinks.csv')
+        If (Test-Path $ADFileName)
+        {
+            Get-ADRExcelWorkbook -Name "gPLinks"
             Get-ADRExcelImport -ADFileName $ADFileName
             Remove-Variable ADFileName
         }
@@ -4797,6 +5048,10 @@ Function Get-ADRDomain
                     Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
                     $ADDomainSID = New-Object System.Security.Principal.SecurityIdentifier($objDomain.objectSid[0], 0)
                 }
+            }
+            Else
+            {
+                $ADDomainSID = New-Object System.Security.Principal.SecurityIdentifier($objDomain.objectSid[0], 0)
             }
         }
         Else
@@ -7890,6 +8145,166 @@ Function Get-ADRGPO
     }
 }
 
+# based on https://github.com/GoateePFE/GPLinkReport/blob/master/gPLinkReport.ps1
+Function Get-ADRGPLink
+{
+<#
+.SYNOPSIS
+    Returns all group policy links (gPLink) applied to Scope of Management (SOM) in the current (or specified) domain.
+
+.DESCRIPTION
+    Returns all group policy links (gPLink) applied to Scope of Management (SOM) in the current (or specified) domain.
+
+.PARAMETER Protocol
+    [string]
+    Which protocol to use; ADWS (default) or LDAP.
+
+.PARAMETER objDomain
+    [DirectoryServices.DirectoryEntry]
+    Domain Directory Entry object.
+
+.PARAMETER PageSize
+    [int]
+    The PageSize to set for the LDAP searcher object. Default 200.
+
+.PARAMETER Threads
+    [int]
+    The number of threads to use during processing of objects. Default 10.
+
+.OUTPUTS
+    PSObject.
+#>
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Protocol,
+
+        [Parameter(Mandatory = $false)]
+        [DirectoryServices.DirectoryEntry] $objDomain,
+
+        [Parameter(Mandatory = $true)]
+        [int] $PageSize,
+
+        [Parameter(Mandatory = $false)]
+        [int] $Threads = 10
+    )
+
+    If ($Protocol -eq 'ADWS')
+    {
+        Try
+        {
+            $ADSOMs = @( Get-ADObject -LDAPFilter '(|(objectclass=domain)(objectclass=organizationalUnit))' -Properties DistinguishedName,Name,gPLink,gPOptions )
+            $ADSOMs += @( Get-ADObject -SearchBase "CN=Sites,$((Get-ADRootDSE).configurationNamingContext)" -LDAPFilter "(objectclass=site)" -Properties DistinguishedName,Name,gPLink,gPOptions )
+        }
+        Catch
+        {
+            Write-Warning "[Get-ADRGPLink] Error while enumerating SOM Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+            Return $null
+        }
+
+        Try
+        {
+            $ADGPOs = @( Get-ADObject -LDAPFilter '(objectCategory=groupPolicyContainer)' -Properties DisplayName,DistinguishedName )
+        }
+        Catch
+        {
+            Write-Warning "[Get-ADRGPLink] Error while enumerating groupPolicyContainer Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+            Return $null
+        }
+
+        If ( ($ADSOMs) -and ($ADGPOs) )
+        {
+            Write-Verbose "[*] Total SOMs: $([ADRecon.ADWSClass]::ObjectCount($ADSOMs))"
+            $SOMObj = [ADRecon.ADWSClass]::SOMParser($ADGPOs, $ADSOMs, $Threads)
+            Remove-Variable ADSOMs
+            Remove-Variable ADGPOs
+        }
+    }
+
+    If ($Protocol -eq 'LDAP')
+    {
+        $ADSOMs = @()
+        $objSearcher = New-Object System.DirectoryServices.DirectorySearcher $objDomain
+        $ObjSearcher.PageSize = $PageSize
+        $ObjSearcher.Filter = "(|(objectclass=domain)(objectclass=organizationalUnit))"
+        $ObjSearcher.PropertiesToLoad.AddRange(("distinguishedname","name","gplink","gpoptions"))
+        $ObjSearcher.SearchScope = "Subtree"
+
+        Try
+        {
+            $ADSOMs += $ObjSearcher.FindAll()
+        }
+        Catch
+        {
+            Write-Warning "[Get-ADRGPLink] Error while enumerating SOM Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+            Return $null
+        }
+        $ObjSearcher.dispose()
+
+        $SearchPath = "CN=Sites"
+        If ($Credential -ne [Management.Automation.PSCredential]::Empty)
+        {
+            $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DomainController)/$SearchPath,$($objDomainRootDSE.ConfigurationNamingContext)", $Credential.UserName,$Credential.GetNetworkCredential().Password
+        }
+        Else
+        {
+            $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$SearchPath,$($objDomainRootDSE.ConfigurationNamingContext)"
+        }
+        $objSearcher = New-Object System.DirectoryServices.DirectorySearcher $objSearchPath
+        $ObjSearcher.Filter = "(objectclass=site)"
+        $ObjSearcher.PropertiesToLoad.AddRange(("distinguishedname","name","gplink","gpoptions"))
+        $ObjSearcher.SearchScope = "Subtree"
+
+        Try
+        {
+            $ADSOMs += $ObjSearcher.FindAll()
+        }
+        Catch
+        {
+            Write-Warning "[Get-ADRGPLink] Error while enumerating SOM Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+            Return $null
+        }
+        $ObjSearcher.dispose()
+
+        $objSearcher = New-Object System.DirectoryServices.DirectorySearcher $objDomain
+        $ObjSearcher.PageSize = $PageSize
+        $ObjSearcher.Filter = "(objectCategory=groupPolicyContainer)"
+        $ObjSearcher.SearchScope = "Subtree"
+
+        Try
+        {
+            $ADGPOs = $ObjSearcher.FindAll()
+        }
+        Catch
+        {
+            Write-Warning "[Get-ADRGPLink] Error while enumerating groupPolicyContainer Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+            Return $null
+        }
+        $ObjSearcher.dispose()
+
+        If ( ($ADSOMs) -and ($ADGPOs) )
+        {
+            Write-Verbose "[*] Total SOMs: $([ADRecon.LDAPClass]::ObjectCount($ADSOMs))"
+            $SOMObj = [ADRecon.LDAPClass]::SOMParser($ADGPOs, $ADSOMs, $Threads)
+            Remove-Variable ADSOMs
+            Remove-Variable ADGPOs
+        }
+    }
+
+    If ($SOMObj)
+    {
+        Return $SOMObj
+    }
+    Else
+    {
+        Return $null
+    }
+}
+
 # Modified Convert-DNSRecord function from https://github.com/PowerShellMafia/PowerSploit/blob/dev/Recon/PowerView.ps1
 Function Convert-DNSRecord
 {
@@ -9887,7 +10302,7 @@ Function Invoke-ADRecon
 
 .PARAMETER Collect
     [array]
-    Which modules to run; Forest, Domain, Trusts, Sites, Subnets, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, PasswordAttributes, Groups, GroupMembers, OUs, ACLs, GPOs, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker, Kerberoast.
+    Which modules to run; Forest, Domain, Trusts, Sites, Subnets, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, PasswordAttributes, Groups, GroupMembers, OUs, ACLs, GPOs, gPLinks, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker, Kerberoast.
 
 .PARAMETER DomainController
     [string]
@@ -9899,7 +10314,7 @@ Function Invoke-ADRecon
 
 .PARAMETER OutputDir
     [string]
-	Path for ADRecon output folder to save the CSV files and the ADRecon-Report-<ddMMMyy>.xlsx.
+	Path for ADRecon output folder to save the CSV files and the ADRecon-Report.xlsx.
 
 .PARAMETER DormantTimeSpan
     [int]
@@ -10183,6 +10598,7 @@ Function Invoke-ADRecon
         'OUs' { $ADROUs = $true }
         'ACLs' { $ADRACLs = $true }
         'GPOs' { $ADRGPOs = $true }
+        'gPLinks' { $ADRgPLinks = $true }
         'GPOReport'
         {
             $ADRGPOReport = $true
@@ -10213,6 +10629,7 @@ Function Invoke-ADRecon
             $ADROUs = $true
             $ADRACLs = $true
             $ADRGPOs = $true
+            $ADRgPLinks = $true
             $ADRGPOReport = $true
             $ADRDNSZones = $true
             $ADRPrinters = $true
@@ -10600,7 +11017,7 @@ Function Invoke-ADRecon
     If ($ADROUs)
     {
         Write-Output "[-] OrganizationalUnits (OUs)"
-        $ADRObject = Get-ADROU -Protocol $Protocol -objDomain $objDomain -PageSize $PageSize
+        $ADRObject = Get-ADROU -Protocol $Protocol -objDomain $objDomain -PageSize $PageSize -Threads $Threads
         If ($ADRObject)
         {
             Export-ADR -ADRObj $ADRObject -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "OUs"
@@ -10629,6 +11046,17 @@ Function Invoke-ADRecon
             Remove-Variable ADRObject
         }
         Remove-Variable ADRGPOs
+    }
+    If ($ADRgPLinks)
+    {
+        Write-Output "[-] gPLinks - Scope of Management (SOM)"
+        $ADRObject = Get-ADRgPLink -Protocol $Protocol -objDomain $objDomain -PageSize $PageSize -Threads $Threads
+        If ($ADRObject)
+        {
+            Export-ADR -ADRObj $ADRObject -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "gPLinks"
+            Remove-Variable ADRObject
+        }
+        Remove-Variable ADRgPLinks
     }
     If ($ADRDNSZones)
     {
