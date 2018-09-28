@@ -379,6 +379,7 @@ namespace ADRecon
 
         public static Object[] GroupMemberParser(Object[] AdGroups, Object[] AdGroupMembers, String DomainSID, int numOfThreads)
         {
+            ADWSClass.AdGroupDictionary = new Dictionary<String, String>();
             runProcessor(AdGroups, numOfThreads, "GroupsDictionary");
             ADWSClass.DomainSID = DomainSID;
             Object[] ADRObj = runProcessor(AdGroupMembers, numOfThreads, "GroupMembers");
@@ -399,6 +400,7 @@ namespace ADRecon
 
         public static Object[] SOMParser(Object[] AdGPOs, Object[] AdSOMs, int numOfThreads)
         {
+            ADWSClass.AdGPODictionary = new Dictionary<String, String>();
             runProcessor(AdGPOs, numOfThreads, "GPOsDictionary");
             Object[] ADRObj = runProcessor(AdSOMs, numOfThreads, "SOMs");
             return ADRObj;
@@ -1146,11 +1148,11 @@ namespace ADRecon
                         SOMObj.Members.Add(new PSNoteProperty("Name", AdSOM.Members["Name"].Value));
                         SOMObj.Members.Add(new PSNoteProperty("Depth", Depth));
                         SOMObj.Members.Add(new PSNoteProperty("DistinguishedName", AdSOM.Members["DistinguishedName"].Value));
-                        SOMObj.Members.Add(new PSNoteProperty("GPO BlockInheritance", BlockInheritance));
-                        SOMObj.Members.Add(new PSNoteProperty("GPO LinkEnabled", LinkEnabled));
-                        SOMObj.Members.Add(new PSNoteProperty("GPO Enforced", Enforced));
-                        SOMObj.Members.Add(new PSNoteProperty("GPO Name", GPOName));
-                        SOMObj.Members.Add(new PSNoteProperty("GPO Order", null));
+                        SOMObj.Members.Add(new PSNoteProperty("Link Order", null));
+                        SOMObj.Members.Add(new PSNoteProperty("GPO", GPOName));
+                        SOMObj.Members.Add(new PSNoteProperty("Enforced", Enforced));
+                        SOMObj.Members.Add(new PSNoteProperty("Link Enabled", LinkEnabled));
+                        SOMObj.Members.Add(new PSNoteProperty("BlockInheritance", BlockInheritance));
                         SOMObj.Members.Add(new PSNoteProperty("gPLink", gPLink));
                         SOMObj.Members.Add(new PSNoteProperty("gPOptions", AdSOM.Members["gPOptions"].Value));
                         SOMsList.Add( SOMObj );
@@ -1158,7 +1160,7 @@ namespace ADRecon
                     foreach (String link in GPLinks)
                     {
                         String[] linksplit = link.Split('/', ';');
-                        if (linksplit[3].Equals("0"))
+                        if (!Convert.ToBoolean((Convert.ToInt32(linksplit[3]) & 1)))
                         {
                             LinkEnabled = true;
                         }
@@ -1166,7 +1168,7 @@ namespace ADRecon
                         {
                             LinkEnabled = false;
                         }
-                        if (linksplit[3].Equals("2"))
+                        if (Convert.ToBoolean((Convert.ToInt32(linksplit[3]) & 2)))
                         {
                             Enforced = true;
                         }
@@ -1186,11 +1188,11 @@ namespace ADRecon
                         SOMObj.Members.Add(new PSNoteProperty("Name", AdSOM.Members["Name"].Value));
                         SOMObj.Members.Add(new PSNoteProperty("Depth", Depth));
                         SOMObj.Members.Add(new PSNoteProperty("DistinguishedName", AdSOM.Members["DistinguishedName"].Value));
-                        SOMObj.Members.Add(new PSNoteProperty("GPO BlockInheritance", BlockInheritance));
-                        SOMObj.Members.Add(new PSNoteProperty("GPO LinkEnabled", LinkEnabled));
-                        SOMObj.Members.Add(new PSNoteProperty("GPO Enforced", Enforced));
-                        SOMObj.Members.Add(new PSNoteProperty("GPO Name", GPOName));
-                        SOMObj.Members.Add(new PSNoteProperty("GPO Order", Order));
+                        SOMObj.Members.Add(new PSNoteProperty("Link Order", Order));
+                        SOMObj.Members.Add(new PSNoteProperty("GPO", GPOName));
+                        SOMObj.Members.Add(new PSNoteProperty("Enforced", Enforced));
+                        SOMObj.Members.Add(new PSNoteProperty("Link Enabled", LinkEnabled));
+                        SOMObj.Members.Add(new PSNoteProperty("BlockInheritance", BlockInheritance));
                         SOMObj.Members.Add(new PSNoteProperty("gPLink", gPLink));
                         SOMObj.Members.Add(new PSNoteProperty("gPOptions", AdSOM.Members["gPOptions"].Value));
                         SOMsList.Add( SOMObj );
@@ -1623,6 +1625,7 @@ namespace ADRecon
 
         public static Object[] GroupMemberParser(Object[] AdGroups, Object[] AdGroupMembers, String DomainSID, int numOfThreads)
         {
+            LDAPClass.AdGroupDictionary = new Dictionary<String, String>();
             runProcessor(AdGroups, numOfThreads, "GroupsDictionary");
             LDAPClass.DomainSID = DomainSID;
             Object[] ADRObj = runProcessor(AdGroupMembers, numOfThreads, "GroupMembers");
@@ -1643,6 +1646,7 @@ namespace ADRecon
 
         public static Object[] SOMParser(Object[] AdGPOs, Object[] AdSOMs, int numOfThreads)
         {
+            LDAPClass.AdGPODictionary = new Dictionary<String, String>();
             runProcessor(AdGPOs, numOfThreads, "GPOsDictionary");
             Object[] ADRObj = runProcessor(AdSOMs, numOfThreads, "SOMs");
             return ADRObj;
@@ -2392,11 +2396,11 @@ namespace ADRecon
                         SOMObj.Members.Add(new PSNoteProperty("Name", AdSOM.Properties["name"][0]));
                         SOMObj.Members.Add(new PSNoteProperty("Depth", Depth));
                         SOMObj.Members.Add(new PSNoteProperty("DistinguishedName", AdSOM.Properties["distinguishedname"][0]));
-                        SOMObj.Members.Add(new PSNoteProperty("GPO BlockInheritance", BlockInheritance));
-                        SOMObj.Members.Add(new PSNoteProperty("GPO LinkEnabled", LinkEnabled));
-                        SOMObj.Members.Add(new PSNoteProperty("GPO Enforced", Enforced));
-                        SOMObj.Members.Add(new PSNoteProperty("GPO Name", GPOName));
-                        SOMObj.Members.Add(new PSNoteProperty("GPO Order", null));
+                        SOMObj.Members.Add(new PSNoteProperty("Link Order", null));
+                        SOMObj.Members.Add(new PSNoteProperty("GPO", GPOName));
+                        SOMObj.Members.Add(new PSNoteProperty("Enforced", Enforced));
+                        SOMObj.Members.Add(new PSNoteProperty("Link Enabled", LinkEnabled));
+                        SOMObj.Members.Add(new PSNoteProperty("BlockInheritance", BlockInheritance));
                         SOMObj.Members.Add(new PSNoteProperty("gPLink", gPLink));
                         SOMObj.Members.Add(new PSNoteProperty("gPOptions", (AdSOM.Properties["gpoptions"].Count != 0 ? AdSOM.Properties["gpoptions"][0] : "")));
                         SOMsList.Add( SOMObj );
@@ -2404,7 +2408,7 @@ namespace ADRecon
                     foreach (String link in GPLinks)
                     {
                         String[] linksplit = link.Split('/', ';');
-                        if (linksplit[3].Equals("0"))
+                        if (!Convert.ToBoolean((Convert.ToInt32(linksplit[3]) & 1)))
                         {
                             LinkEnabled = true;
                         }
@@ -2412,7 +2416,7 @@ namespace ADRecon
                         {
                             LinkEnabled = false;
                         }
-                        if (linksplit[3].Equals("2"))
+                        if (Convert.ToBoolean((Convert.ToInt32(linksplit[3]) & 2)))
                         {
                             Enforced = true;
                         }
@@ -2432,11 +2436,11 @@ namespace ADRecon
                         SOMObj.Members.Add(new PSNoteProperty("Name", AdSOM.Properties["name"][0]));
                         SOMObj.Members.Add(new PSNoteProperty("Depth", Depth));
                         SOMObj.Members.Add(new PSNoteProperty("DistinguishedName", AdSOM.Properties["distinguishedname"][0]));
-                        SOMObj.Members.Add(new PSNoteProperty("GPO BlockInheritance", BlockInheritance));
-                        SOMObj.Members.Add(new PSNoteProperty("GPO LinkEnabled", LinkEnabled));
-                        SOMObj.Members.Add(new PSNoteProperty("GPO Enforced", Enforced));
-                        SOMObj.Members.Add(new PSNoteProperty("GPO Name", GPOName));
-                        SOMObj.Members.Add(new PSNoteProperty("GPO Order", Order));
+                        SOMObj.Members.Add(new PSNoteProperty("Link Order", Order));
+                        SOMObj.Members.Add(new PSNoteProperty("GPO", GPOName));
+                        SOMObj.Members.Add(new PSNoteProperty("Enforced", Enforced));
+                        SOMObj.Members.Add(new PSNoteProperty("Link Enabled", LinkEnabled));
+                        SOMObj.Members.Add(new PSNoteProperty("BlockInheritance", BlockInheritance));
                         SOMObj.Members.Add(new PSNoteProperty("gPLink", gPLink));
                         SOMObj.Members.Add(new PSNoteProperty("gPOptions", (AdSOM.Properties["gpoptions"].Count != 0 ? AdSOM.Properties["gpoptions"][0] : "")));
                         SOMsList.Add( SOMObj );
