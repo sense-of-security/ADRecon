@@ -19,7 +19,7 @@ The following information is gathered by the tool:
 - Service Principal Names (SPNs);
 - Groups and memberships;
 - Organizational Units (OUs);
-- ACLs for the Domain, OUs, Root Containers and GroupPolicy objects;
+- ACLs (DACLs and SACLs) for the Domain, OUs, Root Containers, GPO, Users, Computers and Groups objects;
 - GroupPolicy objects and gPLink details;
 - DNS Zones and Records;
 - Printers;
@@ -30,9 +30,13 @@ The following information is gathered by the tool:
 - GPOReport (requires RSAT); and
 - Kerberoast (not included in the default collection method).
 
-ADRecon was presented at: [![Black Hat Arsenal Asia 2018](https://github.com/toolswatch/badges/blob/master/arsenal/asia/2018.svg)](https://www.blackhat.com/asia-18/arsenal.html#adrecon-active-directory-recon) - [Slidedeck](https://www.slideshare.net/prashant3535/adrecon-bh-asia-2018-arsenal-presentation)
+ADRecon was presented at: [![Black Hat Arsenal Asia 2018](https://github.com/toolswatch/badges/blob/master/arsenal/asia/2018.svg)](https://www.blackhat.com/asia-18/arsenal.html#adrecon-active-directory-recon) - [Slidedeck](https://speakerdeck.com/prashant3535/adrecon-bh-asia-2018-arsenal-presentation)
 
-[![Black Hat Arsenal USA 2018](https://github.com/toolswatch/badges/blob/master/arsenal/usa/2018.svg)](https://www.blackhat.com/us-18/arsenal/schedule/index.html#adrecon-active-directory-recon-11912) | [![DEFCON 26 Demolabs](https://hackwith.github.io/badges/defcon/26/demolabs.svg)](https://www.defcon.org/html/defcon-26/dc-26-demolabs.html) - [Slidedeck](https://www.slideshare.net/prashant3535/adrecon-bh-usa-2018-arsenal-and-def-con-26-demo-labs-presentation)
+[![Black Hat Arsenal USA 2018](https://github.com/toolswatch/badges/blob/master/arsenal/usa/2018.svg)](https://www.blackhat.com/us-18/arsenal/schedule/index.html#adrecon-active-directory-recon-11912) | [![DEFCON 26 Demolabs](https://hackwith.github.io/badges/defcon/26/demolabs.svg)](https://www.defcon.org/html/defcon-26/dc-26-demolabs.html) - [Slidedeck](https://speakerdeck.com/prashant3535/adrecon-bh-usa-2018-arsenal-and-def-con-26-demo-labs-presentation)
+
+[Bay Area OWASP](https://www.meetup.com/en-AU/Bay-Area-OWASP/events/253585385/) - [Slidedeck](https://speakerdeck.com/prashant3535/active-directory-recon-101-owasp-bay-area-presentation)
+
+[CHCON](https://2018.chcon.nz/mainevent.html) - [Slidedeck](https://speakerdeck.com/prashant3535/adrecon-detection-chcon-2018)
 
 ## Getting Started
 
@@ -127,9 +131,6 @@ When you run ADRecon, a `ADRecon-Report-<timestamp>` folder will be created whic
 
 -PassMaxAge <Int>
     Maximum machine account password age. (Default 30 days)
-
-- ResolveSIDs <Bool>
-    Whether to resolve SIDs in the ACLs module. (Default False)
 
 -PageSize <Int>
     The PageSize to set for the LDAP searcher object. (Default 200)

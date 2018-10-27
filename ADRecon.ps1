@@ -23,7 +23,7 @@
     - Service Principal Names (SPNs);
     - Groups and memberships;
     - Organizational Units (OUs);
-    - ACLs for the Domain, OUs, Root Containers and GroupPolicy objects;
+    - ACLs (DACLs and SACLs) for the Domain, OUs, Root Containers, GPO, Users, Computers and Groups objects;
     - Group Policy Object and gPLink details;
     - DNS Zones and Records;
     - Printers;
@@ -89,9 +89,6 @@
 .PARAMETER PassMaxAge
     Maximum machine account password age. (Default 30 days)
 
-.PARAMETER ResolveSIDs
-    Whether to resolve SIDs in the ACLs module. (Default False)
-
 .PARAMETER PageSize
     The PageSize to set for the LDAP searcher object.
 
@@ -153,6 +150,7 @@
     [-] Group Memberships - May take some time
     [-] OrganizationalUnits (OUs)
     [-] ACLs - May take some time
+    WARNING: [*] SACLs - Currently, the module is only supported with LDAP.
     [-] GPOs
     [-] gPLinks - Scope of Management (SOM)
     [-] DNS Zones and Records
@@ -253,9 +251,6 @@ param
     [ValidateRange(1,1000)]
     [int] $PassMaxAge = 30,
 
-    [Parameter(Mandatory = $false, HelpMessage = "Whether to resolve SIDs in the ACLs module. Default False")]
-    [bool] $ResolveSID = $false,
-
     [Parameter(Mandatory = $false, HelpMessage = "The PageSize to set for the LDAP searcher object. Default 200")]
     [ValidateRange(1,10000)]
     [int] $PageSize = 200,
@@ -271,10 +266,13 @@ param
 $ADWSSource = @"
 // Thanks Dennis Albuquerque for the C# multithreading code
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.DirectoryServices;
 using System.Security.Principal;
+using System.Security.AccessControl;
 using System.Management.Automation;
 
 namespace ADRecon
@@ -287,6 +285,8 @@ namespace ADRecon
         private static Dictionary<String, String> AdGroupDictionary = new Dictionary<String, String>();
         private static String DomainSID;
         private static Dictionary<String, String> AdGPODictionary = new Dictionary<String, String>();
+        private static Hashtable GUIDs = new Hashtable();
+        private static Dictionary<String, String> AdSIDDictionary = new Dictionary<String, String>();
         private static readonly HashSet<string> Groups = new HashSet<string> ( new String[] {"268435456", "268435457", "536870912", "536870913"} );
         private static readonly HashSet<string> Users = new HashSet<string> ( new String[] { "805306368" } );
         private static readonly HashSet<string> Computers = new HashSet<string> ( new String[] { "805306369" }) ;
@@ -392,6 +392,22 @@ namespace ADRecon
             return ADRObj;
         }
 
+        public static Object[] DACLParser(Object[] ADObjects, Object PSGUIDs, int numOfThreads)
+        {
+            ADWSClass.AdSIDDictionary = new Dictionary<String, String>();
+            runProcessor(ADObjects, numOfThreads, "SIDDictionary");
+            ADWSClass.GUIDs = (Hashtable) PSGUIDs;
+            Object[] ADRObj = runProcessor(ADObjects, numOfThreads, "DACLs");
+            return ADRObj;
+        }
+
+        public static Object[] SACLParser(Object[] ADObjects, Object PSGUIDs, int numOfThreads)
+        {
+            ADWSClass.GUIDs = (Hashtable) PSGUIDs;
+            Object[] ADRObj = runProcessor(ADObjects, numOfThreads, "SACLs");
+            return ADRObj;
+        }
+
         public static Object[] GPOParser(Object[] AdGPOs, int numOfThreads)
         {
             Object[] ADRObj = runProcessor(AdGPOs, numOfThreads, "GPOs");
@@ -483,6 +499,12 @@ namespace ADRecon
                     return new GroupMemberRecordProcessor();
                 case "OUs":
                     return new OURecordProcessor();
+                case "SIDDictionary":
+                    return new SIDRecordDictionaryProcessor();
+                case "DACLs":
+                    return new DACLRecordProcessor();
+                case "SACLs":
+                    return new SACLRecordProcessor();
                 case "GPOs":
                     return new GPORecordProcessor();
                 case "GPOsDictionary":
@@ -1077,6 +1099,193 @@ namespace ADRecon
             }
         }
 
+        class SIDRecordDictionaryProcessor : IRecordProcessor
+        {
+            public PSObject[] processRecord(Object record)
+            {
+                try
+                {
+                    PSObject AdObject = (PSObject) record;
+                    switch (Convert.ToString(AdObject.Members["ObjectClass"].Value))
+                    {
+                        case "user":
+                        case "computer":
+                        case "group":
+                            ADWSClass.AdSIDDictionary.Add(Convert.ToString(AdObject.Members["objectsid"].Value), Convert.ToString(AdObject.Members["Name"].Value));
+                            break;
+                    }
+                    return new PSObject[] { };
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("{0} {1} Exception caught.", ((PSObject) record).Members["ObjectClass"].Value, e);
+                    return new PSObject[] { };
+                }
+            }
+        }
+
+        class DACLRecordProcessor : IRecordProcessor
+        {
+            public PSObject[] processRecord(Object record)
+            {
+                try
+                {
+                    PSObject AdObject = (PSObject) record;
+                    String Name = null;
+                    String Type = null;
+                    List<PSObject> DACLList = new List<PSObject>();
+
+                    Name = Convert.ToString(AdObject.Members["Name"].Value);
+
+                    switch (Convert.ToString(AdObject.Members["objectClass"].Value))
+                    {
+                        case "user":
+                            Type = "User";
+                            break;
+                        case "computer":
+                            Type = "Computer";
+                            break;
+                        case "group":
+                            Type = "Group";
+                            break;
+                        case "container":
+                            Type = "Container";
+                            break;
+                        case "groupPolicyContainer":
+                            Type = "GPO";
+                            Name = Convert.ToString(AdObject.Members["DisplayName"].Value);
+                            break;
+                        case "organizationalUnit":
+                            Type = "OU";
+                            break;
+                        case "domainDNS":
+                            Type = "Domain";
+                            break;
+                        default:
+                            Type = Convert.ToString(AdObject.Members["objectClass"].Value);
+                            break;
+                    }
+
+                    // When the user is not allowed to query the ntsecuritydescriptor attribute.
+                    if (AdObject.Members["ntsecuritydescriptor"] != null)
+                    {
+                        DirectoryObjectSecurity DirObjSec = (DirectoryObjectSecurity) AdObject.Members["ntsecuritydescriptor"].Value;
+                        AuthorizationRuleCollection AccessRules = (AuthorizationRuleCollection) DirObjSec.GetAccessRules(true,true,typeof(System.Security.Principal.NTAccount));
+                        foreach (ActiveDirectoryAccessRule Rule in AccessRules)
+                        {
+                            String IdentityReference = Convert.ToString(Rule.IdentityReference);
+                            String Owner = Convert.ToString(DirObjSec.GetOwner(typeof(System.Security.Principal.SecurityIdentifier)));
+                            PSObject ObjectObj = new PSObject();
+                            ObjectObj.Members.Add(new PSNoteProperty("Name", Name));
+                            ObjectObj.Members.Add(new PSNoteProperty("Type", Type));
+                            ObjectObj.Members.Add(new PSNoteProperty("ObjectTypeName", ADWSClass.GUIDs[Convert.ToString(Rule.ObjectType)]));
+                            ObjectObj.Members.Add(new PSNoteProperty("InheritedObjectTypeName", ADWSClass.GUIDs[Convert.ToString(Rule.InheritedObjectType)]));
+                            ObjectObj.Members.Add(new PSNoteProperty("ActiveDirectoryRights", Rule.ActiveDirectoryRights));
+                            ObjectObj.Members.Add(new PSNoteProperty("AccessControlType", Rule.AccessControlType));
+                            ObjectObj.Members.Add(new PSNoteProperty("IdentityReferenceName", ADWSClass.AdSIDDictionary.ContainsKey(IdentityReference) ? ADWSClass.AdSIDDictionary[IdentityReference] : IdentityReference));
+                            ObjectObj.Members.Add(new PSNoteProperty("OwnerName", ADWSClass.AdSIDDictionary.ContainsKey(Owner) ? ADWSClass.AdSIDDictionary[Owner] : Owner));
+                            ObjectObj.Members.Add(new PSNoteProperty("Inherited", Rule.IsInherited));
+                            ObjectObj.Members.Add(new PSNoteProperty("ObjectFlags", Rule.ObjectFlags));
+                            ObjectObj.Members.Add(new PSNoteProperty("InheritanceFlags", Rule.InheritanceFlags));
+                            ObjectObj.Members.Add(new PSNoteProperty("InheritanceType", Rule.InheritanceType));
+                            ObjectObj.Members.Add(new PSNoteProperty("PropagationFlags", Rule.PropagationFlags));
+                            ObjectObj.Members.Add(new PSNoteProperty("ObjectType", Rule.ObjectType));
+                            ObjectObj.Members.Add(new PSNoteProperty("InheritedObjectType", Rule.InheritedObjectType));
+                            ObjectObj.Members.Add(new PSNoteProperty("IdentityReference", Rule.IdentityReference));
+                            ObjectObj.Members.Add(new PSNoteProperty("Owner", Owner));
+                            ObjectObj.Members.Add(new PSNoteProperty("DistinguishedName", AdObject.Members["DistinguishedName"].Value));
+                            DACLList.Add( ObjectObj );
+                        }
+                    }
+
+                    return DACLList.ToArray();
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("{0} Exception caught.", e);
+                    return new PSObject[] { };
+                }
+            }
+        }
+
+    class SACLRecordProcessor : IRecordProcessor
+        {
+            public PSObject[] processRecord(Object record)
+            {
+                try
+                {
+                    PSObject AdObject = (PSObject) record;
+                    String Name = null;
+                    String Type = null;
+                    List<PSObject> SACLList = new List<PSObject>();
+
+                    Name = Convert.ToString(AdObject.Members["Name"].Value);
+
+                    switch (Convert.ToString(AdObject.Members["objectClass"].Value))
+                    {
+                        case "user":
+                            Type = "User";
+                            break;
+                        case "computer":
+                            Type = "Computer";
+                            break;
+                        case "group":
+                            Type = "Group";
+                            break;
+                        case "container":
+                            Type = "Container";
+                            break;
+                        case "groupPolicyContainer":
+                            Type = "GPO";
+                            Name = Convert.ToString(AdObject.Members["DisplayName"].Value);
+                            break;
+                        case "organizationalUnit":
+                            Type = "OU";
+                            break;
+                        case "domainDNS":
+                            Type = "Domain";
+                            break;
+                        default:
+                            Type = Convert.ToString(AdObject.Members["objectClass"].Value);
+                            break;
+                    }
+
+                    // When the user is not allowed to query the ntsecuritydescriptor attribute.
+                    if (AdObject.Members["ntsecuritydescriptor"] != null)
+                    {
+                        DirectoryObjectSecurity DirObjSec = (DirectoryObjectSecurity) AdObject.Members["ntsecuritydescriptor"].Value;
+                        AuthorizationRuleCollection AuditRules = (AuthorizationRuleCollection) DirObjSec.GetAuditRules(true,true,typeof(System.Security.Principal.NTAccount));
+                        foreach (ActiveDirectoryAuditRule Rule in AuditRules)
+                        {
+                            PSObject ObjectObj = new PSObject();
+                            ObjectObj.Members.Add(new PSNoteProperty("Name", Name));
+                            ObjectObj.Members.Add(new PSNoteProperty("Type", Type));
+                            ObjectObj.Members.Add(new PSNoteProperty("ObjectTypeName", ADWSClass.GUIDs[Convert.ToString(Rule.ObjectType)]));
+                            ObjectObj.Members.Add(new PSNoteProperty("InheritedObjectTypeName", ADWSClass.GUIDs[Convert.ToString(Rule.InheritedObjectType)]));
+                            ObjectObj.Members.Add(new PSNoteProperty("ActiveDirectoryRights", Rule.ActiveDirectoryRights));
+                            ObjectObj.Members.Add(new PSNoteProperty("IdentityReference", Rule.IdentityReference));
+                            ObjectObj.Members.Add(new PSNoteProperty("AuditFlags", Rule.AuditFlags));
+                            ObjectObj.Members.Add(new PSNoteProperty("ObjectFlags", Rule.ObjectFlags));
+                            ObjectObj.Members.Add(new PSNoteProperty("InheritanceFlags", Rule.InheritanceFlags));
+                            ObjectObj.Members.Add(new PSNoteProperty("InheritanceType", Rule.InheritanceType));
+                            ObjectObj.Members.Add(new PSNoteProperty("Inherited", Rule.IsInherited));
+                            ObjectObj.Members.Add(new PSNoteProperty("PropagationFlags", Rule.PropagationFlags));
+                            ObjectObj.Members.Add(new PSNoteProperty("ObjectType", Rule.ObjectType));
+                            ObjectObj.Members.Add(new PSNoteProperty("InheritedObjectType", Rule.InheritedObjectType));
+                            SACLList.Add( ObjectObj );
+                        }
+                    }
+
+                    return SACLList.ToArray();
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("{0} Exception caught.", e);
+                    return new PSObject[] { };
+                }
+            }
+        }
+
         class GPORecordProcessor : IRecordProcessor
         {
             public PSObject[] processRecord(Object record)
@@ -1176,14 +1385,7 @@ namespace ADRecon
                         {
                             Enforced = false;
                         }
-                        try
-                        {
-                            GPOName = ADWSClass.AdGPODictionary[linksplit[2].ToUpper()];
-                        }
-                        catch
-                        {
-                            GPOName = linksplit[2].Split('=',',')[1];
-                        }
+                        GPOName = ADWSClass.AdGPODictionary.ContainsKey(linksplit[2].ToUpper()) ? ADWSClass.AdGPODictionary[linksplit[2].ToUpper()] : linksplit[2].Split('=',',')[1];
                         PSObject SOMObj = new PSObject();
                         SOMObj.Members.Add(new PSNoteProperty("Name", AdSOM.Members["Name"].Value));
                         SOMObj.Members.Add(new PSNoteProperty("Depth", Depth));
@@ -1489,6 +1691,7 @@ namespace ADRecon
 $LDAPSource = @"
 // Thanks Dennis Albuquerque for the C# multithreading code
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -1508,6 +1711,8 @@ namespace ADRecon
         private static Dictionary<String, String> AdGroupDictionary = new Dictionary<String, String>();
         private static String DomainSID;
         private static Dictionary<String, String> AdGPODictionary = new Dictionary<String, String>();
+        private static Hashtable GUIDs = new Hashtable();
+        private static Dictionary<String, String> AdSIDDictionary = new Dictionary<String, String>();
         private static readonly HashSet<string> Groups = new HashSet<string> ( new String[] {"268435456", "268435457", "536870912", "536870913"} );
         private static readonly HashSet<string> Users = new HashSet<string> ( new String[] { "805306368" } );
         private static readonly HashSet<string> Computers = new HashSet<string> ( new String[] { "805306369" }) ;
@@ -1638,6 +1843,22 @@ namespace ADRecon
             return ADRObj;
         }
 
+        public static Object[] DACLParser(Object[] ADObjects, Object PSGUIDs, int numOfThreads)
+        {
+            LDAPClass.AdSIDDictionary = new Dictionary<String, String>();
+            runProcessor(ADObjects, numOfThreads, "SIDDictionary");
+            LDAPClass.GUIDs = (Hashtable) PSGUIDs;
+            Object[] ADRObj = runProcessor(ADObjects, numOfThreads, "DACLs");
+            return ADRObj;
+        }
+
+        public static Object[] SACLParser(Object[] ADObjects, Object PSGUIDs, int numOfThreads)
+        {
+            LDAPClass.GUIDs = (Hashtable) PSGUIDs;
+            Object[] ADRObj = runProcessor(ADObjects, numOfThreads, "SACLs");
+            return ADRObj;
+        }
+
         public static Object[] GPOParser(Object[] AdGPOs, int numOfThreads)
         {
             Object[] ADRObj = runProcessor(AdGPOs, numOfThreads, "GPOs");
@@ -1729,6 +1950,12 @@ namespace ADRecon
                     return new GroupMemberRecordProcessor();
                 case "OUs":
                     return new OURecordProcessor();
+                case "SIDDictionary":
+                    return new SIDRecordDictionaryProcessor();
+                case "DACLs":
+                    return new DACLRecordProcessor();
+                case "SACLs":
+                    return new SACLRecordProcessor();
                 case "GPOs":
                     return new GPORecordProcessor();
                 case "GPOsDictionary":
@@ -1859,27 +2086,21 @@ namespace ADRecon
                     }
                     if (ntSecurityDescriptor != null)
                     {
-                        // Get ACLs to determine if the user can change their password or not
-                        // code based on https://github.com/BloodHoundAD/SharpHound/blob/master/Sharphound2/Enumeration/ACLHelpers.cs
-                        RawSecurityDescriptor descriptor = new RawSecurityDescriptor(ntSecurityDescriptor, 0);
-                        RawAcl rawAcl = descriptor.DiscretionaryAcl;
-                        //Loop over the actual entries in the DACL
-                        foreach (var genericAce in rawAcl)
+                        DirectoryObjectSecurity DirObjSec = new ActiveDirectorySecurity();
+                        DirObjSec.SetSecurityDescriptorBinaryForm(ntSecurityDescriptor);
+                        AuthorizationRuleCollection AccessRules = (AuthorizationRuleCollection) DirObjSec.GetAccessRules(true,false,typeof(System.Security.Principal.NTAccount));
+                        foreach (ActiveDirectoryAccessRule Rule in AccessRules)
                         {
-                            var qAce = (QualifiedAce) genericAce;
-                            //Get the ACE for our right
-                            var ace = qAce as ObjectAce;
-                            var guid = ace != null ? ace.ObjectAceType.ToString() : "";
-                            if (guid.Equals("ab721a53-1e2f-11d0-9819-00aa0040529b"))
+                            if ((Convert.ToString(Rule.ObjectType)).Equals("ab721a53-1e2f-11d0-9819-00aa0040529b"))
                             {
-                                if (ace.AceQualifier.ToString() == "AccessDenied")
+                                if (Rule.AccessControlType.ToString() == "Deny")
                                 {
-                                    String objectSid = ace.SecurityIdentifier.ToString();
-                                    if (objectSid.Equals("S-1-1-0"))
+                                    String ObjectName = Convert.ToString(Rule.IdentityReference);
+                                    if (ObjectName == "Everyone")
                                     {
                                         DenyEveryone = true;
                                     }
-                                    if (objectSid.Equals("S-1-5-10"))
+                                    if (ObjectName == "NT AUTHORITY\\SELF")
                                     {
                                         DenySelf = true;
                                     }
@@ -2321,6 +2542,215 @@ namespace ADRecon
             }
         }
 
+        class SIDRecordDictionaryProcessor : IRecordProcessor
+        {
+            public PSObject[] processRecord(Object record)
+            {
+                try
+                {
+                    SearchResult AdObject = (SearchResult) record;
+                    switch (Convert.ToString(AdObject.Properties["objectclass"][AdObject.Properties["objectclass"].Count-1]))
+                    {
+                        case "user":
+                        case "computer":
+                        case "group":
+                            LDAPClass.AdSIDDictionary.Add(Convert.ToString(new SecurityIdentifier((byte[])AdObject.Properties["objectSID"][0], 0)), (Convert.ToString(AdObject.Properties["name"][0])));
+                            break;
+                    }
+                    return new PSObject[] { };
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("{0} Exception caught.", e);
+                    return new PSObject[] { };
+                }
+            }
+        }
+
+        class DACLRecordProcessor : IRecordProcessor
+        {
+            public PSObject[] processRecord(Object record)
+            {
+                try
+                {
+                    SearchResult AdObject = (SearchResult) record;
+                    byte[] ntSecurityDescriptor = null;
+                    String Name = null;
+                    String Type = null;
+                    List<PSObject> DACLList = new List<PSObject>();
+
+                    Name = Convert.ToString(AdObject.Properties["name"][0]);
+
+                    switch (Convert.ToString(AdObject.Properties["objectclass"][AdObject.Properties["objectclass"].Count-1]))
+                    {
+                        case "user":
+                            Type = "User";
+                            break;
+                        case "computer":
+                            Type = "Computer";
+                            break;
+                        case "group":
+                            Type = "Group";
+                            break;
+                        case "container":
+                            Type = "Container";
+                            break;
+                        case "groupPolicyContainer":
+                            Type = "GPO";
+                            Name = Convert.ToString(AdObject.Properties["displayname"][0]);
+                            break;
+                        case "organizationalUnit":
+                            Type = "OU";
+                            break;
+                        case "domainDNS":
+                            Type = "Domain";
+                            break;
+                        default:
+                            Type = Convert.ToString(AdObject.Properties["objectclass"][AdObject.Properties["objectclass"].Count-1]);
+                            break;
+                    }
+
+                    // When the user is not allowed to query the ntsecuritydescriptor attribute.
+                    if (AdObject.Properties["ntsecuritydescriptor"].Count != 0)
+                    {
+                        ntSecurityDescriptor = (byte[]) AdObject.Properties["ntsecuritydescriptor"][0];
+                    }
+                    else
+                    {
+                        DirectoryEntry AdObjectEntry = ((SearchResult)record).GetDirectoryEntry();
+                        ntSecurityDescriptor = (byte[]) AdObjectEntry.ObjectSecurity.GetSecurityDescriptorBinaryForm();
+                    }
+                    if (ntSecurityDescriptor != null)
+                    {
+                        DirectoryObjectSecurity DirObjSec = new ActiveDirectorySecurity();
+                        DirObjSec.SetSecurityDescriptorBinaryForm(ntSecurityDescriptor);
+                        AuthorizationRuleCollection AccessRules = (AuthorizationRuleCollection) DirObjSec.GetAccessRules(true,true,typeof(System.Security.Principal.NTAccount));
+                        foreach (ActiveDirectoryAccessRule Rule in AccessRules)
+                        {
+                            String IdentityReference = Convert.ToString(Rule.IdentityReference);
+                            String Owner = Convert.ToString(DirObjSec.GetOwner(typeof(System.Security.Principal.SecurityIdentifier)));
+                            PSObject ObjectObj = new PSObject();
+                            ObjectObj.Members.Add(new PSNoteProperty("Name", Name));
+                            ObjectObj.Members.Add(new PSNoteProperty("Type", Type));
+                            ObjectObj.Members.Add(new PSNoteProperty("ObjectTypeName", LDAPClass.GUIDs[Convert.ToString(Rule.ObjectType)]));
+                            ObjectObj.Members.Add(new PSNoteProperty("InheritedObjectTypeName", LDAPClass.GUIDs[Convert.ToString(Rule.InheritedObjectType)]));
+                            ObjectObj.Members.Add(new PSNoteProperty("ActiveDirectoryRights", Rule.ActiveDirectoryRights));
+                            ObjectObj.Members.Add(new PSNoteProperty("AccessControlType", Rule.AccessControlType));
+                            ObjectObj.Members.Add(new PSNoteProperty("IdentityReferenceName", LDAPClass.AdSIDDictionary.ContainsKey(IdentityReference) ? LDAPClass.AdSIDDictionary[IdentityReference] : IdentityReference));
+                            ObjectObj.Members.Add(new PSNoteProperty("OwnerName", LDAPClass.AdSIDDictionary.ContainsKey(Owner) ? LDAPClass.AdSIDDictionary[Owner] : Owner));
+                            ObjectObj.Members.Add(new PSNoteProperty("Inherited", Rule.IsInherited));
+                            ObjectObj.Members.Add(new PSNoteProperty("ObjectFlags", Rule.ObjectFlags));
+                            ObjectObj.Members.Add(new PSNoteProperty("InheritanceFlags", Rule.InheritanceFlags));
+                            ObjectObj.Members.Add(new PSNoteProperty("InheritanceType", Rule.InheritanceType));
+                            ObjectObj.Members.Add(new PSNoteProperty("PropagationFlags", Rule.PropagationFlags));
+                            ObjectObj.Members.Add(new PSNoteProperty("ObjectType", Rule.ObjectType));
+                            ObjectObj.Members.Add(new PSNoteProperty("InheritedObjectType", Rule.InheritedObjectType));
+                            ObjectObj.Members.Add(new PSNoteProperty("IdentityReference", Rule.IdentityReference));
+                            ObjectObj.Members.Add(new PSNoteProperty("Owner", Owner));
+                            ObjectObj.Members.Add(new PSNoteProperty("DistinguishedName", AdObject.Properties["distinguishedname"][0]));
+                            DACLList.Add( ObjectObj );
+                        }
+                    }
+
+                    return DACLList.ToArray();
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("{0} Exception caught.", e);
+                    return new PSObject[] { };
+                }
+            }
+        }
+
+    class SACLRecordProcessor : IRecordProcessor
+        {
+            public PSObject[] processRecord(Object record)
+            {
+                try
+                {
+                    SearchResult AdObject = (SearchResult) record;
+                    byte[] ntSecurityDescriptor = null;
+                    String Name = null;
+                    String Type = null;
+                    List<PSObject> SACLList = new List<PSObject>();
+
+                    Name = Convert.ToString(AdObject.Properties["name"][0]);
+
+                    switch (Convert.ToString(AdObject.Properties["objectclass"][AdObject.Properties["objectclass"].Count-1]))
+                    {
+                        case "user":
+                            Type = "User";
+                            break;
+                        case "computer":
+                            Type = "Computer";
+                            break;
+                        case "group":
+                            Type = "Group";
+                            break;
+                        case "container":
+                            Type = "Container";
+                            break;
+                        case "groupPolicyContainer":
+                            Type = "GPO";
+                            Name = Convert.ToString(AdObject.Properties["displayname"][0]);
+                            break;
+                        case "organizationalUnit":
+                            Type = "OU";
+                            break;
+                        case "domainDNS":
+                            Type = "Domain";
+                            break;
+                        default:
+                            Type = Convert.ToString(AdObject.Properties["objectclass"][AdObject.Properties["objectclass"].Count-1]);
+                            break;
+                    }
+
+                    // When the user is not allowed to query the ntsecuritydescriptor attribute.
+                    if (AdObject.Properties["ntsecuritydescriptor"].Count != 0)
+                    {
+                        ntSecurityDescriptor = (byte[]) AdObject.Properties["ntsecuritydescriptor"][0];
+                    }
+                    else
+                    {
+                        DirectoryEntry AdObjectEntry = ((SearchResult)record).GetDirectoryEntry();
+                        ntSecurityDescriptor = (byte[]) AdObjectEntry.ObjectSecurity.GetSecurityDescriptorBinaryForm();
+                    }
+                    if (ntSecurityDescriptor != null)
+                    {
+                        DirectoryObjectSecurity DirObjSec = new ActiveDirectorySecurity();
+                        DirObjSec.SetSecurityDescriptorBinaryForm(ntSecurityDescriptor);
+                        AuthorizationRuleCollection AuditRules = (AuthorizationRuleCollection) DirObjSec.GetAuditRules(true,true,typeof(System.Security.Principal.NTAccount));
+                        foreach (ActiveDirectoryAuditRule Rule in AuditRules)
+                        {
+                            PSObject ObjectObj = new PSObject();
+                            ObjectObj.Members.Add(new PSNoteProperty("Name", Name));
+                            ObjectObj.Members.Add(new PSNoteProperty("Type", Type));
+                            ObjectObj.Members.Add(new PSNoteProperty("ObjectTypeName", LDAPClass.GUIDs[Convert.ToString(Rule.ObjectType)]));
+                            ObjectObj.Members.Add(new PSNoteProperty("InheritedObjectTypeName", LDAPClass.GUIDs[Convert.ToString(Rule.InheritedObjectType)]));
+                            ObjectObj.Members.Add(new PSNoteProperty("ActiveDirectoryRights", Rule.ActiveDirectoryRights));
+                            ObjectObj.Members.Add(new PSNoteProperty("IdentityReference", Rule.IdentityReference));
+                            ObjectObj.Members.Add(new PSNoteProperty("AuditFlags", Rule.AuditFlags));
+                            ObjectObj.Members.Add(new PSNoteProperty("ObjectFlags", Rule.ObjectFlags));
+                            ObjectObj.Members.Add(new PSNoteProperty("InheritanceFlags", Rule.InheritanceFlags));
+                            ObjectObj.Members.Add(new PSNoteProperty("InheritanceType", Rule.InheritanceType));
+                            ObjectObj.Members.Add(new PSNoteProperty("Inherited", Rule.IsInherited));
+                            ObjectObj.Members.Add(new PSNoteProperty("PropagationFlags", Rule.PropagationFlags));
+                            ObjectObj.Members.Add(new PSNoteProperty("ObjectType", Rule.ObjectType));
+                            ObjectObj.Members.Add(new PSNoteProperty("InheritedObjectType", Rule.InheritedObjectType));
+                            SACLList.Add( ObjectObj );
+                        }
+                    }
+
+                    return SACLList.ToArray();
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("{0} Exception caught.", e);
+                    return new PSObject[] { };
+                }
+            }
+        }
+
         class GPORecordProcessor : IRecordProcessor
         {
             public PSObject[] processRecord(Object record)
@@ -2424,14 +2854,7 @@ namespace ADRecon
                         {
                             Enforced = false;
                         }
-                        try
-                        {
-                            GPOName = LDAPClass.AdGPODictionary[linksplit[2].ToUpper()];
-                        }
-                        catch
-                        {
-                            GPOName = linksplit[2].Split('=',',')[1];
-                        }
+                        GPOName = LDAPClass.AdGPODictionary.ContainsKey(linksplit[2].ToUpper()) ? LDAPClass.AdGPODictionary[linksplit[2].ToUpper()] : linksplit[2].Split('=',',')[1];
                         PSObject SOMObj = new PSObject();
                         SOMObj.Members.Add(new PSNoteProperty("Name", AdSOM.Properties["name"][0]));
                         SOMObj.Members.Add(new PSNoteProperty("Depth", Depth));
@@ -3658,6 +4081,7 @@ Function Get-ADRExcelAttributeStats
     Remove-Variable MergeCells
 
     Get-ADRExcelPivotTable -SrcSheetName $SrcSheetName -PivotTableName "User Status" -PivotRows @("Enabled") -PivotValues @("UserName") -PivotPercentage @("UserName") -PivotLocation "R2C1"
+    $excel.ScreenUpdating = $false
 
     $row = 2
     "Type","Count","Percentage" | ForEach-Object {
@@ -4043,6 +4467,22 @@ Function Export-ADRExcel
             Remove-Variable ADFileName
         }
 
+        $ADFileName = -join($ReportPath,'\','DACLs.csv')
+        If (Test-Path $ADFileName)
+        {
+            Get-ADRExcelWorkbook -Name "DACLs"
+            Get-ADRExcelImport -ADFileName $ADFileName
+            Remove-Variable ADFileName
+        }
+
+        $ADFileName = -join($ReportPath,'\','SACLs.csv')
+        If (Test-Path $ADFileName)
+        {
+            Get-ADRExcelWorkbook -Name "SACLs"
+            Get-ADRExcelImport -ADFileName $ADFileName
+            Remove-Variable ADFileName
+        }
+
         $ADFileName = -join($ReportPath,'\','GPOs.csv')
         If (Test-Path $ADFileName)
         {
@@ -4129,25 +4569,6 @@ Function Export-ADRExcel
             Remove-Variable worksheet
         }
 
-        $ADFileName = -join($ReportPath,'\','ACLs.csv')
-        If (Test-Path $ADFileName)
-        {
-            Get-ADRExcelWorkbook -Name "ACLs"
-            Get-ADRExcelImport -ADFileName $ADFileName
-            Remove-Variable ADFileName
-
-            $worksheet = $workbook.Worksheets.Item(1)
-            $worksheet.Activate();
-
-            # hide Owner, ActiveDirectoryRights, InheritanceType, ObjectType, InheritedObjectType, ObjectFlags, AccessControlType, IdentityReference, IsInherited, InheritanceFlags and PropagationFlags columns
-            10 .. 20 | ForEach-Object {
-                $worksheet.Columns.Item($_).hidden = $true
-            }
-
-            Get-ADRExcelComObjRelease -ComObjtoRelease $worksheet
-            Remove-Variable worksheet
-        }
-
         $ADFileName = -join($ReportPath,'\','OUs.csv')
         If (Test-Path $ADFileName)
         {
@@ -4211,32 +4632,6 @@ Function Export-ADRExcel
             Remove-Variable worksheet
         }
 
-        # Operating System Stats
-        $ADFileName = -join($ReportPath,'\','Computers.csv')
-        If (Test-Path $ADFileName)
-        {
-            Get-ADRExcelWorkbook -Name "Operating System Stats"
-            Remove-Variable ADFileName
-
-            $worksheet = $workbook.Worksheets.Item(1)
-            $PivotTableName = "Operating Systems"
-            Get-ADRExcelPivotTable -SrcSheetName "Computers" -PivotTableName $PivotTableName -PivotRows @("Operating System") -PivotValues @("Operating System")
-
-            $worksheet.Cells.Item(1,1) = "Operating System"
-            $worksheet.Cells.Item(1,2) = "Count"
-
-            # https://msdn.microsoft.com/en-us/vba/excel-vba/articles/xlsortorder-enumeration-excel
-            $worksheet.PivotTables($PivotTableName).PivotFields("Operating System").AutoSort([Microsoft.Office.Interop.Excel.XlSortOrder]::xlDescending,"Count")
-
-            Get-ADRExcelChart -ChartType "xlColumnClustered" -ChartLayout 10 -ChartTitle "Operating Systems in AD" -RangetoCover "D2:S16"
-            $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item(1,4) , "" , "Computers!A1", "", "Raw Data") | Out-Null
-            $excel.Windows.Item(1).Displaygridlines = $false
-            Remove-Variable PivotTableName
-
-            Get-ADRExcelComObjRelease -ComObjtoRelease $worksheet
-            Remove-Variable worksheet
-        }
-
         # Computer Role Stats
         $ADFileName = -join($ReportPath,'\','ComputerSPNs.csv')
         If (Test-Path $ADFileName)
@@ -4256,6 +4651,32 @@ Function Export-ADRExcel
 
             Get-ADRExcelChart -ChartType "xlColumnClustered" -ChartLayout 10 -ChartTitle "Computer Roles in AD" -RangetoCover "D2:U16"
             $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item(1,4) , "" , "'Computer SPNs'!A1", "", "Raw Data") | Out-Null
+            $excel.Windows.Item(1).Displaygridlines = $false
+            Remove-Variable PivotTableName
+
+            Get-ADRExcelComObjRelease -ComObjtoRelease $worksheet
+            Remove-Variable worksheet
+        }
+
+        # Operating System Stats
+        $ADFileName = -join($ReportPath,'\','Computers.csv')
+        If (Test-Path $ADFileName)
+        {
+            Get-ADRExcelWorkbook -Name "Operating System Stats"
+            Remove-Variable ADFileName
+
+            $worksheet = $workbook.Worksheets.Item(1)
+            $PivotTableName = "Operating Systems"
+            Get-ADRExcelPivotTable -SrcSheetName "Computers" -PivotTableName $PivotTableName -PivotRows @("Operating System") -PivotValues @("Operating System")
+
+            $worksheet.Cells.Item(1,1) = "Operating System"
+            $worksheet.Cells.Item(1,2) = "Count"
+
+            # https://msdn.microsoft.com/en-us/vba/excel-vba/articles/xlsortorder-enumeration-excel
+            $worksheet.PivotTables($PivotTableName).PivotFields("Operating System").AutoSort([Microsoft.Office.Interop.Excel.XlSortOrder]::xlDescending,"Count")
+
+            Get-ADRExcelChart -ChartType "xlColumnClustered" -ChartLayout 10 -ChartTitle "Operating Systems in AD" -RangetoCover "D2:S16"
+            $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item(1,4) , "" , "Computers!A1", "", "Raw Data") | Out-Null
             $excel.Windows.Item(1).Displaygridlines = $false
             Remove-Variable PivotTableName
 
@@ -6210,7 +6631,14 @@ Function Get-ADRDefaultPasswordPolicy
                 $ReversibleEncryption = $false
             }
 
-            $ObjValues = @("Enforce password history", $ObjDomain.PwdHistoryLength.value, "Maximum password age (days)", $($ObjDomain.ConvertLargeIntegerToInt64($ObjDomain.maxpwdage.value) /-864000000000), "Minimum password age (days)", $($ObjDomain.ConvertLargeIntegerToInt64($ObjDomain.minpwdage.value) /-864000000000), "Minimum password length", $ObjDomain.MinPwdLength.value, "Password must meet complexity requirements", $ComplexPasswords, "Store password using reversible encryption for all users in the domain", $ReversibleEncryption, "Account lockout duration (mins)", $($ObjDomain.ConvertLargeIntegerToInt64($ObjDomain.lockoutduration.value)/-600000000), "Account lockout threshold", $ObjDomain.LockoutThreshold.value, "Reset account lockout counter after (mins)", $($ObjDomain.ConvertLargeIntegerToInt64($ObjDomain.lockoutobservationWindow.value)/-600000000))
+            $LockoutDuration = $($ObjDomain.ConvertLargeIntegerToInt64($ObjDomain.lockoutduration.value)/-600000000)
+
+            If ($LockoutDuration -gt 99999)
+            {
+                $LockoutDuration = 0
+            }
+
+            $ObjValues = @("Enforce password history", $ObjDomain.PwdHistoryLength.value, "Maximum password age (days)", $($ObjDomain.ConvertLargeIntegerToInt64($ObjDomain.maxpwdage.value) /-864000000000), "Minimum password age (days)", $($ObjDomain.ConvertLargeIntegerToInt64($ObjDomain.minpwdage.value) /-864000000000), "Minimum password length", $ObjDomain.MinPwdLength.value, "Password must meet complexity requirements", $ComplexPasswords, "Store password using reversible encryption for all users in the domain", $ReversibleEncryption, "Account lockout duration (mins)", $LockoutDuration, "Account lockout threshold", $ObjDomain.LockoutThreshold.value, "Reset account lockout counter after (mins)", $($ObjDomain.ConvertLargeIntegerToInt64($ObjDomain.lockoutobservationWindow.value)/-600000000))
 
             For ($i = 0; $i -lt $($ObjValues.Count); $i++)
             {
@@ -7618,10 +8046,10 @@ Function Get-ADRACL
 {
 <#
 .SYNOPSIS
-    Returns all ACLs for the Domain, OUs, Root Containers and GroupPolicy objects in the current (or specified) domain.
+    Returns all ACLs for the Domain, OUs, Root Containers, GPO, User, Computer and Group objects in the current (or specified) domain.
 
 .DESCRIPTION
-    Returns all ACLs for the Domain, OUs, Root Containers and GroupPolicy objects in the current (or specified) domain.
+    Returns all ACLs for the Domain, OUs, Root Containers, GPO, User, Computer and Group objects in the current (or specified) domain.
 
 .PARAMETER Protocol
     [string]
@@ -7647,6 +8075,10 @@ Function Get-ADRACL
     [int]
     The PageSize to set for the LDAP searcher object. Default 200.
 
+.PARAMETER Threads
+    [int]
+    The number of threads to use during processing of objects. Default 10.
+
 .OUTPUTS
     PSObject.
 
@@ -7670,7 +8102,10 @@ Function Get-ADRACL
         [bool] $ResolveSID = $false,
 
         [Parameter(Mandatory = $true)]
-        [int] $PageSize
+        [int] $PageSize,
+
+        [Parameter(Mandatory = $false)]
+        [int] $Threads = 10
     )
 
     If ($Protocol -eq 'ADWS')
@@ -7739,71 +8174,41 @@ Function Get-ADRACL
             Write-Warning "[Get-ADRACL] Error getting Domain Context"
             Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
         }
-        If ($ADDomain)
-        {
-            $Objs += $ADDomain | Select-Object @{Name = 'name'; expression={$ADDomain.DNSRoot}}, @{name = 'DistinguishedName'; expression={$ADDomain.DistinguishedName}}, @{name='Type'; expression = {"Domain"}}
-        }
+
         Try
         {
-            Write-Verbose "[*] Enumerating OU Objects"
-            $Objs += Get-ADOrganizationalUnit -Filter * -Properties Name, DistinguishedName | Select-Object @{name = 'Name'; expression={$_.Name}}, @{name = 'DistinguishedName'; expression={$_.DistinguishedName}}, @{name='Type'; expression = {"OU"}}
+            Write-Verbose "[*] Enumerating Domain, OU, GPO, User, Computer and Group Objects"
+            $Objs += Get-ADObject -LDAPFilter '(|(objectClass=domain)(objectCategory=organizationalunit)(objectCategory=groupPolicyContainer)(samAccountType=805306368)(samAccountType=805306369)(samaccounttype=268435456)(samaccounttype=268435457)(samaccounttype=536870912)(samaccounttype=536870913))' -Properties DisplayName, DistinguishedName, Name, ntsecuritydescriptor, ObjectClass, objectsid
         }
         Catch
         {
-            Write-Warning "[Get-ADRACL] Error while enumerating OU Objects"
+            Write-Warning "[Get-ADRACL] Error while enumerating Domain, OU, GPO, User, Computer and Group Objects"
             Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
         }
+
         If ($ADDomain)
         {
             Try
             {
-                Write-Verbose "[*] Enumerating Container Objects"
-                $Objs += Get-ADObject -SearchBase $($ADDomain.DistinguishedName) -SearchScope OneLevel -LDAPFilter '(objectClass=container)' -Properties Name, DistinguishedName | Select-Object @{name = 'Name'; expression={$_.Name}}, @{name = 'DistinguishedName'; expression={$_.DistinguishedName}}, @{name='Type'; expression = {"Container"}}
+                Write-Verbose "[*] Enumerating Root Container Objects"
+                $Objs += Get-ADObject -SearchBase $($ADDomain.DistinguishedName) -SearchScope OneLevel -LDAPFilter '(objectClass=container)' -Properties DistinguishedName, Name, ntsecuritydescriptor, ObjectClass
             }
             Catch
             {
-                Write-Warning "[Get-ADRACL] Error while enumerating Container Objects"
+                Write-Warning "[Get-ADRACL] Error while enumerating Root Container Objects"
                 Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
             }
-        }
-        Try
-        {
-            Write-Verbose "[*] Enumerating GPO Objects"
-            $Objs += Get-ADObject -LDAPFilter '(objectCategory=groupPolicyContainer)' -Properties DisplayName, DistinguishedName | Select-Object @{name = 'Name'; expression={$_.DisplayName}}, @{name = 'DistinguishedName'; expression={$_.DistinguishedName}}, @{name='Type'; expression = {"GPO"}}
-        }
-        Catch
-        {
-            Write-Warning "[Get-ADRACL] Error while enumerating GPO Objects"
-            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
         }
 
         If ($Objs)
         {
             $ACLObj = @()
             Write-Verbose "[*] Total Objects: $([ADRecon.ADWSClass]::ObjectCount($Objs))"
-            $DomainFQDN = Get-DNtoFQDN($ADDomain.DistinguishedName)
-            ForEach ($Obj in $Objs)
-            {
-                Try
-                {
-                    $ACLObj += Get-Acl -Path $Obj.DistinguishedName | Select-Object Owner -ExpandProperty Access |
-                    Select-Object @{name='Name';expression={$Obj.Name}}, `
-                            @{name='Type';expression={$Obj.Type}}, `
-                            @{name='objectTypeName';expression={$GUIDs[$_.objectType.ToString()]}}, `
-                            @{name='inheritedObjectTypeName';expression={$GUIDs[$_.inheritedObjectType.ToString()]}}, `
-                            @{name='ActiveDirectoryRight';expression={$_.ActiveDirectoryRights}}, `
-                            @{name='AccessControl';expression={$_.AccessControlType}}, `
-                            @{name='IdentityReferenceName';expression={ConvertFrom-SID -Protocol $Protocol -ObjectSid $_.IdentityReference -DomainFQDN $DomainFQDN -Credential $Credential -ResolveSID $ResolveSID}}, `
-                            @{name='OwnerName';expression={ConvertFrom-SID -Protocol $Protocol -ObjectSid $_.Owner -DomainFQDN $DomainFQDN -Credential $Credential -ResolveSID $ResolveSID}}, `
-                            @{name='DistinguishedName';expression={$Obj.DistinguishedName}}, `
-                            *
-                }
-                Catch
-                {
-                    Write-Warning "[Get-ADRACL] Error while enumerating ACL for $Obj.DistinguishedName"
-                    Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
-                }
-            }
+            Write-Verbose "[-] DACLs"
+            $DACLObj = [ADRecon.ADWSClass]::DACLParser($Objs, $GUIDs, $Threads)
+            #Write-Verbose "[-] SACLs - May need a Privileged Account"
+            Write-Warning "[*] SACLs - Currently, the module is only supported with LDAP."
+            #$SACLObj = [ADRecon.ADWSClass]::SACLParser($Objs, $GUIDs, $Threads)
             Remove-Variable Objs
             Remove-Variable GUIDs
         }
@@ -7917,62 +8322,44 @@ Function Get-ADRACL
             $objSearcherPath.dispose()
         }
 
-        # Get the DistinguishedNames of Domain, OUs, Root Containers and GroupPolicy objects.
+        # Get the Domain, OUs, Root Containers, GPO, User, Computer and Group objects.
         $Objs = @()
-        If ($ADDomain)
-        {
-            $Objs += $ADDomain | Select-Object @{Name = 'name'; expression={$ADDomain.Name}}, @{name = 'DistinguishedName'; expression={$objDomain.distinguishedName}}, @{name='Type'; expression = {"Domain"}}
-        }
-        Write-Verbose "[*] Enumerating OU Objects"
+        Write-Verbose "[*] Enumerating Domain, OU, GPO, User, Computer and Group Objects"
         $objSearcher = New-Object System.DirectoryServices.DirectorySearcher $objDomain
         $ObjSearcher.PageSize = $PageSize
-        $ObjSearcher.Filter = "(objectCategory=organizationalunit)"
-        $ObjSearcher.PropertiesToLoad.AddRange(("name","distinguishedname"))
+        $ObjSearcher.Filter = "(|(objectClass=domain)(objectCategory=organizationalunit)(objectCategory=groupPolicyContainer)(samAccountType=805306368)(samAccountType=805306369)(samaccounttype=268435456)(samaccounttype=268435457)(samaccounttype=536870912)(samaccounttype=536870913))"
+        # https://msdn.microsoft.com/en-us/library/system.directoryservices.securitymasks(v=vs.110).aspx
+        $ObjSearcher.SecurityMasks = [System.DirectoryServices.SecurityMasks]::Dacl -bor [System.DirectoryServices.SecurityMasks]::Group -bor [System.DirectoryServices.SecurityMasks]::Owner -bor [System.DirectoryServices.SecurityMasks]::Sacl
+        $ObjSearcher.PropertiesToLoad.AddRange(("displayname","distinguishedname","name","ntsecuritydescriptor","objectclass","objectsid"))
         $ObjSearcher.SearchScope = "Subtree"
 
         Try
         {
-            $Objs += $ObjSearcher.FindAll() | Select-Object @{name = 'Name'; expression={$_.Properties.name}}, @{name = 'DistinguishedName'; expression={$_.Properties.distinguishedname}}, @{name='Type'; expression = {"OU"}}
+            $Objs += $ObjSearcher.FindAll()
         }
         Catch
         {
-            Write-Warning "[Get-ADRACL] Error while enumerating OU Objects"
+            Write-Warning "[Get-ADRACL] Error while enumerating Domain, OU, GPO, User, Computer and Group Objects"
             Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
         }
         $ObjSearcher.dispose()
 
-        Write-Verbose "[*] Enumerating Container Objects"
+        Write-Verbose "[*] Enumerating Root Container Objects"
         $objSearcher = New-Object System.DirectoryServices.DirectorySearcher $objDomain
         $ObjSearcher.PageSize = $PageSize
         $ObjSearcher.Filter = "(objectClass=container)"
-        $ObjSearcher.PropertiesToLoad.AddRange(("name","distinguishedname"))
+        # https://msdn.microsoft.com/en-us/library/system.directoryservices.securitymasks(v=vs.110).aspx
+        $ObjSearcher.SecurityMasks = $ObjSearcher.SecurityMasks = [System.DirectoryServices.SecurityMasks]::Dacl -bor [System.DirectoryServices.SecurityMasks]::Group -bor [System.DirectoryServices.SecurityMasks]::Owner -bor [System.DirectoryServices.SecurityMasks]::Sacl
+        $ObjSearcher.PropertiesToLoad.AddRange(("distinguishedname","name","ntsecuritydescriptor","objectclass"))
         $ObjSearcher.SearchScope = "OneLevel"
 
         Try
         {
-            $Objs += $ObjSearcher.FindAll() | Select-Object @{name = 'Name'; expression={$_.Properties.name}}, @{name = 'DistinguishedName'; expression={$_.Properties.distinguishedname}}, @{name='Type'; expression = {"Container"}}
+            $Objs += $ObjSearcher.FindAll()
         }
         Catch
         {
-            Write-Warning "[Get-ADRACL] Error while enumerating Container Objects"
-            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
-        }
-        $ObjSearcher.dispose()
-
-        Write-Verbose "[*] Enumerating GPO Objects"
-        $objSearcher = New-Object System.DirectoryServices.DirectorySearcher $objDomain
-        $ObjSearcher.PageSize = $PageSize
-        $ObjSearcher.Filter = "(objectCategory=groupPolicyContainer)"
-        $ObjSearcher.PropertiesToLoad.AddRange(("displayname","distinguishedname"))
-        $ObjSearcher.SearchScope = "Subtree"
-
-        Try
-        {
-            $Objs += $ObjSearcher.FindAll() | Select-Object @{name = 'Name'; expression={$_.Properties.displayname}}, @{name = 'DistinguishedName'; expression={$_.Properties.distinguishedname}}, @{name='Type'; expression = {"GPO"}}
-        }
-        Catch
-        {
-            Write-Warning "[Get-ADRACL] Error while enumerating GPO Objects"
+            Write-Warning "[Get-ADRACL] Error while enumerating Root Container Objects"
             Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
         }
         $ObjSearcher.dispose()
@@ -7980,68 +8367,25 @@ Function Get-ADRACL
         If ($Objs)
         {
             Write-Verbose "[*] Total Objects: $([ADRecon.LDAPClass]::ObjectCount($Objs))"
-            $ACLObj = @()
-            $DomainFQDN = Get-DNtoFQDN($objDomain.distinguishedName)
-            If ($Credential -ne [Management.Automation.PSCredential]::Empty)
-            {
-                ForEach ($Obj in $Objs)
-                {
-                    Try
-                    {
-                        $ACLObj += (New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DomainController)/$($Obj.DistinguishedName)", $Credential.UserName,$Credential.GetNetworkCredential().Password).PsBase.ObjectSecurity | Select-Object Owner -ExpandProperty Access | Select-Object @{name='Name';expression={$Obj.Name}}, `
-                            @{name='Type';expression={$Obj.Type}}, `
-                            @{name='objectTypeName';expression={$GUIDs[$_.objectType.ToString()]}}, `
-                            @{name='inheritedObjectTypeName';expression={$GUIDs[$_.inheritedObjectType.ToString()]}}, `
-                            @{name='ActiveDirectoryRight';expression={$_.ActiveDirectoryRights}}, `
-                            @{name='AccessControl';expression={$_.AccessControlType}}, `
-                            @{name='IdentityReferenceName';expression={ConvertFrom-SID -Protocol $Protocol -ObjectSid $_.IdentityReference -DomainFQDN $DomainFQDN -Credential $Credential -ResolveSID $ResolveSID}}, `
-                            @{name='OwnerName';expression={ConvertFrom-SID -Protocol $Protocol -ObjectSid $_.Owner -DomainFQDN $DomainFQDN -Credential $Credential -ResolveSID $ResolveSID}}, `
-                            @{name='DistinguishedName';expression={$Obj.DistinguishedName}}, `
-                            *
-                    }
-                    Catch
-                    {
-                        Write-Warning "[Get-ADRACL] Error while enumerating ACL for $Obj.DistinguishedName"
-                        Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
-                    }
-                }
-            }
-            Else
-            {
-                ForEach ($Obj in $Objs)
-                {
-                    Try
-                    {
-                        $ACLObj += (New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($Obj.DistinguishedName)").PsBase.ObjectSecurity | Select-Object Owner -ExpandProperty Access | Select-Object @{name='Name';expression={$Obj.Name}}, `
-                            @{name='Type';expression={$Obj.Type}}, `
-                            @{name='objectTypeName';expression={$GUIDs[$_.objectType.ToString()]}}, `
-                            @{name='inheritedObjectTypeName';expression={$GUIDs[$_.inheritedObjectType.ToString()]}}, `
-                            @{name='ActiveDirectoryRight';expression={$_.ActiveDirectoryRights}}, `
-                            @{name='AccessControl';expression={$_.AccessControlType}}, `
-                            @{name='IdentityReferenceName';expression={ConvertFrom-SID -Protocol $Protocol -ObjectSid $_.IdentityReference -ResolveSID $ResolveSID}}, `
-                            @{name='OwnerName';expression={ConvertFrom-SID -Protocol $Protocol -ObjectSid $_.Owner -ResolveSID $ResolveSID}}, `
-                            @{name='DistinguishedName';expression={$Obj.DistinguishedName}}, `
-                            *
-                    }
-                    Catch
-                    {
-                        Write-Warning "[Get-ADRACL] Error while enumerating ACL for $Obj.DistinguishedName"
-                        Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
-                    }
-                }
-            }
+            Write-Verbose "[-] DACLs"
+            $DACLObj = [ADRecon.LDAPClass]::DACLParser($Objs, $GUIDs, $Threads)
+            Write-Verbose "[-] SACLs - May need a Privileged Account"
+            $SACLObj = [ADRecon.LDAPClass]::SACLParser($Objs, $GUIDs, $Threads)
             Remove-Variable Objs
             Remove-Variable GUIDs
         }
     }
 
-    If ($ACLObj)
+    If ($DACLObj)
     {
-        Return $ACLObj
+        Export-ADR $DACLObj $ADROutputDir $OutputType "DACLs"
+        Remove-Variable DACLObj
     }
-    Else
+
+    If ($SACLObj)
     {
-        Return $null
+        Export-ADR $SACLObj $ADROutputDir $OutputType "SACLs"
+        Remove-Variable SACLObj
     }
 }
 
@@ -10328,10 +10672,6 @@ Function Invoke-ADRecon
     [int]
     Maximum machine account password age. Default 30 days
 
-.PARAMETER ResolveSIDs
-    [bool]
-    Whether to resolve SIDs in the ACLs module. (Default False)
-
 .PARAMETER PageSize
     [int]
     The PageSize to set for the LDAP searcher object. Default 200.
@@ -10377,9 +10717,6 @@ Function Invoke-ADRecon
         [int] $PassMaxAge = 30,
 
         [Parameter(Mandatory = $false)]
-        [bool] $ResolveSID = $false,
-
-        [Parameter(Mandatory = $false)]
         [int] $PageSize = 200,
 
         [Parameter(Mandatory = $false)]
@@ -10389,7 +10726,7 @@ Function Invoke-ADRecon
         [bool] $UseAltCreds = $false
     )
 
-    [string] $ADReconVersion = "v1.0"
+    [string] $ADReconVersion = "v1.1"
     Write-Output "[*] ADRecon $ADReconVersion by Prashant Mahajan (@prashant3535) from Sense of Security."
 
     If ($GenExcel)
@@ -10508,11 +10845,11 @@ Function Invoke-ADRecon
         {
             If ($CLR -eq "4")
             {
-                Add-Type -TypeDefinition $ADWSSource -ReferencedAssemblies ([System.Reflection.Assembly]::LoadWithPartialName("Microsoft.ActiveDirectory.Management")).Location
+                Add-Type -TypeDefinition $ADWSSource -ReferencedAssemblies ([System.String[]]@(([System.Reflection.Assembly]::LoadWithPartialName("Microsoft.ActiveDirectory.Management")).Location,([System.Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices")).Location))
             }
             Else
             {
-                Add-Type -TypeDefinition $ADWSSource -ReferencedAssemblies ([System.Reflection.Assembly]::LoadWithPartialName("Microsoft.ActiveDirectory.Management")).Location -Language CSharpVersion3
+                Add-Type -TypeDefinition $ADWSSource -ReferencedAssemblies ([System.String[]]@(([System.Reflection.Assembly]::LoadWithPartialName("Microsoft.ActiveDirectory.Management")).Location,([System.Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices")).Location)) -Language CSharpVersion3
             }
         }
 
@@ -11032,12 +11369,7 @@ Function Invoke-ADRecon
     If ($ADRACLs)
     {
         Write-Output "[-] ACLs - May take some time"
-        $ADRObject = Get-ADRACL -Protocol $Protocol -objDomain $objDomain -DomainController $DomainController -Credential $Credential -ResolveSID $ResolveSID -PageSize $PageSize
-        If ($ADRObject)
-        {
-            Export-ADR -ADRObj $ADRObject -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "ACLs"
-            Remove-Variable ADRObject
-        }
+        $ADRObject = Get-ADRACL -Protocol $Protocol -objDomain $objDomain -DomainController $DomainController -Credential $Credential -PageSize $PageSize -Threads $Threads
         Remove-Variable ADRACLs
     }
     If ($ADRGPOs)
@@ -11200,7 +11532,7 @@ If ($Log)
     Start-Transcript -Path "$(Get-Location)\ADRecon-Console-Log.txt"
 }
 
-Invoke-ADRecon -GenExcel $GenExcel -Protocol $Protocol -Collect $Collect -DomainController $DomainController -Credential $Credential -OutputType $OutputType -ADROutputDir $OutputDir -DormantTimeSpan $DormantTimeSpan -PassMaxAge $PassMaxAge -ResolveSID $ResolveSID -PageSize $PageSize -Threads $Threads
+Invoke-ADRecon -GenExcel $GenExcel -Protocol $Protocol -Collect $Collect -DomainController $DomainController -Credential $Credential -OutputType $OutputType -ADROutputDir $OutputDir -DormantTimeSpan $DormantTimeSpan -PassMaxAge $PassMaxAge -PageSize $PageSize -Threads $Threads
 
 If ($Log)
 {
