@@ -5079,7 +5079,10 @@ Function Export-ADRHTML
 
         [Parameter(Mandatory = $true)]
         [ValidateNotNullOrEmpty()]
-        [String] $ADFileName
+        [String] $ADFileName,
+
+        [Parameter(Mandatory = $false)]
+        [String] $ADROutputDir = $null
     )
 
 $Header = @"
@@ -5111,13 +5114,26 @@ table {
 "@
     Try
     {
-        If ($ADRObj -is [array])
+        If ($ADFileName.Contains("Index"))
         {
-            $ADRObj | Select-Object * | ConvertTo-HTML -As Table -Head $Header | Out-File -FilePath $ADFileName
+            $HTMLPath  = -join($ADROutputDir,'\','HTML-Files')
+            $HTMLPath = $((Convert-Path $HTMLPath).TrimEnd("\"))
+            $HTMLFiles = Get-ChildItem -Path $HTMLPath -name
+            $HTML = $HTMLFiles | ConvertTo-HTML -Title "ADRecon" -Property @{Label="Table of Contents";Expression={"<a href='$($_)'>$($_)</a>"}} -Head $Header
+
+            Add-Type -AssemblyName System.Web
+            [System.Web.HttpUtility]::HtmlDecode($HTML) | Out-File -FilePath $ADFileName
         }
         Else
         {
-            ConvertTo-HTML -InputObject $ADRObj -As Table -Head $Header | Out-File -FilePath $ADFileName
+            If ($ADRObj -is [array])
+            {
+                $ADRObj | Select-Object * | ConvertTo-HTML -As Table -Head $Header | Out-File -FilePath $ADFileName
+            }
+            Else
+            {
+                ConvertTo-HTML -InputObject $ADRObj -As Table -Head $Header | Out-File -FilePath $ADFileName
+            }
         }
     }
     Catch
@@ -5205,7 +5221,7 @@ Function Export-ADR
         'HTML'
         {
             $ADFileName  = -join($ADROutputDir,'\','HTML-Files','\',$ADRModuleName,'.html')
-            Export-ADRHTML -ADRObj $ADRObj -ADFileName $ADFileName
+            Export-ADRHTML -ADRObj $ADRObj -ADFileName $ADFileName -ADROutputDir $ADROutputDir
         }
     }
 }
@@ -11496,6 +11512,10 @@ Function Invoke-ADRecon
             {
                 Write-Output "[*] Total Execution Time (mins): $($TotalTime)"
             }
+        }
+        'HTML'
+        {
+            Export-ADR -ADRObj $(New-Object PSObject) -ADROutputDir $ADROutputDir -OutputType $([array] "HTML") -ADRModuleName "Index"
         }
         'EXCEL'
         {
