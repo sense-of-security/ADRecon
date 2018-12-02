@@ -19,7 +19,6 @@ The following information is gathered by the tool:
 - Service Principal Names (SPNs);
 - Groups and memberships;
 - Organizational Units (OUs);
-- ACLs (DACLs and SACLs) for the Domain, OUs, Root Containers, GPO, Users, Computers and Groups objects;
 - GroupPolicy objects and gPLink details;
 - DNS Zones and Records;
 - Printers;
@@ -27,8 +26,10 @@ The following information is gathered by the tool:
 - PasswordAttributes (Experimental);
 - LAPS passwords (if implemented);
 - BitLocker Recovery Keys (if implemented);
-- GPOReport (requires RSAT); and
-- Kerberoast (not included in the default collection method).
+- ACLs (DACLs and SACLs) for the Domain, OUs, Root Containers, GPO, Users, Computers and Groups objects;
+- GPOReport (requires RSAT);
+- Kerberoast (not included in the default collection method); and
+- Domain accounts used for service accounts (requires privileged account and not included in the default collection method).
 
 ADRecon was presented at: [![Black Hat Arsenal Asia 2018](https://github.com/toolswatch/badges/blob/master/arsenal/asia/2018.svg)](https://www.blackhat.com/asia-18/arsenal.html#adrecon-active-directory-recon) - [Slidedeck](https://speakerdeck.com/prashant3535/adrecon-bh-asia-2018-arsenal-presentation)
 
@@ -120,7 +121,7 @@ When you run ADRecon, a `ADRecon-Report-<timestamp>` folder will be created whic
 
 -Collect <String>
     Which modules to run (Comma separated; e.g Forest,Domain. Default all except Kerberoast)
-    Valid values include: Forest, Domain, Trusts, Sites, Subnets, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, PasswordAttributes, Groups, GroupMembers, OUs, ACLs, GPOs, gPLinks, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker, Kerberoast.
+    Valid values include: Forest, Domain, Trusts, Sites, Subnets, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, PasswordAttributes, Groups, GroupMembers, OUs, ACLs, GPOs, gPLinks, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker, Kerberoast DomainAccountsusedforServiceLogon.
 
 -OutputType <String>
     Output Type; Comma seperated; e.g CSV,STDOUT,Excel (Default STDOUT with -Collect parameter, else CSV and Excel).
@@ -147,7 +148,7 @@ When you run ADRecon, a `ADRecon-Report-<timestamp>` folder will be created whic
 - Replace System.DirectoryServices.DirectorySearch with System.DirectoryServices.Protocols and add support for LDAP STARTTLS and LDAPS (TCP port 636).
 - ~~Add Domain Trust Enumeration.~~
 - Add option to filter default ACLs.
-- Gather ACLs for other objects such as Users, Group, etc.
+- ~~Gather ACLs for other objects such as Users, Group, etc.~~
 - Additional export and storage option: export to ~~STDOUT~~, SQLite, ~~xml~~, ~~json~~, ~~html~~, pdf.
 - Use the EPPlus library for Excel Report generation and remove the dependency on MS Excel.
 - List issues identified and provide recommended remediation advice based on analysis of the data.
