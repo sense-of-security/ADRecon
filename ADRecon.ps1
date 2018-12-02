@@ -236,7 +236,7 @@ param
     [Parameter(Mandatory = $false, HelpMessage = "Path for ADRecon output folder to save the CSV/XML/JSON/HTML files and the ADRecon-Report.xlsx. (The folder specified will be created if it doesn't exist)")]
     [string] $OutputDir,
 
-    [Parameter(Mandatory = $false, HelpMessage = "Which modules to run; Comma separated; e.g Forest,Domain (Default all except Kerberoast, DomainAccountsusedforServiceLogon) Valid values include: Forest, Domain, Trusts, Sites, Subnets, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, PasswordAttributes, Groups, GroupMembers, OUs, GPOs, gPLinks, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker, ACLs, GPOReport, Kerberoast")]
+    [Parameter(Mandatory = $false, HelpMessage = "Which modules to run; Comma separated; e.g Forest,Domain (Default all except Kerberoast, DomainAccountsusedforServiceLogon) Valid values include: Forest, Domain, Trusts, Sites, Subnets, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, PasswordAttributes, Groups, GroupMembers, OUs, GPOs, gPLinks, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker, ACLs, GPOReport, Kerberoast, DomainAccountsusedforServiceLogon")]
     [ValidateSet('Forest', 'Domain', 'Trusts', 'Sites', 'Subnets', 'PasswordPolicy', 'FineGrainedPasswordPolicy', 'DomainControllers', 'Users', 'UserSPNs', 'PasswordAttributes', 'Groups', 'GroupMembers', 'OUs', 'GPOs', 'gPLinks', 'DNSZones', 'Printers', 'Computers', 'ComputerSPNs', 'LAPS', 'BitLocker', 'ACLs', 'GPOReport', 'Kerberoast', 'DomainAccountsusedforServiceLogon', 'Default')]
     [array] $Collect = 'Default',
 
@@ -734,14 +734,25 @@ namespace ADRecon
                     UserObj.Members.Add(new PSNoteProperty("SID", AdUser.Members["SID"].Value));
                     UserObj.Members.Add(new PSNoteProperty("SIDHistory", SIDHistory));
                     UserObj.Members.Add(new PSNoteProperty("Description", CleanString(AdUser.Members["Description"].Value)));
+                    UserObj.Members.Add(new PSNoteProperty("Title", CleanString(AdUser.Members["Title"].Value)));
+                    UserObj.Members.Add(new PSNoteProperty("Department", CleanString(AdUser.Members["Department"].Value)));
+                    UserObj.Members.Add(new PSNoteProperty("Company", CleanString(AdUser.Members["Company"].Value)));
+                    UserObj.Members.Add(new PSNoteProperty("Manager", CleanString(AdUser.Members["Manager"].Value)));
+                    UserObj.Members.Add(new PSNoteProperty("Info", CleanString(AdUser.Members["Info"].Value)));
                     UserObj.Members.Add(new PSNoteProperty("Last Logon Date", LastLogonDate));
                     UserObj.Members.Add(new PSNoteProperty("Password LastSet", PasswordLastSet));
                     UserObj.Members.Add(new PSNoteProperty("Account Expiration Date", AccountExpires));
                     UserObj.Members.Add(new PSNoteProperty("Account Expiration (days)", AccountExpirationNumofDays));
+                    UserObj.Members.Add(new PSNoteProperty("Mobile", CleanString(AdUser.Members["Mobile"].Value)));
                     UserObj.Members.Add(new PSNoteProperty("Email", CleanString(AdUser.Members["mail"].Value)));
                     UserObj.Members.Add(new PSNoteProperty("HomeDirectory", AdUser.Members["homeDirectory"].Value));
                     UserObj.Members.Add(new PSNoteProperty("ProfilePath", AdUser.Members["profilePath"].Value));
                     UserObj.Members.Add(new PSNoteProperty("ScriptPath", AdUser.Members["ScriptPath"].Value));
+                    UserObj.Members.Add(new PSNoteProperty("UserAccountControl", AdUser.Members["UserAccountControl"].Value));                    
+                    UserObj.Members.Add(new PSNoteProperty("First Name", CleanString(AdUser.Members["givenName"].Value)));
+                    UserObj.Members.Add(new PSNoteProperty("Middle Name", CleanString(AdUser.Members["middleName"].Value)));
+                    UserObj.Members.Add(new PSNoteProperty("Last Name", CleanString(AdUser.Members["sn"].Value)));
+                    UserObj.Members.Add(new PSNoteProperty("Country", CleanString(AdUser.Members["c"].Value)));
                     UserObj.Members.Add(new PSNoteProperty("whenCreated", AdUser.Members["whenCreated"].Value));
                     UserObj.Members.Add(new PSNoteProperty("whenChanged", AdUser.Members["whenChanged"].Value));
                     UserObj.Members.Add(new PSNoteProperty("DistinguishedName", CleanString(AdUser.Members["DistinguishedName"].Value)));
@@ -1361,6 +1372,7 @@ namespace ADRecon
                     ComputerObj.Members.Add(new PSNoteProperty("Description", AdComputer.Members["Description"].Value));
                     ComputerObj.Members.Add(new PSNoteProperty("Last Logon Date", LastLogonDate));
                     ComputerObj.Members.Add(new PSNoteProperty("Password LastSet", PasswordLastSet));
+                    ComputerObj.Members.Add(new PSNoteProperty("UserAccountControl", AdComputer.Members["UserAccountControl"].Value));                    
                     ComputerObj.Members.Add(new PSNoteProperty("whenCreated", AdComputer.Members["whenCreated"].Value));
                     ComputerObj.Members.Add(new PSNoteProperty("whenChanged", AdComputer.Members["whenChanged"].Value));
                     ComputerObj.Members.Add(new PSNoteProperty("Distinguished Name", AdComputer.Members["DistinguishedName"].Value));
@@ -1538,7 +1550,7 @@ namespace ADRecon
                             String IdentityReference = Convert.ToString(Rule.IdentityReference);
                             String Owner = Convert.ToString(DirObjSec.GetOwner(typeof(System.Security.Principal.SecurityIdentifier)));
                             PSObject ObjectObj = new PSObject();
-                            ObjectObj.Members.Add(new PSNoteProperty("Name", Name));
+                            ObjectObj.Members.Add(new PSNoteProperty("Name", CleanString(Name)));
                             ObjectObj.Members.Add(new PSNoteProperty("Type", Type));
                             ObjectObj.Members.Add(new PSNoteProperty("ObjectTypeName", ADWSClass.GUIDs[Convert.ToString(Rule.ObjectType)]));
                             ObjectObj.Members.Add(new PSNoteProperty("InheritedObjectTypeName", ADWSClass.GUIDs[Convert.ToString(Rule.InheritedObjectType)]));
@@ -1620,7 +1632,7 @@ namespace ADRecon
                         foreach (ActiveDirectoryAuditRule Rule in AuditRules)
                         {
                             PSObject ObjectObj = new PSObject();
-                            ObjectObj.Members.Add(new PSNoteProperty("Name", Name));
+                            ObjectObj.Members.Add(new PSNoteProperty("Name", CleanString(Name)));
                             ObjectObj.Members.Add(new PSNoteProperty("Type", Type));
                             ObjectObj.Members.Add(new PSNoteProperty("ObjectTypeName", ADWSClass.GUIDs[Convert.ToString(Rule.ObjectType)]));
                             ObjectObj.Members.Add(new PSNoteProperty("InheritedObjectTypeName", ADWSClass.GUIDs[Convert.ToString(Rule.InheritedObjectType)]));
@@ -2232,14 +2244,25 @@ namespace ADRecon
                     UserObj.Members.Add(new PSNoteProperty("SID", Convert.ToString(new SecurityIdentifier((byte[])AdUser.Properties["objectSID"][0], 0))));
                     UserObj.Members.Add(new PSNoteProperty("SIDHistory", SIDHistory));
                     UserObj.Members.Add(new PSNoteProperty("Description", (AdUser.Properties["Description"].Count != 0 ? CleanString(AdUser.Properties["Description"][0]) : "")));
+                    UserObj.Members.Add(new PSNoteProperty("Title", (AdUser.Properties["Title"].Count != 0 ? CleanString(AdUser.Properties["Title"][0]) : "")));
+                    UserObj.Members.Add(new PSNoteProperty("Department", (AdUser.Properties["Department"].Count != 0 ? CleanString(AdUser.Properties["Department"][0]) : "")));
+                    UserObj.Members.Add(new PSNoteProperty("Company", (AdUser.Properties["Company"].Count != 0 ? CleanString(AdUser.Properties["Company"][0]) : "")));
+                    UserObj.Members.Add(new PSNoteProperty("Manager", (AdUser.Properties["Manager"].Count != 0 ? CleanString(AdUser.Properties["Manager"][0]) : "")));
+                    UserObj.Members.Add(new PSNoteProperty("Info", (AdUser.Properties["info"].Count != 0 ? CleanString(AdUser.Properties["info"][0]) : "")));
                     UserObj.Members.Add(new PSNoteProperty("Last Logon Date", LastLogonDate));
                     UserObj.Members.Add(new PSNoteProperty("Password LastSet", PasswordLastSet));
                     UserObj.Members.Add(new PSNoteProperty("Account Expiration Date", AccountExpires));
                     UserObj.Members.Add(new PSNoteProperty("Account Expiration (days)", AccountExpirationNumofDays));
+                    UserObj.Members.Add(new PSNoteProperty("Mobile", (AdUser.Properties["mobile"].Count != 0 ? CleanString(AdUser.Properties["mobile"][0]) : "")));
                     UserObj.Members.Add(new PSNoteProperty("Email", (AdUser.Properties["mail"].Count != 0 ? CleanString(AdUser.Properties["mail"][0]) : "")));
                     UserObj.Members.Add(new PSNoteProperty("HomeDirectory", (AdUser.Properties["homedirectory"].Count != 0 ? AdUser.Properties["homedirectory"][0] : "")));
                     UserObj.Members.Add(new PSNoteProperty("ProfilePath", (AdUser.Properties["profilepath"].Count != 0 ? AdUser.Properties["profilepath"][0] : "")));
-                    UserObj.Members.Add(new PSNoteProperty("ScriptPath", (AdUser.Properties["scriptpath"].Count != 0 ? AdUser.Properties["scriptpath"][0] : "")));
+                    UserObj.Members.Add(new PSNoteProperty("ScriptPath", (AdUser.Properties["scriptpath"].Count != 0 ? AdUser.Properties["scriptpath"][0] : "")));                    
+                    UserObj.Members.Add(new PSNoteProperty("UserAccountControl", (AdUser.Properties["useraccountcontrol"].Count != 0 ? AdUser.Properties["useraccountcontrol"][0] : "")));
+                    UserObj.Members.Add(new PSNoteProperty("First Name", (AdUser.Properties["givenName"].Count != 0 ? CleanString(AdUser.Properties["givenName"][0]) : "")));
+                    UserObj.Members.Add(new PSNoteProperty("Middle Name", (AdUser.Properties["middleName"].Count != 0 ? CleanString(AdUser.Properties["middleName"][0]) : "")));
+                    UserObj.Members.Add(new PSNoteProperty("Last Name", (AdUser.Properties["sn"].Count != 0 ? CleanString(AdUser.Properties["sn"][0]) : "")));
+                    UserObj.Members.Add(new PSNoteProperty("Country", (AdUser.Properties["c"].Count != 0 ? CleanString(AdUser.Properties["c"][0]) : "")));
                     UserObj.Members.Add(new PSNoteProperty("whenCreated", (AdUser.Properties["whencreated"].Count != 0 ? AdUser.Properties["whencreated"][0] : "")));
                     UserObj.Members.Add(new PSNoteProperty("whenChanged", (AdUser.Properties["whenchanged"].Count != 0 ? AdUser.Properties["whenchanged"][0] : "")));
                     UserObj.Members.Add(new PSNoteProperty("DistinguishedName", (AdUser.Properties["distinguishedname"].Count != 0 ? CleanString(AdUser.Properties["distinguishedname"][0]) : "")));
@@ -2812,7 +2835,8 @@ namespace ADRecon
                     ComputerObj.Members.Add(new PSNoteProperty("SIDHistory", SIDHistory));
                     ComputerObj.Members.Add(new PSNoteProperty("Description", (AdComputer.Properties["Description"].Count != 0 ? AdComputer.Properties["Description"][0] : "")));
                     ComputerObj.Members.Add(new PSNoteProperty("Last Logon Date", LastLogonDate));
-                    ComputerObj.Members.Add(new PSNoteProperty("Password LastSet", PasswordLastSet));
+                    ComputerObj.Members.Add(new PSNoteProperty("Password LastSet", PasswordLastSet));                    
+                    ComputerObj.Members.Add(new PSNoteProperty("UserAccountControl", (AdComputer.Properties["useraccountcontrol"].Count != 0 ? AdComputer.Properties["useraccountcontrol"][0] : "")));
                     ComputerObj.Members.Add(new PSNoteProperty("whenCreated", AdComputer.Properties["whencreated"][0]));
                     ComputerObj.Members.Add(new PSNoteProperty("whenChanged", AdComputer.Properties["whenchanged"][0]));
                     ComputerObj.Members.Add(new PSNoteProperty("Distinguished Name", AdComputer.Properties["distinguishedname"][0]));
@@ -2984,7 +3008,7 @@ namespace ADRecon
                             String IdentityReference = Convert.ToString(Rule.IdentityReference);
                             String Owner = Convert.ToString(DirObjSec.GetOwner(typeof(System.Security.Principal.SecurityIdentifier)));
                             PSObject ObjectObj = new PSObject();
-                            ObjectObj.Members.Add(new PSNoteProperty("Name", Name));
+                            ObjectObj.Members.Add(new PSNoteProperty("Name", CleanString(Name)));
                             ObjectObj.Members.Add(new PSNoteProperty("Type", Type));
                             ObjectObj.Members.Add(new PSNoteProperty("ObjectTypeName", LDAPClass.GUIDs[Convert.ToString(Rule.ObjectType)]));
                             ObjectObj.Members.Add(new PSNoteProperty("InheritedObjectTypeName", LDAPClass.GUIDs[Convert.ToString(Rule.InheritedObjectType)]));
@@ -3078,7 +3102,7 @@ namespace ADRecon
                         {
                             String IdentityReference = Convert.ToString(Rule.IdentityReference);
                             PSObject ObjectObj = new PSObject();
-                            ObjectObj.Members.Add(new PSNoteProperty("Name", Name));
+                            ObjectObj.Members.Add(new PSNoteProperty("Name", CleanString(Name)));
                             ObjectObj.Members.Add(new PSNoteProperty("Type", Type));
                             ObjectObj.Members.Add(new PSNoteProperty("ObjectTypeName", LDAPClass.GUIDs[Convert.ToString(Rule.ObjectType)]));
                             ObjectObj.Members.Add(new PSNoteProperty("InheritedObjectTypeName", LDAPClass.GUIDs[Convert.ToString(Rule.InheritedObjectType)]));
@@ -7061,7 +7085,7 @@ Function Get-ADRUser
     {
         Try
         {
-            $ADUsers = @( Get-ADUser -Filter * -ResultPageSize $PageSize -Properties accountExpires,AccountExpirationDate,AccountNotDelegated,AdminCount,AllowReversiblePasswordEncryption,CannotChangePassword,CanonicalName,Description,DistinguishedName,DoesNotRequirePreAuth,Enabled,homeDirectory,LastLogonDate,lastLogonTimestamp,LockedOut,LogonWorkstations,mail,'msDS-AllowedToDelegateTo','msDS-SupportedEncryptionTypes',Name,PasswordExpired,PasswordLastSet,PasswordNeverExpires,PasswordNotRequired,profilePath,primaryGroupID,pwdlastset,SamAccountName,ScriptPath,SID,SIDHistory,SmartcardLogonRequired,TrustedForDelegation,TrustedToAuthForDelegation,UseDESKeyOnly,whenChanged,whenCreated )
+            $ADUsers = @( Get-ADUser -Filter * -ResultPageSize $PageSize -Properties AccountExpirationDate,accountExpires,AccountNotDelegated,AdminCount,AllowReversiblePasswordEncryption,c,CannotChangePassword,CanonicalName,Company,Department,Description,DistinguishedName,DoesNotRequirePreAuth,Enabled,givenName,homeDirectory,LastLogonDate,lastLogonTimestamp,LockedOut,LogonWorkstations,mail,Manager,middleName,mobile,'msDS-AllowedToDelegateTo','msDS-SupportedEncryptionTypes',Name,PasswordExpired,PasswordLastSet,PasswordNeverExpires,PasswordNotRequired,primaryGroupID,profilePath,pwdlastset,SamAccountName,ScriptPath,SID,SIDHistory,SmartcardLogonRequired,sn,Title,TrustedForDelegation,TrustedToAuthForDelegation,UseDESKeyOnly,UserAccountControl,whenChanged,whenCreated )
         }
         Catch
         {
@@ -7098,7 +7122,7 @@ Function Get-ADRUser
         $ObjSearcher.Filter = "(samAccountType=805306368)"
         # https://msdn.microsoft.com/en-us/library/system.directoryservices.securitymasks(v=vs.110).aspx
         $ObjSearcher.SecurityMasks = [System.DirectoryServices.SecurityMasks]'Dacl'
-        $ObjSearcher.PropertiesToLoad.AddRange(("accountExpires","admincount","canonicalname","description","distinguishedname","homedirectory","lastLogontimestamp","mail","msDS-AllowedToDelegateTo","msDS-SupportedEncryptionTypes","name","ntsecuritydescriptor","objectsid","profilepath","primarygroupid","pwdLastSet","samaccountName","scriptpath","sidhistory","useraccountcontrol","userworkstations","whenchanged","whencreated"))
+        $ObjSearcher.PropertiesToLoad.AddRange(("accountExpires","admincount","c","canonicalname","company","department","description","distinguishedname","givenName","homedirectory","info","lastLogontimestamp","mail","manager","middleName","mobile","msDS-AllowedToDelegateTo","msDS-SupportedEncryptionTypes","name","ntsecuritydescriptor","objectsid","primarygroupid","profilepath","pwdLastSet","samaccountName","scriptpath","sidhistory","sn","title","useraccountcontrol","userworkstations","whenchanged","whencreated"))
         $ObjSearcher.SearchScope = "Subtree"
         Try
         {
@@ -8830,7 +8854,7 @@ Function Get-ADRComputer
     {
         Try
         {
-            $ADComputers = @( Get-ADComputer -Filter * -ResultPageSize $PageSize -Properties Description,DistinguishedName,DNSHostName,Enabled,IPv4Address,LastLogonDate,'msDS-AllowedToDelegateTo','msDS-SupportedEncryptionTypes',Name,OperatingSystem,OperatingSystemHotfix,OperatingSystemServicePack,OperatingSystemVersion,PasswordLastSet,primaryGroupID,SamAccountName,SID,SIDHistory,TrustedForDelegation,TrustedToAuthForDelegation,whenChanged,whenCreated )
+            $ADComputers = @( Get-ADComputer -Filter * -ResultPageSize $PageSize -Properties Description,DistinguishedName,DNSHostName,Enabled,IPv4Address,LastLogonDate,'msDS-AllowedToDelegateTo','msDS-SupportedEncryptionTypes',Name,OperatingSystem,OperatingSystemHotfix,OperatingSystemServicePack,OperatingSystemVersion,PasswordLastSet,primaryGroupID,SamAccountName,SID,SIDHistory,TrustedForDelegation,TrustedToAuthForDelegation,UserAccountControl,whenChanged,whenCreated )
         }
         Catch
         {
@@ -11792,7 +11816,7 @@ Function Invoke-ADRecon
     }
     If ($ADRDomainAccountsusedforServiceLogon)
     {
-        Write-Output "[-] Domain Accounts used for Service Logon -  - Needs Privileged Account"
+        Write-Output "[-] Domain Accounts used for Service Logon - Needs Privileged Account"
         $ADRObject = Get-ADRDomainAccountsusedforServiceLogon -Protocol $Protocol -objDomain $objDomain -Credential $Credential -PageSize $PageSize -Threads $Threads
         If ($ADRObject)
         {
