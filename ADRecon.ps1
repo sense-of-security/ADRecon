@@ -4170,7 +4170,7 @@ Function Get-ADRExcelImport
             Get-ADRExcelComObjRelease -ComObjtoRelease $Connector
             Remove-Variable Connector
 
-            $listObject = $worksheet.ListObjects.Add([Microsoft.Office.Interop.Excel.XlListObjectSourceType]::xlSrcRange, $worksheet.UsedRange, $null, [Microsoft.Office.Interop.Excel.XlYesNoGuess]::xlYes, $null)
+            $listObject = $worksheet.ListObjects.Add([Microsoft.Office.Interop.Excel.XlListObjectSourceType]::xlSrcRange, $worksheet.UsedRange, $null, [Microsoft.Office.Interop.Excel.XlYesNoGuess]::xlYes, $null)            
             $listObject.TableStyle = "TableStyleLight2" # Style Cheat Sheet: https://msdn.microsoft.com/en-au/library/documentformat.openxml.spreadsheet.tablestyle.aspx
             $worksheet.UsedRange.EntireColumn.AutoFit() | Out-Null
         }
@@ -4783,6 +4783,112 @@ Function Export-ADRExcel
             Get-ADRExcelWorkbook -Name "Default Password Policy"
             Get-ADRExcelImport -ADFileName $ADFileName
             Remove-Variable ADFileName
+
+            $excel.ScreenUpdating = $false
+            $worksheet = $workbook.Worksheets.Item(1)
+            # https://docs.microsoft.com/en-us/office/vba/api/excel.xlhalign
+            $worksheet.Range("B2:G10").HorizontalAlignment = -4108
+            # https://docs.microsoft.com/en-us/office/vba/api/excel.range.borderaround
+
+            "A2:B10", "C2:D10", "E2:F10", "G2:G10" | ForEach-Object {
+                $worksheet.Range($_).BorderAround(1) | Out-Null
+            }
+
+            # https://docs.microsoft.com/en-us/dotnet/api/microsoft.office.interop.excel.formatconditions.add?view=excel-pia
+            # $worksheet.Range().FormatConditions.Add
+            # http://dmcritchie.mvps.org/excel/colors.htm
+            # Values for Font.ColorIndex
+
+            $ObjValues = @(
+            # PCI Enforce password history (passwords)
+            "C2", '=IF(B2<4,TRUE, FALSE)'
+
+            # PCI Maximum password age (days)
+            "C3", '=IF(OR(B3=0,B3>90),TRUE, FALSE)'
+
+            # PCI Minimum password age (days)
+
+            # PCI Minimum password length (characters)
+            "C5", '=IF(B5<7,TRUE, FALSE)'
+
+            # PCI Password must meet complexity requirements
+            "C6", '=IF(B6<>TRUE,TRUE, FALSE)'
+
+            # PCI Store password using reversible encryption for all users in the domain
+
+            # PCI Account lockout duration (mins)
+            "C8", '=IF(AND(B8>=1,B8<30),TRUE, FALSE)'
+
+            # PCI Account lockout threshold (attempts)
+            "C9", '=IF(OR(B9=0,B9>6),TRUE, FALSE)'
+
+            # PCI Reset account lockout counter after (mins)
+
+            # ASD ISM Enforce password history (passwords)
+            "E2", '=IF(B2<8,TRUE, FALSE)'
+
+            # ASD ISM Maximum password age (days)
+            "E3", '=IF(OR(B3=0,B3>90),TRUE, FALSE)'
+
+            # ASD ISM Minimum password age (days)
+            "E4", '=IF(B4=0,TRUE, FALSE)'
+
+            # ASD ISM Minimum password length (characters)
+            "E5", '=IF(B5<13,TRUE, FALSE)'
+
+            # ASD ISM Password must meet complexity requirements
+            "E6", '=IF(B6<>TRUE,TRUE, FALSE)'
+
+            # ASD ISM Store password using reversible encryption for all users in the domain
+
+            # ASD ISM Account lockout duration (mins)
+
+            # ASD ISM Account lockout threshold (attempts)
+            "E9", '=IF(OR(B9=0,B9>5),TRUE, FALSE)'
+
+            # ASD ISM Reset account lockout counter after (mins)
+
+            # CIS Benchmark Enforce password history (passwords)
+            "G2", '=IF(B2<24,TRUE, FALSE)'
+
+            # CIS Benchmark Maximum password age (days)
+            "G3", '=IF(OR(B3=0,B3>60),TRUE, FALSE)'
+
+            # CIS Benchmark Minimum password age (days)
+            "G4", '=IF(B4=0,TRUE, FALSE)'
+
+            # CIS Benchmark Minimum password length (characters)
+            "G5", '=IF(B5<14,TRUE, FALSE)'
+
+            # CIS Benchmark Password must meet complexity requirements
+            "G6", '=IF(B6<>TRUE,TRUE, FALSE)'
+
+            # CIS Benchmark Store password using reversible encryption for all users in the domain
+            "G7", '=IF(B7<>FALSE,TRUE, FALSE)'
+
+            # CIS Benchmark Account lockout duration (mins)
+            "G8", '=IF(AND(B8>=1,B8<15),TRUE, FALSE)'
+
+            # CIS Benchmark Account lockout threshold (attempts)
+            "G9", '=IF(OR(B9=0,B9>10),TRUE, FALSE)'
+
+            # CIS Benchmark Reset account lockout counter after (mins)
+            "G10", '=IF(B10<15,TRUE, FALSE)' )
+
+            For ($i = 0; $i -lt $($ObjValues.Count); $i++)
+            {
+                $worksheet.Range($ObjValues[$i]).FormatConditions.Add([Microsoft.Office.Interop.Excel.XlFormatConditionType]::xlExpression, 0, $ObjValues[$i+1]) | Out-Null
+                $i++
+            }
+
+            "C2", "C3" , "C5", "C6", "C8", "C9", "E2", "E3" , "E4", "E5", "E6", "E9", "G2", "G3", "G4", "G5", "G6", "G7", "G8", "G9", "G10" | ForEach-Object {
+                $worksheet.Range($_).FormatConditions.Item(1).StopIfTrue = $false
+                $worksheet.Range($_).FormatConditions.Item(1).Font.ColorIndex = 3
+            }
+
+            $excel.ScreenUpdating = $true
+            Get-ADRExcelComObjRelease -ComObjtoRelease $worksheet
+            Remove-Variable worksheet
         }
 
         $ADFileName = -join($ReportPath,'\','DomainControllers.csv')
@@ -6637,18 +6743,15 @@ Function Get-ADRDefaultPasswordPolicy
 
         If ($ADpasspolicy)
         {
-            $ADPassPolObj = @()
-
-            $ObjValues = @("Enforce password history", $ADpasspolicy.PasswordHistoryCount, "Maximum password age (days)", $ADpasspolicy.MaxPasswordAge.days, "Minimum password age (days)", $ADpasspolicy.MinPasswordAge.days, "Minimum password length", $ADpasspolicy.MinPasswordLength, "Password must meet complexity requirements", $ADpasspolicy.ComplexityEnabled, "Store password using reversible encryption for all users in the domain", $ADpasspolicy.ReversibleEncryptionEnabled, "Account lockout duration (mins)", $ADpasspolicy.LockoutDuration.minutes, "Account lockout threshold", $ADpasspolicy.LockoutThreshold, "Reset account lockout counter after (mins)", $ADpasspolicy.LockoutObservationWindow.minutes)
-
-            For ($i = 0; $i -lt $($ObjValues.Count); $i++)
-            {
-                $Obj = New-Object PSObject
-                $Obj | Add-Member -MemberType NoteProperty -Name "Policy" -Value $ObjValues[$i]
-                $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $ObjValues[$i+1]
-                $i++
-                $ADPassPolObj += $Obj
-            }
+            $ObjValues = @( "Enforce password history (passwords)", $ADpasspolicy.PasswordHistoryCount, "4", "Req. 8.2.5", "8", "Control: 0423", "24 or more",
+            "Maximum password age (days)", $ADpasspolicy.MaxPasswordAge.days, "90", "Req. 8.2.4", "90", "Control: 0423", "1 to 60",
+            "Minimum password age (days)", $ADpasspolicy.MinPasswordAge.days, "N/A", "-", "1", "Control: 0423", "1 or more",
+            "Minimum password length (characters)", $ADpasspolicy.MinPasswordLength, "7", "Req. 8.2.3", "13", "Control: 0421", "14 or more",
+            "Password must meet complexity requirements", $ADpasspolicy.ComplexityEnabled, $true, "Req. 8.2.3", $true, "Control: 0421", $true,
+            "Store password using reversible encryption for all users in the domain", $ADpasspolicy.ReversibleEncryptionEnabled, "N/A", "-", "N/A", "-", $false,
+            "Account lockout duration (mins)", $ADpasspolicy.LockoutDuration.minutes, "0 (manual unlock) or 30", "Req. 8.1.7", "N/A", "-", "15 or more",
+            "Account lockout threshold (attempts)", $ADpasspolicy.LockoutThreshold, "1 to 6", "Req. 8.1.6", "1 to 5", "Control: 1403", "1 to 10",
+            "Reset account lockout counter after (mins)", $ADpasspolicy.LockoutObservationWindow.minutes, "N/A", "-", "N/A", "-", "15 or more" )
 
             Remove-Variable ADpasspolicy
         }
@@ -6658,8 +6761,6 @@ Function Get-ADRDefaultPasswordPolicy
     {
         If ($ObjDomain)
         {
-            $ADPassPolObj = @()
-
             #Value taken from https://msdn.microsoft.com/en-us/library/ms679431(v=vs.85).aspx
             $pwdProperties = @{
                 "DOMAIN_PASSWORD_COMPLEX" = 1;
@@ -6695,16 +6796,15 @@ Function Get-ADRDefaultPasswordPolicy
                 $LockoutDuration = 0
             }
 
-            $ObjValues = @("Enforce password history", $ObjDomain.PwdHistoryLength.value, "Maximum password age (days)", $($ObjDomain.ConvertLargeIntegerToInt64($ObjDomain.maxpwdage.value) /-864000000000), "Minimum password age (days)", $($ObjDomain.ConvertLargeIntegerToInt64($ObjDomain.minpwdage.value) /-864000000000), "Minimum password length", $ObjDomain.MinPwdLength.value, "Password must meet complexity requirements", $ComplexPasswords, "Store password using reversible encryption for all users in the domain", $ReversibleEncryption, "Account lockout duration (mins)", $LockoutDuration, "Account lockout threshold", $ObjDomain.LockoutThreshold.value, "Reset account lockout counter after (mins)", $($ObjDomain.ConvertLargeIntegerToInt64($ObjDomain.lockoutobservationWindow.value)/-600000000))
-
-            For ($i = 0; $i -lt $($ObjValues.Count); $i++)
-            {
-                $Obj = New-Object PSObject
-                $Obj | Add-Member -MemberType NoteProperty -Name "Policy" -Value $ObjValues[$i]
-                $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $ObjValues[$i+1]
-                $i++
-                $ADPassPolObj += $Obj
-            }
+            $ObjValues = @( "Enforce password history (passwords)", $ObjDomain.PwdHistoryLength.value, "4", "Req. 8.2.5", "8", "Control: 0423", "24 or more",
+            "Maximum password age (days)", $($ObjDomain.ConvertLargeIntegerToInt64($ObjDomain.maxpwdage.value) /-864000000000), "90", "Req. 8.2.4", "90", "Control: 0423", "1 to 60",
+            "Minimum password age (days)", $($ObjDomain.ConvertLargeIntegerToInt64($ObjDomain.minpwdage.value) /-864000000000), "N/A", "-", "1", "Control: 0423", "1 or more",
+            "Minimum password length (characters)", $ObjDomain.MinPwdLength.value, "7", "Req. 8.2.3", "13", "Control: 0421", "14 or more",
+            "Password must meet complexity requirements", $ComplexPasswords, $true, "Req. 8.2.3", $true, "Control: 0421", $true,
+            "Store password using reversible encryption for all users in the domain", $ReversibleEncryption, "N/A", "-", "N/A", "-", $false,
+            "Account lockout duration (mins)", $LockoutDuration, "0 (manual unlock) or 30", "Req. 8.1.7", "N/A", "-", "15 or more",
+            "Account lockout threshold (attempts)", $ObjDomain.LockoutThreshold.value, "1 to 6", "Req. 8.1.6", "1 to 5", "Control: 1403", "1 to 10",
+            "Reset account lockout counter after (mins)", $($ObjDomain.ConvertLargeIntegerToInt64($ObjDomain.lockoutobservationWindow.value)/-600000000), "N/A", "-", "N/A", "-", "15 or more" )
 
             Remove-Variable pwdProperties
             Remove-Variable ComplexPasswords
@@ -6712,8 +6812,23 @@ Function Get-ADRDefaultPasswordPolicy
         }
     }
 
-    If ($ADPassPolObj)
+    If ($ObjValues)
     {
+        $ADPassPolObj = @()
+        For ($i = 0; $i -lt $($ObjValues.Count); $i++)
+        {
+            $Obj = New-Object PSObject
+            $Obj | Add-Member -MemberType NoteProperty -Name "Policy" -Value $ObjValues[$i]
+            $Obj | Add-Member -MemberType NoteProperty -Name "Current Value" -Value $ObjValues[$i+1]
+            $Obj | Add-Member -MemberType NoteProperty -Name "PCI DSS Requirement" -Value $ObjValues[$i+2]
+            $Obj | Add-Member -MemberType NoteProperty -Name "PCI DSS v3.2.1" -Value $ObjValues[$i+3]
+            $Obj | Add-Member -MemberType NoteProperty -Name "ASD ISM" -Value $ObjValues[$i+4]
+            $Obj | Add-Member -MemberType NoteProperty -Name "2017 ISM Controls" -Value $ObjValues[$i+5]
+            $Obj | Add-Member -MemberType NoteProperty -Name "CIS Benchmark 2012 R2" -Value $ObjValues[$i+6]
+            $i += 6
+            $ADPassPolObj += $Obj
+        }
+        Remove-Variable ObjValues
         Return $ADPassPolObj
     }
     Else
