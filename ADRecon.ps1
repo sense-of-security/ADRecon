@@ -192,7 +192,7 @@
     [-] PasswordAttributes - Experimental
     [-] Groups - May take some time
     [-] Group Memberships - May take some time
-    [-] OrganizationalUnits (OUs)    
+    [-] OrganizationalUnits (OUs)
     [-] GPOs
     [-] gPLinks - Scope of Management (SOM)
     [-] DNS Zones and Records
@@ -748,7 +748,7 @@ namespace ADRecon
                     UserObj.Members.Add(new PSNoteProperty("HomeDirectory", AdUser.Members["homeDirectory"].Value));
                     UserObj.Members.Add(new PSNoteProperty("ProfilePath", AdUser.Members["profilePath"].Value));
                     UserObj.Members.Add(new PSNoteProperty("ScriptPath", AdUser.Members["ScriptPath"].Value));
-                    UserObj.Members.Add(new PSNoteProperty("UserAccountControl", AdUser.Members["UserAccountControl"].Value));                    
+                    UserObj.Members.Add(new PSNoteProperty("UserAccountControl", AdUser.Members["UserAccountControl"].Value));
                     UserObj.Members.Add(new PSNoteProperty("First Name", CleanString(AdUser.Members["givenName"].Value)));
                     UserObj.Members.Add(new PSNoteProperty("Middle Name", CleanString(AdUser.Members["middleName"].Value)));
                     UserObj.Members.Add(new PSNoteProperty("Last Name", CleanString(AdUser.Members["sn"].Value)));
@@ -1370,9 +1370,10 @@ namespace ADRecon
                     ComputerObj.Members.Add(new PSNoteProperty("SID", AdComputer.Members["SID"].Value));
                     ComputerObj.Members.Add(new PSNoteProperty("SIDHistory", SIDHistory));
                     ComputerObj.Members.Add(new PSNoteProperty("Description", AdComputer.Members["Description"].Value));
+                    ComputerObj.Members.Add(new PSNoteProperty("ms-ds-CreatorSid", AdComputer.Members["ms-ds-CreatorSid"].Value));
                     ComputerObj.Members.Add(new PSNoteProperty("Last Logon Date", LastLogonDate));
                     ComputerObj.Members.Add(new PSNoteProperty("Password LastSet", PasswordLastSet));
-                    ComputerObj.Members.Add(new PSNoteProperty("UserAccountControl", AdComputer.Members["UserAccountControl"].Value));                    
+                    ComputerObj.Members.Add(new PSNoteProperty("UserAccountControl", AdComputer.Members["UserAccountControl"].Value));
                     ComputerObj.Members.Add(new PSNoteProperty("whenCreated", AdComputer.Members["whenCreated"].Value));
                     ComputerObj.Members.Add(new PSNoteProperty("whenChanged", AdComputer.Members["whenChanged"].Value));
                     ComputerObj.Members.Add(new PSNoteProperty("Distinguished Name", AdComputer.Members["DistinguishedName"].Value));
@@ -2257,7 +2258,7 @@ namespace ADRecon
                     UserObj.Members.Add(new PSNoteProperty("Email", (AdUser.Properties["mail"].Count != 0 ? CleanString(AdUser.Properties["mail"][0]) : "")));
                     UserObj.Members.Add(new PSNoteProperty("HomeDirectory", (AdUser.Properties["homedirectory"].Count != 0 ? AdUser.Properties["homedirectory"][0] : "")));
                     UserObj.Members.Add(new PSNoteProperty("ProfilePath", (AdUser.Properties["profilepath"].Count != 0 ? AdUser.Properties["profilepath"][0] : "")));
-                    UserObj.Members.Add(new PSNoteProperty("ScriptPath", (AdUser.Properties["scriptpath"].Count != 0 ? AdUser.Properties["scriptpath"][0] : "")));                    
+                    UserObj.Members.Add(new PSNoteProperty("ScriptPath", (AdUser.Properties["scriptpath"].Count != 0 ? AdUser.Properties["scriptpath"][0] : "")));
                     UserObj.Members.Add(new PSNoteProperty("UserAccountControl", (AdUser.Properties["useraccountcontrol"].Count != 0 ? AdUser.Properties["useraccountcontrol"][0] : "")));
                     UserObj.Members.Add(new PSNoteProperty("First Name", (AdUser.Properties["givenName"].Count != 0 ? CleanString(AdUser.Properties["givenName"][0]) : "")));
                     UserObj.Members.Add(new PSNoteProperty("Middle Name", (AdUser.Properties["middleName"].Count != 0 ? CleanString(AdUser.Properties["middleName"][0]) : "")));
@@ -2834,8 +2835,9 @@ namespace ADRecon
                     ComputerObj.Members.Add(new PSNoteProperty("SID", Convert.ToString(new SecurityIdentifier((byte[])AdComputer.Properties["objectSID"][0], 0))));
                     ComputerObj.Members.Add(new PSNoteProperty("SIDHistory", SIDHistory));
                     ComputerObj.Members.Add(new PSNoteProperty("Description", (AdComputer.Properties["Description"].Count != 0 ? AdComputer.Properties["Description"][0] : "")));
+                    ComputerObj.Members.Add(new PSNoteProperty("ms-ds-CreatorSid", (AdComputer.Properties["ms-ds-CreatorSid"].Count != 0 ? Convert.ToString(new SecurityIdentifier((byte[])AdComputer.Properties["ms-ds-CreatorSid"][0], 0)) : "")));
                     ComputerObj.Members.Add(new PSNoteProperty("Last Logon Date", LastLogonDate));
-                    ComputerObj.Members.Add(new PSNoteProperty("Password LastSet", PasswordLastSet));                    
+                    ComputerObj.Members.Add(new PSNoteProperty("Password LastSet", PasswordLastSet));
                     ComputerObj.Members.Add(new PSNoteProperty("UserAccountControl", (AdComputer.Properties["useraccountcontrol"].Count != 0 ? AdComputer.Properties["useraccountcontrol"][0] : "")));
                     ComputerObj.Members.Add(new PSNoteProperty("whenCreated", AdComputer.Properties["whencreated"][0]));
                     ComputerObj.Members.Add(new PSNoteProperty("whenChanged", AdComputer.Properties["whenchanged"][0]));
@@ -4471,7 +4473,7 @@ Function Get-ADRExcelAttributeStats
         $worksheet.Cells.Item($row, $column+2).Formula = '=IFERROR(G' + $i + '/VLOOKUP("Enabled",A3:B6,2,FALSE),0)'
         $worksheet.Cells.Item($row, $column+3).Formula = '=COUNTIFS(' + $SrcWorksheet.Name + '!' + $EnabledColAddress + ',"FALSE",' + $SrcWorksheet.Name + '!' + $ColAddress + ',' + $ObjAttributes[$_] + ')'
         $worksheet.Cells.Item($row, $column+4).Formula = '=IFERROR(I' + $i + '/VLOOKUP("Disabled",A3:B6,2,FALSE),0)'
-        If ($_ -eq "SIDHistory")
+        If ( ($_ -eq "SIDHistory") -or ($_ -eq "ms-ds-CreatorSid") )
         {
             $worksheet.Cells.Item($row, $column+5).Formula = '=COUNTIF(' + $SrcWorksheet.Name + '!' + $ColAddress + ',' + $ObjAttributes[$_] + ')-1'
         }
@@ -5111,15 +5113,16 @@ Function Export-ADRExcel
             $ObjAttributes.Add("SIDHistory",'"*"')
             $ObjAttributes.Add("Dormant",'"TRUE"')
             $ObjAttributes.Add("Password Age (> ",'"TRUE"')
+            $ObjAttributes.Add("ms-ds-CreatorSid",'"*"')
 
             Get-ADRExcelAttributeStats -SrcSheetName "Computers" -Title1 "Computer Accounts in AD" -Title2 "Status of Computer Accounts" -ObjAttributes $ObjAttributes
             Remove-Variable ObjAttributes
 
-            Get-ADRExcelChart -ChartType "xlPie" -ChartLayout 3 -ChartTitle "Computer Accounts in AD" -RangetoCover "A10:D22" -ChartData $workbook.Worksheets.Item(1).Range("A3:A4,B3:B4")
-            $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item(9,1) , "" , "Computers!A1", "", "Raw Data") | Out-Null
+            Get-ADRExcelChart -ChartType "xlPie" -ChartLayout 3 -ChartTitle "Computer Accounts in AD" -RangetoCover "A11:D23" -ChartData $workbook.Worksheets.Item(1).Range("A3:A4,B3:B4")
+            $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item(10,1) , "" , "Computers!A1", "", "Raw Data") | Out-Null
 
-            Get-ADRExcelChart -ChartType "xlBarClustered" -ChartLayout 1 -ChartTitle "Status of Computer Accounts" -RangetoCover "F10:L22" -ChartData $workbook.Worksheets.Item(1).Range("F2:F7,G2:G7")
-            $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item(9,6) , "" , "Computers!A1", "", "Raw Data") | Out-Null
+            Get-ADRExcelChart -ChartType "xlBarClustered" -ChartLayout 1 -ChartTitle "Status of Computer Accounts" -RangetoCover "F11:L23" -ChartData $workbook.Worksheets.Item(1).Range("F2:F8,G2:G8")
+            $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item(10,6) , "" , "Computers!A1", "", "Raw Data") | Out-Null
 
             $workbook.Worksheets.Item(1).UsedRange.EntireColumn.AutoFit() | Out-Null
             $excel.Windows.Item(1).Displaygridlines = $false
@@ -5421,6 +5424,12 @@ Function Get-ADRDomain
                 $DomainObj += $Obj
                 Remove-Variable DomainCreation
             }
+
+            $Obj = New-Object PSObject
+            $Obj | Add-Member -MemberType NoteProperty -Name "Category" -Value "ms-DS-MachineAccountQuota"
+            $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $((Get-ADObject -Identity ($ADDomain.DistinguishedName) -Properties ms-DS-MachineAccountQuota).'ms-DS-MachineAccountQuota')
+            $DomainObj += $Obj
+
             If ($RIDsIssued)
             {
                 $Obj = New-Object PSObject
@@ -5602,6 +5611,11 @@ Function Get-ADRDomain
             $Obj = New-Object PSObject
             $Obj | Add-Member -MemberType NoteProperty -Name "Category" -Value "Creation Date"
             $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $objDomain.whencreated.value
+            $DomainObj += $Obj
+
+            $Obj = New-Object PSObject
+            $Obj | Add-Member -MemberType NoteProperty -Name "Category" -Value "ms-DS-MachineAccountQuota"
+            $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $objDomain.'ms-DS-MachineAccountQuota'.value
             $DomainObj += $Obj
 
             If ($RIDsIssued)
@@ -8854,7 +8868,7 @@ Function Get-ADRComputer
     {
         Try
         {
-            $ADComputers = @( Get-ADComputer -Filter * -ResultPageSize $PageSize -Properties Description,DistinguishedName,DNSHostName,Enabled,IPv4Address,LastLogonDate,'msDS-AllowedToDelegateTo','msDS-SupportedEncryptionTypes',Name,OperatingSystem,OperatingSystemHotfix,OperatingSystemServicePack,OperatingSystemVersion,PasswordLastSet,primaryGroupID,SamAccountName,SID,SIDHistory,TrustedForDelegation,TrustedToAuthForDelegation,UserAccountControl,whenChanged,whenCreated )
+            $ADComputers = @( Get-ADComputer -Filter * -ResultPageSize $PageSize -Properties Description,DistinguishedName,DNSHostName,Enabled,IPv4Address,LastLogonDate,'msDS-AllowedToDelegateTo','ms-ds-CreatorSid','msDS-SupportedEncryptionTypes',Name,OperatingSystem,OperatingSystemHotfix,OperatingSystemServicePack,OperatingSystemVersion,PasswordLastSet,primaryGroupID,SamAccountName,SID,SIDHistory,TrustedForDelegation,TrustedToAuthForDelegation,UserAccountControl,whenChanged,whenCreated )
         }
         Catch
         {
@@ -8876,7 +8890,7 @@ Function Get-ADRComputer
         $objSearcher = New-Object System.DirectoryServices.DirectorySearcher $objDomain
         $ObjSearcher.PageSize = $PageSize
         $ObjSearcher.Filter = "(samAccountType=805306369)"
-        $ObjSearcher.PropertiesToLoad.AddRange(("description","distinguishedname","dnshostname","lastlogontimestamp","msDS-AllowedToDelegateTo","msDS-SupportedEncryptionTypes","name","objectsid","operatingsystem","operatingsystemhotfix","operatingsystemservicepack","operatingsystemversion","primarygroupid","pwdlastset","samaccountname","sidhistory","useraccountcontrol","whenchanged","whencreated"))
+        $ObjSearcher.PropertiesToLoad.AddRange(("description","distinguishedname","dnshostname","lastlogontimestamp","msDS-AllowedToDelegateTo","ms-ds-CreatorSid","msDS-SupportedEncryptionTypes","name","objectsid","operatingsystem","operatingsystemhotfix","operatingsystemservicepack","operatingsystemversion","primarygroupid","pwdlastset","samaccountname","sidhistory","useraccountcontrol","whenchanged","whencreated"))
         $ObjSearcher.SearchScope = "Subtree"
 
         Try
@@ -11276,7 +11290,7 @@ Function Invoke-ADRecon
         'PasswordAttributes' { $ADRPasswordAttributes = $true }
         'Groups' { $ADRGroups = $true }
         'GroupMembers' { $ADRGroupMembers = $true }
-        'OUs' { $ADROUs = $true }        
+        'OUs' { $ADROUs = $true }
         'GPOs' { $ADRGPOs = $true }
         'gPLinks' { $ADRgPLinks = $true }
         'DNSZones' { $ADRDNSZones = $true }
@@ -11308,9 +11322,9 @@ Function Invoke-ADRecon
             $ADRPasswordAttributes = $true
             $ADRGroups = $true
             $ADRGroupMembers = $true
-            $ADROUs = $true            
+            $ADROUs = $true
             $ADRGPOs = $true
-            $ADRgPLinks = $true            
+            $ADRgPLinks = $true
             $ADRDNSZones = $true
             $ADRPrinters = $true
             $ADRComputers = $true
