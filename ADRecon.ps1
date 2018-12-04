@@ -4170,7 +4170,7 @@ Function Get-ADRExcelImport
             Get-ADRExcelComObjRelease -ComObjtoRelease $Connector
             Remove-Variable Connector
 
-            $listObject = $worksheet.ListObjects.Add([Microsoft.Office.Interop.Excel.XlListObjectSourceType]::xlSrcRange, $worksheet.UsedRange, $null, [Microsoft.Office.Interop.Excel.XlYesNoGuess]::xlYes, $null)            
+            $listObject = $worksheet.ListObjects.Add([Microsoft.Office.Interop.Excel.XlListObjectSourceType]::xlSrcRange, $worksheet.UsedRange, $null, [Microsoft.Office.Interop.Excel.XlYesNoGuess]::xlYes, $null)
             $listObject.TableStyle = "TableStyleLight2" # Style Cheat Sheet: https://msdn.microsoft.com/en-au/library/documentformat.openxml.spreadsheet.tablestyle.aspx
             $worksheet.UsedRange.EntireColumn.AutoFit() | Out-Null
         }
@@ -4289,7 +4289,16 @@ Function Get-ADRExcelPivotTable
 
     # xlDatabase = 1 # this just means local sheet data
     # xlPivotTableVersion12 = 3 # Excel 2007
-    $PivotCaches = $workbook.PivotCaches().Create([Microsoft.Office.Interop.Excel.XlPivotTableSourceType]::xlDatabase, $SrcWorksheet.UsedRange, [Microsoft.Office.Interop.Excel.XlPivotTableVersionList]::xlPivotTableVersion12)
+    If ($SrcSheetName -eq "Computer SPNs")
+    {
+        $rows = $SrcWorksheet.UsedRange.Rows.Count
+        $ComputerSPNsRange = $SrcWorksheet.Range("A1:B"+$rows)
+        $PivotCaches = $workbook.PivotCaches().Create([Microsoft.Office.Interop.Excel.XlPivotTableSourceType]::xlDatabase, $ComputerSPNsRange, [Microsoft.Office.Interop.Excel.XlPivotTableVersionList]::xlPivotTableVersion12)
+    }
+    Else
+    {
+        $PivotCaches = $workbook.PivotCaches().Create([Microsoft.Office.Interop.Excel.XlPivotTableSourceType]::xlDatabase, $SrcWorksheet.UsedRange, [Microsoft.Office.Interop.Excel.XlPivotTableVersionList]::xlPivotTableVersion12)
+    }
     $PivotTable = $PivotCaches.CreatePivotTable($PivotLocation,$PivotTableName)
     # $workbook.ShowPivotTableFieldList = $true
 
@@ -4722,7 +4731,8 @@ Function Export-ADRExcel
             Remove-Variable ADFileName
 
             $workbook.Worksheets.Item(1).Name = "About ADRecon"
-            $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item(3,2) , "https://github.com/sense-of-security/ADRecon", "" , "", "github.com/sense-of-security/ADRecon") | Out-Null
+            $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item(3,2) , "https://github.com/adrecon/ADRecon", "" , "", "github.com/adrecon/ADRecon") | Out-Null
+            $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item(8,2) , "https://www.senseofsecurity.com.au", "" , "", "www.senseofsecurity.com.au") | Out-Null
             $workbook.Worksheets.Item(1).UsedRange.EntireColumn.AutoFit() | Out-Null
         }
 
@@ -4885,6 +4895,10 @@ Function Export-ADRExcel
                 $worksheet.Range($_).FormatConditions.Item(1).StopIfTrue = $false
                 $worksheet.Range($_).FormatConditions.Item(1).Font.ColorIndex = 3
             }
+
+            $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item(1,4) , "https://www.pcisecuritystandards.org/document_library?category=pcidss&document=pci_dss", "" , "", "PCI DSS v3.2.1") | Out-Null
+            $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item(1,6) , "https://acsc.gov.au/infosec/ism/", "" , "", "2018 ISM Controls") | Out-Null
+            $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item(1,7) , "https://www.cisecurity.org/benchmark/microsoft_windows_server/", "" , "", "CIS Benchmark 2016") | Out-Null
 
             $excel.ScreenUpdating = $true
             Get-ADRExcelComObjRelease -ComObjtoRelease $worksheet
@@ -5333,8 +5347,8 @@ Function Export-ADRExcel
         }
 
         $row++
-        $worksheet.Cells.Item($row, 1) = "© Sense of Security 2018"
-        $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item($row,2) , "https://www.senseofsecurity.com.au", "" , "", "www.senseofsecurity.com.au") | Out-Null
+        $worksheet.Cells.Item($row, 1) = "© ADRecon 2018"
+        $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item($row,2) , "https://github.com/adrecon/ADRecon", "" , "", "github.com/adrecon/ADRecon") | Out-Null
 
         $worksheet.UsedRange.EntireColumn.AutoFit() | Out-Null
 
@@ -6823,8 +6837,8 @@ Function Get-ADRDefaultPasswordPolicy
             $Obj | Add-Member -MemberType NoteProperty -Name "PCI DSS Requirement" -Value $ObjValues[$i+2]
             $Obj | Add-Member -MemberType NoteProperty -Name "PCI DSS v3.2.1" -Value $ObjValues[$i+3]
             $Obj | Add-Member -MemberType NoteProperty -Name "ASD ISM" -Value $ObjValues[$i+4]
-            $Obj | Add-Member -MemberType NoteProperty -Name "2017 ISM Controls" -Value $ObjValues[$i+5]
-            $Obj | Add-Member -MemberType NoteProperty -Name "CIS Benchmark 2012 R2" -Value $ObjValues[$i+6]
+            $Obj | Add-Member -MemberType NoteProperty -Name "2018 ISM Controls" -Value $ObjValues[$i+5]
+            $Obj | Add-Member -MemberType NoteProperty -Name "CIS Benchmark 2016" -Value $ObjValues[$i+6]
             $i += 6
             $ADPassPolObj += $Obj
         }
@@ -7029,14 +7043,6 @@ Function Get-ADRDomainController
                 $Obj | Add-Member -MemberType NoteProperty -Name "Operating System" -Value $OSVersion
                 Remove-Variable OSVersion
                 $Obj | Add-Member -MemberType NoteProperty -Name "Hostname" -Value $_.HostName
-                If ($_.OperationMasterRoles -like 'InfrastructureMaster')
-                {
-                    $Obj | Add-Member -MemberType NoteProperty -Name "Infra" -Value $true
-                }
-                Else
-                {
-                    $Obj | Add-Member -MemberType NoteProperty -Name "Infra" -Value $false
-                }
                 If ($_.OperationMasterRoles -like 'DomainNamingMaster')
                 {
                     $Obj | Add-Member -MemberType NoteProperty -Name "Naming" -Value $true
@@ -7052,6 +7058,14 @@ Function Get-ADRDomainController
                 Else
                 {
                     $Obj | Add-Member -MemberType NoteProperty -Name "Schema" -Value $false
+                }
+                If ($_.OperationMasterRoles -like 'InfrastructureMaster')
+                {
+                    $Obj | Add-Member -MemberType NoteProperty -Name "Infra" -Value $true
+                }
+                Else
+                {
+                    $Obj | Add-Member -MemberType NoteProperty -Name "Infra" -Value $false
                 }
                 If ($_.OperationMasterRoles -like 'RIDMaster')
                 {
@@ -7119,19 +7133,18 @@ Function Get-ADRDomainController
                 $Obj | Add-Member -MemberType NoteProperty -Name "Hostname" -Value $_.Name
                 If ($null -ne $_.Roles)
                 {
-                    $Obj | Add-Member -MemberType NoteProperty -Name "Infra" -Value $($_.Roles.Contains("InfrastructureRole"))
                     $Obj | Add-Member -MemberType NoteProperty -Name "Naming" -Value $($_.Roles.Contains("NamingRole"))
                     $Obj | Add-Member -MemberType NoteProperty -Name "Schema" -Value $($_.Roles.Contains("SchemaRole"))
+                    $Obj | Add-Member -MemberType NoteProperty -Name "Infra" -Value $($_.Roles.Contains("InfrastructureRole"))
                     $Obj | Add-Member -MemberType NoteProperty -Name "RID" -Value $($_.Roles.Contains("RidRole"))
                     $Obj | Add-Member -MemberType NoteProperty -Name "PDC" -Value $($_.Roles.Contains("PdcRole"))
                 }
                 Else
                 {
-                    $Obj | Add-Member -MemberType NoteProperty -Name "Infra" -Value $false
-                    $Obj | Add-Member -MemberType NoteProperty -Name "Naming" -Value $false
-                    $Obj | Add-Member -MemberType NoteProperty -Name "Schema" -Value $false
-                    $Obj | Add-Member -MemberType NoteProperty -Name "RID" -Value $false
-                    $Obj | Add-Member -MemberType NoteProperty -Name "PDC" -Value $false
+
+                    "Naming", "Schema", "Infra", "RID", "PDC" | ForEach-Object {
+                        $Obj | Add-Member -MemberType NoteProperty -Name $_ -Value $false
+                    }
                 }
                 $DCSMBObj = [ADRecon.PingCastleScannersSMBScanner]::GetPSObject($_.IPAddress)
                 ForEach ($Property in $DCSMBObj.psobject.Properties)
@@ -11091,7 +11104,7 @@ Function Get-ADRAbout
         $Username = $([Environment]::UserName)
     }
 
-    $ObjValues = @("Date", $($date), "ADRecon", "https://github.com/sense-of-security/ADRecon", $Version, $($ADReconVersion), "Ran as user", $Username, "Ran on computer", $RanonComputer, "Execution Time (mins)", $($TotalTime))
+    $ObjValues = @("Date", $($date), "ADRecon", "https://github.com/sense-of-security/ADRecon", $Version, $($ADReconVersion), "Ran as user", $Username, "Ran on computer", $RanonComputer, "Execution Time (mins)", $($TotalTime), "Thanks to Sense of Security", "www.senseofsecurity.com.au")
 
     For ($i = 0; $i -lt $($ObjValues.Count); $i++)
     {
