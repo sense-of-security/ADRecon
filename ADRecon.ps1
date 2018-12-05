@@ -4289,16 +4289,33 @@ Function Get-ADRExcelPivotTable
 
     # xlDatabase = 1 # this just means local sheet data
     # xlPivotTableVersion12 = 3 # Excel 2007
-    If ($SrcSheetName -eq "Computer SPNs")
-    {
-        $rows = $SrcWorksheet.UsedRange.Rows.Count
-        $ComputerSPNsRange = $SrcWorksheet.Range("A1:B"+$rows)
-        $PivotCaches = $workbook.PivotCaches().Create([Microsoft.Office.Interop.Excel.XlPivotTableSourceType]::xlDatabase, $ComputerSPNsRange, [Microsoft.Office.Interop.Excel.XlPivotTableVersionList]::xlPivotTableVersion12)
-    }
-    Else
+    $PivotFailed = $false
+    Try
     {
         $PivotCaches = $workbook.PivotCaches().Create([Microsoft.Office.Interop.Excel.XlPivotTableSourceType]::xlDatabase, $SrcWorksheet.UsedRange, [Microsoft.Office.Interop.Excel.XlPivotTableVersionList]::xlPivotTableVersion12)
     }
+    Catch
+    {
+        $PivotFailed = $true
+        Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+    }
+    If ( $PivotFailed -eq $true )
+    {
+        $rows = $SrcWorksheet.UsedRange.Rows.Count
+        If ($SrcSheetName -eq "Computer SPNs")
+        {
+            $PivotCols = "A1:B"
+        }
+        ElseIf ($SrcSheetName -eq "Users")
+        {
+            $PivotCols = "A1:AI"
+        }
+        $UsedRange = $SrcWorksheet.Range($PivotCols+$rows)
+        $PivotCaches = $workbook.PivotCaches().Create([Microsoft.Office.Interop.Excel.XlPivotTableSourceType]::xlDatabase, $UsedRange, [Microsoft.Office.Interop.Excel.XlPivotTableVersionList]::xlPivotTableVersion12)
+        Remove-Variable Columns
+        Remove-Variable UsedRange
+    }
+    Remove-Variable PivotFailed
     $PivotTable = $PivotCaches.CreatePivotTable($PivotLocation,$PivotTableName)
     # $workbook.ShowPivotTableFieldList = $true
 
@@ -5347,8 +5364,7 @@ Function Export-ADRExcel
         }
 
         $row++
-        $worksheet.Cells.Item($row, 1) = "© ADRecon 2018"
-        $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item($row,2) , "https://github.com/adrecon/ADRecon", "" , "", "github.com/adrecon/ADRecon") | Out-Null
+        $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item($row,1) , "https://github.com/adrecon/ADRecon", "" , "", "github.com/adrecon/ADRecon") | Out-Null
 
         $worksheet.UsedRange.EntireColumn.AutoFit() | Out-Null
 
