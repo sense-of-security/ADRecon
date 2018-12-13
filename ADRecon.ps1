@@ -4312,7 +4312,8 @@ Function Get-ADRExcelPivotTable
         }
         $UsedRange = $SrcWorksheet.Range($PivotCols+$rows)
         $PivotCaches = $workbook.PivotCaches().Create([Microsoft.Office.Interop.Excel.XlPivotTableSourceType]::xlDatabase, $UsedRange, [Microsoft.Office.Interop.Excel.XlPivotTableVersionList]::xlPivotTableVersion12)
-        Remove-Variable Columns
+        Remove-Variable rows
+	Remove-Variable PivotCols
         Remove-Variable UsedRange
     }
     Remove-Variable PivotFailed
